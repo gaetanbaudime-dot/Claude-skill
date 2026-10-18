@@ -166,7 +166,7 @@ def sources_reels(fiche_p: dict, n: int) -> list:
 def regle_comptes(fiche_p: dict = None) -> str:
     if fiche_p and ordre(fiche_p) == "prive2":
         return "Ancien ordre des comptes : vérification par le manager avant la suite."
-    return ("Trois comptes créés au total, sans remplacement. Le compte 1 est disponible immédiatement. "
+    return ("Trois comptes créés au total, sans remplacement. Le compte 1 est remis après attribution et confirmation des rôles, selon la disponibilité vérifiée. "
             "Les quatre premiers Reels publiés et vérifiés sur le compte 1 sont ton test opérationnel, après le quiz. "
             "Le compte 2 arrive dès que ces quatre Reels sont vérifiés. "
             "Le compte 3, privé, arrive après 4 Reels publiés et vérifiés sur le compte 2.")
@@ -302,10 +302,9 @@ def titre_etape(fiche_p: dict, n: int) -> str:
 # Un compte déjà créé par le clipper se rejoint par connexion ; ce texte n'attribue aucun compte.
 # 01/10 (Gaëtan : « les codes Instagram se demandent uniquement dans #🔐-code-instagram ») : plus de « écris !code ici » ni
 # de « il arrive ici tout seul », la phrase canonique {codes} ; « il a déjà chauffé » retiré (24 h de warm-up quand même).
-# 08/10 (audit : l'identifiant déjà pris est le blocage le plus courant à la création ; Mohamed a créé une variante que le bot ne
-# connaissait pas) : la consigne et la commande `!pseudo n identifiant`, qui met le classeur et la fiche à jour.
-# 09/10 : le bouton « Compte n créé » demande le @ exact (fenêtre ModalPseudo) ; `!pseudo` reste pour corriger après coup
-PSEUDO_PRIS = "Identifiant déjà pris ? Ajoute un chiffre ou un point. Quand tu appuies sur ✅, je te demande ton @ exact."
+# Le pseudo fourni par Sheets reste identique ; un refus Instagram se signale sans variante.
+PSEUDO_PRIS = ("Garde exactement le pseudo du classeur Sheets. Instagram le refuse ? "
+               "Arrête et signale le refus ici, sans modifier le pseudo.")
 # 09/10 (Gaëtan : « Saute des lignes, aère ») : une ligne vide entre chaque paragraphe ; la liste du compte 1 reste d'un bloc.
 CREATION = ("1. Instagram → Créer un compte → avec cet e-mail.\n"
             "2. {codes}\n"

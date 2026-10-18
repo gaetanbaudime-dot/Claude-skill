@@ -1,4 +1,4 @@
-# Base de connaissances — Kit Clipper G&M (v20, 10 octobre 2026 : ton compte 1 arrive tout de suite sous ton message de bienvenue, 2 Reels par jour sur chaque compte qui publie, ton app arrive avec ton compte 3, le manager c'est Gaëtan ; v19, 10 octobre 2026 : les codes Instagram par le bouton « 📩 Mon code », visibles par toi seul, seulement pour te connecter ou créer un compte ; v18, 9 octobre 2026 : plus de test vidéo pour entrer, plus de Drive perso, les vidéos de la créatrice en qualité d'origine, le groupe WhatsApp dès l'arrivée, les questions dans le salon perso ; v17, 9 octobre 2026 : le compte privé reste le compte 3, il n'arrive que si les comptes 1 et 2 publient bien, tout le monde au clic depuis le 5 octobre ; v16, 8 octobre 2026 : une seule version de chaque règle ; v15, 5 octobre 2026 : 2 comptes de croissance + 1 compte privé avec le lien en bio, questions dans #assistant, sortie à 48 h sans compte 1 ; v14, 1er octobre 2026, niveau collège — vidéo de formation de 15 minutes à 5 mots-clés, salon perso guidé par le bot, lien en story à la une seulement, codes dans #🔐-code-instagram, un compte à la fois)
+# Base de connaissances — Kit Clipper G&M (mise à jour du 17 octobre 2026)
 
 > Ce fichier est LA seule source du bot. Il reprend le Kit Clipper, le parcours candidat et la méthode validée le 07/09/2026 (structure 2 + 1, cadence 2 par jour), mise à jour le 25/09/2026 : paie au clic, comptes créés par le clipper dans son salon perso avec le bot, plus de contrat ni de distinction de pays. Ce qui n'est pas ici n'existe pas.
 > Pour le mettre à jour : modifier ce fichier, le bot le recharge tout seul.
@@ -13,7 +13,7 @@ Je parle comme à un élève de collège qui découvre tout : phrases de 10 mots
 - **Ton salon perso** (#ton-prénom, dans la catégorie de ta créatrice) : tes étapes avec leurs boutons, tes comptes un par un, ton lien, ta paie, `!mesclics` pour tes visites. **Une question ? Écris-la ici, je réponds** (depuis le 9 octobre 2026). Je ne parle que si tu poses une question : un « ok » ou un « fait » ne demande pas de réponse. Ton manager, c'est Gaëtan. Moi, je suis l'assistant.
 - **Le salon #assistant** (commun à tous) : je réponds aussi là, surtout à ceux qui n'ont pas encore de salon perso. Toi, pose tes questions dans ton salon perso. Jamais d'identifiant, de mot de passe ni de lien perso dans #assistant.
 - **Les codes Instagram** : Un code Instagram ? Va dans #🔐-code-instagram et appuie sur « 📩 Mon code » (ou écris `!code`). Tu reçois ton dernier code Instagram, quel qu'il soit.
-- **Le groupe WhatsApp** : dès ton arrivée (9 octobre 2026), ton message de bienvenue a un bouton WhatsApp. Tu t'en sers une fois : il te fait entrer dans le groupe de l'équipe, ou il ouvre un message déjà prêt pour Gaëtan, qui t'y ajoute. C'est là que l'équipe te parle. Ton compte 1 n'attend pas : il arrive juste en dessous de ton message de bienvenue (10 octobre 2026).
+- **Le groupe WhatsApp** : un contact avec l'équipe, si tu y as accès. Aucun bouton WhatsApp n'est obligatoire. Aucune confirmation WhatsApp n'est requise pour recevoir ton premier compte. Tes étapes et tes questions restent dans ton salon perso.
 - **Gaëtan**, sur WhatsApp, pour un blocage : demande-moi le lien. Tu te présentes (prénom, créatrice), tu dis le problème en une phrase, tu mets une capture.
 - **Candidat** (vidéo de formation et quizz en cours) : le bot, dans ton salon ou en message privé. Bloqué depuis plus de 24 h ? Demande-moi le lien WhatsApp de Gaëtan.
 
@@ -33,10 +33,10 @@ Une étape à la fois. Le bot te donne la suivante quand tu as fini celle-ci.
 2. **La vidéo de formation** (15 minutes) : le lien direct est https://www.loom.com/share/e7ffb70f9bd44d99b437ed8844e0e409 (aussi dans le post « Bienvenue » du forum formation). Quand on me demande « où est la vidéo ? », je donne ce lien, rien d'autre. Tu la regardes en entier. 5 mots-clés sont cachés dedans, tu les notes dans l'ordre. Je ne les donne jamais.
 3. **Le quizz**, sur le site, juste après la vidéo (`!quiz` redonne ton lien). 10 questions : les 5 mots-clés à écrire, et 5 questions sur la vidéo. Il faut **8 bonnes réponses sur 10**. Deux essais. Deux essais ratés : tu reviens 24 h plus tard, avec le même lien.
 4. **Le Discord** : quizz réussi, tu es dans l'agence. Le bouton du site t'amène sur le serveur, dans ton salon perso. **Il n'y a plus de test vidéo à rendre depuis le 9 octobre 2026.**
-5. **Ton message de bienvenue**, dans ton salon perso, dans la minute : ta créatrice, le lien de ses vidéos en qualité d'origine, et un bouton WhatsApp pour rejoindre le groupe. Écris à Gaëtan avec ce bouton, puis appuie sur « ✅ J'ai écrit à Gaëtan ». Ton compte 1 n'attend pas ce bouton : il arrive juste en dessous, tout de suite (10 octobre 2026). Toutes les créatrices sont pleines ? Le bot te dit que ta créatrice arrive dès qu'un compte est prêt pour toi : rien à faire d'ici là.
-6. **Ton compte 1** : l'identifiant, l'e-mail et le mot de passe. Tu le crées sur ton téléphone, tu appuies sur « ✅ Compte 1 créé ». Puis un seul message pour ton profil : photo, nom, bio, et le warm-up de 24 h. Pas d'autre bouton. Puis le bot te dit qu'il peut publier : 2 Reels par jour.
-7. **Ton compte 2** arrive tout seul quand le bot voit 4 Reels sur ton compte 1, au plus tôt 48 h après lui. Même chose : création, profil, 24 h de warm-up, 2 Reels par jour.
-8. **Ton compte 3, le privé**, arrive quand le bot voit 4 Reels sur ton compte 2 et 4 de plus sur ton compte 1. Il ne publie pas. Son profil porte ton lien, dans son champ « Liens ». Tu le passes en privé, puis tu appuies sur « ✅ Profil fait ».
+5. **Ton accueil**, dans ton salon perso : ta créatrice et le lien de ses vidéos en qualité d'origine. Le compte 1 suit après attribution et confirmation des rôles, selon les vérifications de disponibilité. Aucune confirmation WhatsApp n'est requise. Toutes les créatrices sont pleines ? Le bot te dit que ta créatrice arrive dès qu'un compte est prêt pour toi : rien à faire d'ici là.
+6. **Ton compte 1** : les identifiants préparés dans Sheets sont remis sans modification par le flux bot autorisé, dans ton salon perso. Attends le message de remise avant de créer ce compte neuf sur ton téléphone. Tu appuies ensuite sur « ✅ Compte 1 créé ». Puis un seul message pour ton profil : photo, nom, bio, et le warm-up de 24 h. Pas d'autre bouton. Puis le bot te dit qu'il peut publier : 2 Reels par jour.
+7. **Ton compte 2** arrive quand le bot vérifie 4 Reels publiés sur ton compte 1. Même chose : création, profil, 24 h de warm-up, 2 Reels par jour.
+8. **Ton compte 3, le privé**, arrive quand le bot vérifie 4 Reels publiés sur ton compte 2. Il ne publie pas. Son profil porte ton lien, dans son champ « Liens ». Tu le passes en privé, puis tu appuies sur « ✅ Profil fait ».
 9. **Ta story à la une et ton app de clippeur** arrivent ensemble, dès ce « ✅ Profil fait » (10 octobre 2026) : une story sur tes comptes 1 et 2 avec le widget de mention du privé, mise à la une, une seule fois. L'app te montre tes visites et tes gains, jour par jour. Plus aucun message à J+7 : la règle reste 2 Reels par jour.
 
 Un code Instagram ? Va dans #🔐-code-instagram et appuie sur « 📩 Mon code ». Le bot te donne le code reçu sur l'e-mail de ton compte, visible par toi seul : seulement pour te connecter ou créer un compte.
@@ -62,13 +62,23 @@ Commandes utiles pour tous : `!quiz` (ton lien de quizz) · `!etape` (ton étape
 
 ## LE MATÉRIEL DE TRAVAIL : 3 comptes Instagram sur ton téléphone
 
-Chaque clipper a **3 comptes Instagram** : **2 comptes de croissance** (ils publient) et **1 compte privé** (il ne publie pas). **Le compte privé est le compte 3** : compte 1 et compte 2 publient, le compte 3 est privé et porte le lien. Il n'arrive que si tu publies bien sur tes deux premiers comptes. (Quelques parcours commencés le 8 octobre ont leur privé en compte 2 : le bot te dit toujours lequel est le privé.) Une seule règle pour le lien :
+**Règles des comptes à respecter** : 3 comptes créés maximum à vie, sans remplacement. Un compte supprimé, banni ou transféré sur Metricool reste compté. Metricool ne remet pas le compteur à zéro. Un deuxième téléphone n'autorise aucun compte supplémentaire.
+
+Le pseudo Sheets reste strictement identique. Instagram le refuse ? Arrête et signale le refus dans ton salon perso, sans modifier le pseudo.
+
+Seuls des comptes neufs sont attribués, avec les identifiants préparés dans Sheets. Aucun compte ancien n'est réattribué. Les identifiants sont remis sans modification par le flux bot autorisé, dans le salon perso du titulaire.
+
+Le compte 1 est remis après attribution et confirmation des rôles, sous réserve des vérifications de disponibilité. Une réservation Sheets ne prouve pas la remise. Ne confirme jamais la remise sans preuve d'envoi réussi. L'assistant ne recopie jamais les mots de passe : il renvoie au message de remise autorisé. Si ce message manque, signale-le à l'équipe dans ton salon perso, sans recopier de secret.
+
+Le bot vérifie les Reels et la disponibilité du compte suivant. Un palier atteint ne contourne aucune vérification de disponibilité. Il n'y a pas de délai fixe entre deux comptes : 4 Reels vérifiés sur le compte 1 ouvrent le compte 2 ; 4 Reels vérifiés sur le compte 2 ouvrent le compte 3 privé. Aucun Reel supplémentaire sur le compte 1 n'est requis pour ouvrir le compte 3. Les délais de warm-up et de sortie restent distincts.
+
+Chaque clipper a **3 comptes Instagram** : **2 comptes de croissance** (ils publient) et **1 compte privé** (il ne publie pas). **Le compte privé est le compte 3** : compte 1 et compte 2 publient, le compte 3 est privé et porte le lien. Il arrive après 4 Reels publiés et vérifiés sur ton compte 2. (Quelques parcours commencés le 8 octobre ont leur privé en compte 2 : le bot te dit toujours lequel est le privé.) Une seule règle pour le lien :
 - **Le lien va dans la bio du compte privé, dans le champ « Liens »** : Modifier le profil → Liens → Ajouter un lien externe. Jamais dans le texte de la bio : là, Instagram ne le rend pas cliquable, personne ne peut cliquer dessus. Nulle part ailleurs. Le bot te le donne quand ton compte privé est ouvert, pas avant.
 - **Sur les comptes qui publient : jamais de lien** (ni en bio, ni en story, ni dans un Reel). À la place : une story (une photo ou une vidéo de ta créatrice) avec le **widget de mention du compte privé** (son @), mise **à la une** (épinglée sur le profil), une seule fois par compte.
 - **Chaque jour, sur les comptes qui publient, une story avec le widget Instagram de ton profil** : elle envoie les gens vers ta story à la une, qui envoie vers le compte privé, qui porte le lien.
 - **Les 2 comptes de croissance publient 2 Reels par jour chacun.** Le compte privé reste privé : profil, bio avec le lien, et c'est tout.
 - **Le warm-up, c'est 24 h par compte, après sa création.** Ensuite, le compte publie. Pas de semaine d'attente.
-- **Un compte à la fois. Le suivant arrive tout seul ici, au plus tôt 48 h après le précédent, dès que 4 Reels sont publiés sur ton dernier compte qui publie.**
+- **Un compte à la fois. Le compte 2 arrive après 4 Reels vérifiés sur le compte 1. Le compte 3 privé arrive après 4 Reels vérifiés sur le compte 2.**
 - **Les vidéos de ta créatrice s'ouvrent avec leur lien**, en lecture, en qualité d'origine : il est dans ton message de bienvenue. Tu n'as pas d'adresse e-mail à donner. Plus de Drive perso depuis le 9 octobre 2026.
 - **Pas de page Facebook.** On travaille seulement sur Instagram.
 
@@ -76,8 +86,8 @@ Tu es payé au clic sur ton lien : 0,05 $ par visite réelle, francophone. Le bu
 
 Comment ça monte :
 - **Compte 1** : tu le crées, puis 24 h de warm-up, puis il publie.
-- **Compte 2** : il arrive tout seul, au plus tôt 48 h après le compte 1, dès que 4 Reels sont publiés sur le compte 1. Puis 24 h de warm-up, puis il publie.
-- **Compte 3, le privé** : il arrive en dernier, au plus tôt 48 h après le compte 2, et **seulement si tu publies bien sur tes deux premiers comptes** : 4 Reels sur le compte 2 et 4 Reels de plus sur le compte 1 depuis la création du compte 2. Pas de warm-up, pas de Reel : tu le passes en privé, ton lien va dans son champ « Liens », et tes comptes 1 et 2 le mentionnent dans une story à la une.
+- **Compte 2** : il arrive après 4 Reels publiés et vérifiés sur le compte 1. Puis 24 h de warm-up, puis il publie.
+- **Compte 3, le privé** : il arrive en dernier, après 4 Reels publiés et vérifiés sur le compte 2. Pas de warm-up, pas de Reel : tu le passes en privé, ton lien va dans son champ « Liens », et tes comptes 1 et 2 le mentionnent dans une story à la une.
 - **Chaque compte qui publie** : 2 Reels par jour. C'est la cadence normale, pas plus sauf si ton manager le dit.
 - **Un compte banni** : tu fais appel toi-même (Fiche 6). Le code de l'appel ne passe pas par le bot : il arrive chez l'équipe, qui te répond dans ton salon perso. Si l'appel échoue, Gaëtan décide. On ne réutilise jamais une info d'un compte banni : ni son e-mail, ni son mot de passe, ni son identifiant.
 
@@ -85,7 +95,7 @@ Une **journée réussie** = tes comptes marchent ET tu as publié 2 Reels sur ch
 
 ## LA CRÉATION DES COMPTES (dans ton salon perso, avec le bot)
 
-- Tu crées tes 3 comptes **toi-même, sur ton téléphone**. Le bot te guide étape par étape dans ton salon perso. **Un compte à la fois. Le suivant arrive tout seul ici, au plus tôt 48 h après le précédent, quand tu publies bien.** Le compte 2 publie, comme le compte 1. Le compte 3 est le privé : il arrive en dernier, avec ton lien, seulement si tes comptes 1 et 2 publient.
+- Tu crées tes 3 comptes **toi-même, sur ton téléphone**. Le bot te guide étape par étape dans ton salon perso. **Un compte à la fois. Le compte 2 arrive après 4 Reels vérifiés sur le compte 1. Le compte 3 privé arrive après 4 Reels vérifiés sur le compte 2.** Le compte 2 publie, comme le compte 1. Le compte 3 est le privé : il arrive en dernier, avec ton lien, après 4 Reels vérifiés sur ton compte 2.
 - **Ton compte 1 doit être créé dans les 48 h** après son arrivée dans ton salon. Sinon tu sors du serveur et ta place va au suivant (avertissement à 24 h).
 - **L'agence te donne les e-mails et les mots de passe.** Ils sont dans le message de chaque compte, dans ton salon perso. Tu ne crées pas de Gmail. Tu n'inventes rien. Un code Instagram ? Va dans #🔐-code-instagram et appuie sur « 📩 Mon code ». Le code s'affiche tout seul dès qu'il arrive, pour toi seul.
 - Instagram demande un **numéro de téléphone** ? Mets **le tien**, celui de ton téléphone. Tu reçois le SMS toi-même. Ce numéro ne sert que pour tes 3 comptes : jamais un numéro déjà utilisé pour d'autres comptes Instagram, jamais un numéro d'ami, jamais un numéro jetable. Jamais de VPN.
@@ -107,18 +117,18 @@ Ton téléphone, les règles :
 - **Depuis le 26 septembre 2026** : plus de « semaine 1 de warm-up » (c'est 24 h par compte), plus de créneau lundi/mercredi/vendredi avec le manager (le clipper crée ses comptes seul, guidé par le bot), plus de « review sous 72 h », plus de « jamais ton numéro » (il met le sien si Instagram le demande).
 
 Si tu as lu une vieille version du kit, voilà ce qui a changé :
-- Plus de créneau lundi/mercredi/vendredi : tes comptes se créent dans ton salon perso, étape par étape avec le bot, un compte à la fois. Gaëtan n'envoie pas d'identifiants, ils sont dans ton salon.
+- Plus de créneau lundi/mercredi/vendredi : tes comptes se créent dans ton salon perso, étape par étape avec le bot, un compte à la fois. L'agence prépare les identifiants dans Sheets. Le flux bot autorisé les remet sans modification dans ton salon perso, après les vérifications du parcours.
 - Pas de numéro « jetable » ou temporaire, jamais.
-- **Depuis le 1er octobre 2026** : une seule règle des comptes, pour tous, plus de période d'essai à part. Un compte à la fois. Le suivant arrive tout seul ici, au plus tôt 48 h après le précédent, dès que 4 Reels sont publiés sur ton dernier compte qui publie. Et les codes Instagram se demandent uniquement dans #🔐-code-instagram.
+- **Depuis le 1er octobre 2026** : une seule règle des comptes, pour tous, plus de période d'essai à part. Un compte à la fois. Le compte 2 arrive après 4 Reels vérifiés sur le compte 1. Le compte 3 privé arrive après 4 Reels vérifiés sur le compte 2. Et les codes Instagram se demandent uniquement dans #🔐-code-instagram.
 - **Depuis le 12 octobre 2026** : « 📩 Mon code » (ou `!code` dans #🔐-code-instagram) te donne ton dernier code Instagram reçu par e-mail, quel qu'il soit, visible par toi seul.
-- **Depuis le 5 octobre 2026** : un compte **privé** porte le lien **dans sa bio** ; les comptes qui publient ne portent jamais de lien, ils pointent vers le privé par une story à la une avec le widget de mention. Le privé est le compte 3 : il n'arrive que si les comptes 1 et 2 publient bien (règle du 9 octobre 2026). Deux règles de sortie : **48 h sans créer le compte 1** (un avertissement 24 h avant), et **l'appel de présence** : 2 jours sans aucune activité → le bot t'appelle dans ton salon → 48 h pour répondre (un bouton, un message, ou ton lien qui ramène des visiteurs) → sinon sortie. Plus de « 3 jours sans Reel = avertissement, 7 jours = licenciement ».
+- **Depuis le 5 octobre 2026** : un compte **privé** porte le lien **dans sa bio** ; les comptes qui publient ne portent jamais de lien, ils pointent vers le privé par une story à la une avec le widget de mention. Le privé est le compte 3 : il arrive après 4 Reels publiés et vérifiés sur le compte 2. Deux règles de sortie : **48 h sans créer le compte 1** (un avertissement 24 h avant), et **l'appel de présence** : 2 jours sans aucune activité → le bot t'appelle dans ton salon → 48 h pour répondre (un bouton, un message, ou ton lien qui ramène des visiteurs) → sinon sortie. Plus de « 3 jours sans Reel = avertissement, 7 jours = licenciement ».
 - **Plus de pages Facebook depuis le 14 septembre 2026** : la mission est 100 % Instagram (2 comptes qui publient, 1 compte privé). Tu en avais créé avant ? N'y publie plus, ton manager te dit quoi en faire. Aucune page ne compte pour ta journée validée.
 - **Depuis le 28 septembre 2026** : plus de lien ni d'@ dans les bios des comptes qui publient (ça fait des bans). **Depuis le 5 octobre 2026** : le lien vit dans la bio du compte privé, et les comptes qui publient y envoient par une story à la une avec le widget de mention. Jamais de lien dans la description d'un Reel, même « 1 sur 10 ».
 - Le lien, c'est toi qui le mets, avec le profil de ton compte privé, quand il existe. Le bot te le donne et te dit quand.
-- **Depuis le 9 octobre 2026** : plus de test vidéo pour entrer : quizz réussi = ta créatrice et ton compte 1. Plus de Drive perso ni de dossier « TOP 20 » : les vidéos de ta créatrice, en qualité d'origine, avec le lien de ton message de bienvenue. Le groupe WhatsApp dès ton arrivée. Tes questions dans ton salon perso : je réponds ici, plus de « va dans #assistant ».
-- Un compte « qui existe déjà » dans ton étape (rendu par un ancien clipper) : tu t'y connectes avec l'identifiant et le mot de passe, tu ne le crées pas. Le code de connexion : va dans #🔐-code-instagram et appuie sur « 📩 Mon code ».
+- **Depuis le 9 octobre 2026** : plus de test vidéo pour entrer. Après le quizz réussi, le bot vérifie l'attribution et les rôles avant la remise du compte 1. Plus de Drive perso ni de dossier « TOP 20 » : les vidéos de ta créatrice, en qualité d'origine, avec le lien de ton message de bienvenue. WhatsApp ne conditionne pas cette remise. Tes questions dans ton salon perso : je réponds ici, plus de « va dans #assistant ».
+- Aucun compte ancien n'est réattribué. Si tu as déjà créé ton propre compte, reconnecte-toi avec les accès de son message de remise. Un compte réservé neuf doit être créé avec les identifiants Sheets inchangés. Le code de connexion : va dans #🔐-code-instagram et appuie sur « 📩 Mon code ».
 - L'équipe internationale n'est plus en pause : ouverte depuis le 8 septembre 2026.
-- Les évolutions (Metricool, 2ᵉ téléphone) n'ont pas de date (« J+30 », « J+60 ») : ton manager décide.
+- Les évolutions (Metricool, 2ᵉ téléphone) n'ont pas de date (« J+30 », « J+60 ») : ton manager décide. Elles n'autorisent aucun compte supplémentaire : 3 comptes créés maximum à vie.
 
 ## LA RÈGLE LA PLUS IMPORTANTE DE TOUTES
 
@@ -126,12 +136,12 @@ On ne poste JAMAIS une vidéo brute de ta créatrice. Tu changes toujours la vid
 
 ## FICHE 1 — Créer tes comptes (étapes 1 à 3 du parcours, dans ton salon perso)
 
-Les règles de la vidéo du 28/09 : un e-mail et un mot de passe différents par compte (le bot te les donne). Un pseudo, une photo et une bio différents par compte, les trois comptes les plus différents possible. Aucun compte relié au Meta Business Center. Pas trop d'actions le premier jour. Trois comptes maximum sur un téléphone. Un compte « qui existe déjà » dans ton étape : tu t'y connectes, tu ne le crées pas. Le code de connexion : va dans #🔐-code-instagram et appuie sur « 📩 Mon code ».
+Les règles de la vidéo du 28/09 : un e-mail et un mot de passe différents par compte, préparés dans Sheets et remis par le flux bot autorisé. Un pseudo, une photo et une bio différents par compte, les trois comptes les plus différents possible. Le pseudo fourni reste inchangé. Aucun compte relié au Meta Business Center. Pas trop d'actions le premier jour. Trois comptes créés maximum à vie, même en changeant de téléphone. Si tu as déjà créé ton propre compte, reconnecte-toi ; aucun compte d'un ancien clipper n'est réattribué. Le code de connexion : va dans #🔐-code-instagram et appuie sur « 📩 Mon code ».
 
-Avant : quizz réussi, ta créatrice attribuée tout de suite, avec le lien de ses vidéos dans ton message de bienvenue. Tes comptes et tes e-mails arrivent dans ton salon perso, un compte à la fois.
+Avant : quizz réussi, attribution et rôles confirmés. Le lien des vidéos de ta créatrice est dans ton accueil. Le flux bot autorisé remet les accès dans ton salon perso, un compte à la fois, selon la disponibilité vérifiée.
 
 Les règles d'or :
-- **Un compte à la fois. Le suivant arrive tout seul ici, au plus tôt 48 h après le précédent, quand tu publies bien.** Jamais 2 ou 3 le même jour. Le compte 3 est privé : il ne publie pas, il porte le lien.
+- **Un compte à la fois. Le compte 2 arrive après 4 Reels vérifiés sur le compte 1. Le compte 3 privé arrive après 4 Reels vérifiés sur le compte 2.** Le compte 3 est privé : il ne publie pas, il porte le lien.
 - Chaque compte a son e-mail et son mot de passe. L'agence te les donne. Ils restent à l'agence.
 - Chaque compte a sa photo, sa bio et son @. Bio très sage, en rapport avec ta créatrice. Jamais de ville, jamais de région.
 - Un numéro de téléphone demandé ? Mets le tien. Un numéro = tes 3 comptes, pas un de plus. Un numéro déjà lié à d'autres comptes Instagram = ban en chaîne.
@@ -199,7 +209,7 @@ Ton suivi : `!mesclics` dans ton salon perso, quand tu veux. Ta paie y arrive le
 
 Les 2 ou 3 premières semaines, les vues sont basses. C'est normal. C'est là que tout le monde abandonne. Puis un Reel marche et tout monte. Tu ne peux pas rater si tu publies tous les jours et si tu t'améliores chaque semaine.
 
-Les règles du jeu : **ton compte 1 doit être créé dans les 48 h** après son arrivée dans ton salon (avertissement à 24 h) ; sinon tu sors du serveur, tes comptes et ta place vont au suivant. Ensuite, ton compte suivant n'arrive que si tu publies (48 h et 4 Reels). Un lien qui ne ramène presque personne après un mois : on en parle avec Gaëtan. On garde les meilleurs.
+Les règles du jeu : **ton compte 1 doit être créé dans les 48 h** après son arrivée dans ton salon (avertissement à 24 h) ; sinon tu sors du serveur, tes comptes et ta place vont au suivant. Ensuite, 4 Reels vérifiés sur ton compte 1 ouvrent le compte 2, puis 4 Reels vérifiés sur ton compte 2 ouvrent le compte 3 privé. Un lien qui ne ramène presque personne après un mois : on en parle avec Gaëtan. On garde les meilleurs.
 
 ## FICHE 5 — Les Reels d'essai et la suite
 
@@ -209,8 +219,8 @@ Les Reels d'essai : une autre version d'un Reel qui existe déjà. Instagram la 
 
 La suite, c'est ton manager qui décide, selon tes résultats :
 - 500 à 1 000 abonnés et un compte stable : passage en compte professionnel, pour voir les stats en détail. Tu ne le fais jamais seul.
-- L'installation tourne bien : les comptes passent sur Metricool, sur ordinateur. Pas de date fixe. On recrée alors des comptes neufs sur le téléphone.
-- Un 2e téléphone = 3 comptes de plus = deux fois plus de paie. Tu écris à Gaëtan sur WhatsApp.
+- L'installation tourne bien : le manager décide du passage sur Metricool, sans date fixe. Metricool ne remet pas le compteur à zéro. Aucun compte supplémentaire n'est créé.
+- Un deuxième téléphone ne donne droit à aucun compte supplémentaire. Le maximum reste de 3 comptes créés à vie.
 - Les meilleurs clippers peuvent devenir Team Leader. C'est Gaëtan qui les nomme.
 
 ## FICHE 6 — Quand ça coince
@@ -235,9 +245,9 @@ Ensuite, ne reposte jamais une vidéo qui a été marquée.
 
 **Des messages privés arrivent sur mes comptes** : on ne répond presque jamais en privé. On n'envoie jamais de messages en masse. C'est la cause numéro 1 des bans. Réponds en story, avec une capture du message, ou en commentaire. Jamais de lien en privé.
 
-**Une question ? Dans cet ordre** : 1. La vidéo de formation, dans le forum formation. 2. L'assistant, dans ton salon perso : écris ta question, il connaît ton étape. 3. Ton groupe WhatsApp (dès ton arrivée). 4. Gaëtan sur WhatsApp, pour un blocage ou la paie.
+**Une question ? Dans cet ordre** : 1. La vidéo de formation, dans le forum formation. 2. L'assistant, dans ton salon perso : écris ta question, il connaît ton étape. 3. Ton groupe WhatsApp, si tu y as accès. 4. Gaëtan sur WhatsApp, pour un blocage ou la paie.
 
-Les 3 règles à ne jamais oublier : un compte à la fois, le suivant au plus tôt 48 h après, dès 4 Reels publiés sur ton dernier compte qui publie. 24 h de warm-up par compte. 2 Reels par jour sur chaque compte qui publie. Être régulier, c'est mieux que faire beaucoup d'un coup.
+Les 3 règles à ne jamais oublier : un compte à la fois ; 4 Reels vérifiés sur le compte 1 ouvrent le compte 2 ; 4 Reels vérifiés sur le compte 2 ouvrent le compte 3 privé. 24 h de warm-up par compte. 2 Reels par jour sur chaque compte qui publie. Être régulier, c'est mieux que faire beaucoup d'un coup.
 
 Le mental : la fin de la vidéo de formation, à écouter les jours difficiles. Tu ne peux pas rater si tu n'abandonnes jamais. Le meilleur clipper devient Team Leader.
 
@@ -291,7 +301,7 @@ Tu veux un avis sur un Reel ? Envoie la vidéo dans ton salon perso : je te donn
 
 **Où va le lien ?** Dans la bio de ton compte privé (le compte 3 ; le 2 pour quelques parcours commencés le 8 octobre, le bot te le dit), dans le champ « Liens » : Modifier le profil → Liens → Ajouter un lien externe. Pas dans le texte de la bio : il ne s'y clique pas. Nulle part ailleurs. Sur les comptes qui publient : une story à la une avec le widget de mention du privé, une seule fois, puis chaque jour une story avec le widget de ton profil qui renvoie vers cette story à la une. Jamais de lien dans un Reel, jamais sur les comptes qui publient.
 
-**Et le compte privé ?** C'est ton compte 3. Il ne publie pas. Il est privé, avec ta photo, ta bio et ton lien dans le champ « Liens ». Tes comptes 1 et 2 envoient vers lui par la story à la une. Il n'arrive que si tu publies bien sur tes comptes 1 et 2 : 4 Reels sur ton compte 2 et 4 Reels de plus sur ton compte 1, au plus tôt 48 h après ton compte 2.
+**Et le compte privé ?** C'est ton compte 3. Il ne publie pas. Il est privé, avec ta photo, ta bio et ton lien dans le champ « Liens ». Tes comptes 1 et 2 envoient vers lui par la story à la une. Il arrive après 4 Reels publiés et vérifiés sur ton compte 2.
 
 **Et les pages Facebook ?** Plus dans la mission depuis le 14 septembre 2026 : 100 % Instagram, 2 comptes qui publient et 1 compte privé. Tu en avais créé ? N'y publie plus et demande à ton manager quoi en faire. Aucune page ne compte pour ta journée validée, et personne ne te demandera d'en créer.
 
@@ -333,11 +343,11 @@ Tu veux un avis sur un Reel ? Envoie la vidéo dans ton salon perso : je te donn
 
 **Je peux travailler pour d'autres agences ?** Oui, il n'y a pas d'exclusivité. Deux limites : les rushs, les comptes et les identifiants de l'agence lui appartiennent (tu ne les réutilises pas ailleurs), et ta cadence ici doit être tenue.
 
-**Le recrutement est ouvert ?** Oui, pour tout le monde, France comme Madagascar ou Bénin : formulaire → vidéo de formation → quizz → Discord → ta créatrice et ton compte 1. Rien dans ton salon 24 h après ton quizz ? Écris-le dans ton salon perso.
+**Le recrutement est ouvert ?** Oui, pour tout le monde, France comme Madagascar ou Bénin : formulaire → vidéo de formation → quizz → Discord → attribution et rôles confirmés → remise du compte 1 selon la disponibilité. Rien dans ton salon 24 h après ton quizz ? Écris-le dans ton salon perso.
 
-**Et le test vidéo, le montage à rendre ?** Il n'existe plus depuis le 9 octobre 2026. Quizz réussi = tu es dans l'agence : ta créatrice et ton compte 1 arrivent dans ton salon perso.
+**Et le test vidéo, le montage à rendre ?** Il n'existe plus depuis le 9 octobre 2026. Après le quizz réussi, le bot vérifie l'attribution et les rôles avant la remise du compte 1 dans ton salon perso.
 
-**Quizz réussi, et ensuite ?** Le bouton du site t'amène sur le Discord. Ton message de bienvenue arrive dans ton salon perso dans la minute : ta créatrice, ses vidéos, le groupe WhatsApp. Toutes les créatrices sont pleines ? Ta créatrice arrive dès qu'un compte est prêt pour toi, rien à faire d'ici là.
+**Quizz réussi, et ensuite ?** Le bouton du site t'amène sur le Discord. Ton accueil présente ta créatrice et ses vidéos. Le compte 1 suit après attribution et confirmation des rôles, selon la disponibilité vérifiée. Aucun bouton WhatsApp n'est obligatoire. Toutes les créatrices sont pleines ? Le bot te prévient dans ton salon perso quand une attribution devient possible.
 
 **Quizz raté ?** Le site te donne ton score. Revois la vidéo, note les 5 mots-clés dans l'ordre, et réessaie. Deux essais ratés ? Reviens 24 h plus tard, avec le même lien.
 
@@ -349,11 +359,11 @@ Tu veux un avis sur un Reel ? Envoie la vidéo dans ton salon perso : je te donn
 
 **Où je vois mon score du quizz ?** À l'écran, juste après le quizz du site. Réussi ? Ta créatrice arrive dans ton salon perso, c'est le signe.
 
-**Quizz réussi mais pas de créatrice ?** Ton message de bienvenue arrive dans ton salon perso dans la minute. Toutes les créatrices sont pleines ? Le bot t'écrit « Ta créatrice arrive ici dès qu'un compte est prêt pour toi » : rien à faire d'ici là. Rien du tout dans ton salon ? Écris dedans en mentionnant @Gaëtan.
+**Quizz réussi mais pas de créatrice ?** L'attribution dépend des comptes neufs disponibles et des vérifications du bot. Toutes les créatrices sont pleines ? Le bot t'écrit « Ta créatrice arrive ici dès qu'un compte est prêt pour toi » : rien à faire d'ici là. Rien du tout dans ton salon ? Écris dedans en mentionnant @Gaëtan.
 
 **Le bot me relance trop ?** Réponds STOP en message privé au bot : tous les rappels automatiques s'arrêtent, ton dossier reste ouvert. Pour reprendre, écris-moi.
 
-**Je peux parler à un humain ?** Oui : ton groupe WhatsApp avec Gaëtan, dès ton arrivée (le bouton WhatsApp de ton message de bienvenue). Paiement, wallet, virement : Gaëtan, avec une capture si utile.
+**Je peux parler à un humain ?** Oui : Gaëtan lit ton salon perso. Tu peux aussi demander son lien WhatsApp pour un blocage. Ce contact n'est pas une étape obligatoire pour recevoir ton compte. Paiement, wallet, virement : Gaëtan, avec une capture si utile, sans secret.
 
 **Où est la liste des créatrices à suivre pour le warm-up ?** Dans #ressources. Un compte de la liste est fermé ? Avance de recommandation en recommandation depuis les comptes vivants, et dis-le à ton manager pour mettre la liste à jour.
 
@@ -361,11 +371,11 @@ Tu veux un avis sur un Reel ? Envoie la vidéo dans ton salon perso : je te donn
 
 **Je crée mon compte Gmail moi-même ?** Non. Les adresses e-mail sont fournies par l'agence, dans le message de chaque compte ; tu les colles telles quelles quand Instagram les demande. Un code Instagram ? Va dans #🔐-code-instagram et appuie sur « 📩 Mon code ».
 
-**Qui me donne mes identifiants (mail, mot de passe, pseudo) ?** Le bot, dans ton salon perso, un compte à la fois : le compte 1 juste après ton message de bienvenue, les suivants quand tu publies bien. Pour chacun : l'identifiant, le mot de passe et l'e-mail. Ils restent à l'agence : jamais partagés, jamais changés sans prévenir.
+**Qui me donne mes identifiants (mail, mot de passe, pseudo) ?** L'agence prépare les identifiants dans Sheets. Le flux bot autorisé les remet sans modification dans ton salon perso, un compte à la fois. Le premier compte suit l'attribution et la confirmation des rôles ; les suivants suivent les Reels vérifiés et la disponibilité. Attends le message de remise. Les accès restent à l'agence : jamais partagés ni modifiés. L'assistant te renvoie à ce message, sans recopier de mot de passe.
 
 **Comment je récupère les codes envoyés par mail ?** Un code Instagram ? Va dans #🔐-code-instagram et appuie sur « 📩 Mon code ». Le bot lit la boîte de l'agence et te donne le dernier code reçu sur tes adresses, dès qu'il arrive, visible par toi seul. Rien après 5 minutes ? Vérifie l'e-mail tapé dans Instagram, appuie sur « Renvoyer le code », attends 30 secondes, puis rappuie sur « 📩 Mon code ».
 
-**Quand est-ce que j'ai mes comptes 2 et 3 ?** Un compte à la fois. Le suivant arrive tout seul ici, au plus tôt 48 h après le précédent, dès que 4 Reels sont publiés sur ton dernier compte qui publie. Pas avant, et pas à la demande. La règle est la même pour tous.
+**Quand est-ce que j'ai mes comptes 2 et 3 ?** Un compte à la fois. Le compte 2 arrive après 4 Reels vérifiés sur le compte 1. Le compte 3 privé arrive après 4 Reels vérifiés sur le compte 2. Pas avant, et pas à la demande. La règle est la même pour tous.
 
 **Quels codes le bot me donne ?** Ton dernier code Instagram, quel qu'il soit : connexion, création de compte, appel après un ban (règle de Gaëtan du 12/10). Appuie sur « 📩 Mon code » dans #🔐-code-instagram, ou écris `!code` là-bas : la réponse arrive pour toi seul. Les comptes sont à l'agence : ne change jamais l'e-mail, le mot de passe ou le numéro.
 
@@ -377,7 +387,7 @@ Tu veux un avis sur un Reel ? Envoie la vidéo dans ton salon perso : je te donn
 
 **Instagram m'a déconnecté : « le propriétaire du compte a modifié son mot de passe » ?** Personne ne sait pourquoi, et ce n'est pas grave. Reconnecte-toi avec le mot de passe du message de ce compte, dans ton salon perso. Instagram envoie un code : va dans #🔐-code-instagram et appuie sur « 📩 Mon code ». Le mot de passe ne marche plus ? Ne clique pas sur « Mot de passe oublié » : écris à Gaëtan sur WhatsApp, il s'en occupe.
 
-**Le pseudo du classeur est « déjà utilisé » ?** D'abord, essaie de te connecter avec cet identifiant et le mot de passe du message de ce compte : le compte existe peut-être déjà. Ça ne marche pas ? Crée le compte avec le pseudo plus un chiffre ou un point. Quand tu appuies sur « ✅ Compte créé », le bot te demande ton @ exact : écris celui que tu as pris, il met le classeur à jour tout seul. Oublié ? Tape dans ton salon perso `!pseudo`, le numéro du compte (1, 2 ou 3) et ton vrai @, par exemple : `!pseudo 1 reels.paris27`. Et si tu ne le fais pas, le bot cherche tout seul ton compte parmi les @ proches de celui prévu et te le dit.
+**Le pseudo du classeur est « déjà utilisé » ou refusé ?** Le pseudo Sheets reste strictement identique. Arrête et signale le refus dans ton salon perso. Ne modifie pas le pseudo et ne crée aucune variante. Si tu as déjà créé ce compte, connecte-toi avec les accès prévus. Une connexion refusée n'autorise pas un autre compte.
 
 **Mon compte est banni, « en révision », « nous examinons », « suspendu » : on peut faire appel ?** Oui, toujours, et c'est toi qui le fais, tout de suite : « Contester la décision ». Le code de l'appel ne passe pas par le bot : il arrive chez l'équipe, qui te répond dans ton salon perso. Selfie vidéo : toi. Numéro de téléphone ou pièce d'identité demandés : les tiens. Jamais les papiers de quelqu'un d'autre, jamais de faux, jamais ta pièce d'identité dans Discord. Poste une capture de la réponse d'Instagram dans ton salon perso. Si l'appel échoue, Gaëtan décide. On ne réutilise jamais une info d'un compte banni : ni son e-mail, ni son mot de passe, ni son identifiant. Le bot ne connaît pas la cause du ban, il ne l'invente pas.
 
@@ -395,7 +405,7 @@ Tu veux un avis sur un Reel ? Envoie la vidéo dans ton salon perso : je te donn
 
 **Où trouver des captions ?** Les 100 idées sont dans #ressources, ouvert une fois dans l'équipe. Sinon : ta propre caption, simple et en rapport. Ce qui compte, c'est le hook de la première seconde et la propreté du montage.
 
-**Le bot fournit-il des comptes ?** Il te donne les identifiants (pseudo, mot de passe, e-mail) préparés par l'agence, dans ton salon perso, et il te guide pour les créer sur ton téléphone. Tu les utilises, ils restent à l'agence.
+**Le bot fournit-il des comptes ?** Il te guide pour créer uniquement des comptes neufs sur ton téléphone. Le flux bot autorisé remet les identifiants Sheets inchangés dans ton salon perso, après les vérifications du parcours. Aucun compte ancien n'est réattribué. Les comptes et leurs accès restent à l'agence.
 
 **Comment trouver des « campagnes » à clipper ?** Il n'y a pas de campagnes à chercher : ta campagne, c'est ta créatrice attribuée. Ses vidéos : le lien de ton message de bienvenue. Tu ne cherches rien, tu montes et tu publies.
 
@@ -413,7 +423,7 @@ Tu veux un avis sur un Reel ? Envoie la vidéo dans ton salon perso : je te donn
 
 **Où je pose mes questions ?** Dans ton salon perso. Écris ta question : je réponds ici, en quelques secondes. Un « ok » ou un « fait » ne demande pas de réponse.
 
-**Mon compte 1 arrive quand ?** Tout de suite, juste en dessous de ton message de bienvenue. Écris aussi à Gaëtan sur WhatsApp avec le bouton de ce message. Appuie sur ✅ quand tu as écrit à Gaëtan : c'est lui qui t'ajoute au groupe.
+**Mon compte 1 arrive quand ?** Après attribution et confirmation des rôles, selon la disponibilité vérifiée. Le flux bot autorisé remet ses accès dans ton salon perso. Aucun bouton WhatsApp n'est obligatoire. Une réservation Sheets ne prouve pas la remise : attends le message confirmé du bot.
 
 ## FAQ vivante (questions posées 2 fois — à compléter au fil de l'eau)
 
