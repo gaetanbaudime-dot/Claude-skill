@@ -15,6 +15,7 @@ ADMIN = """🧰 **Aide admin · essentiel**
 • `!pseudo @membre 1 vrai_pseudo` — renommer un compte, pas permuter les comptes.
 • `!dashboard` — réécrire le suivi sans scan ; `!dashboard scan` lance un scan payant.
 • `!code [adresse]` — connexion, création et confirmation e-mail ; accès contrôlé, réponse privée.
+• `!reprise @membre Sarah` — un ancien clipper revient : historique de comptes repris (3 au total, jamais remis à zéro), puis parcours relancé.
 
 **Propriétaire du serveur + admin, résultat en MP**
 • Lecture : `!diagnostic-dossier UID Chloé UID_TL` (Sarah aussi).
