@@ -1,4 +1,4 @@
-"""Règles gelées du 18/10 : paiement avant le compte privé (P4), grille manager (P6), 10 jours sans visite (L7), groupe TL (E8).
+"""Règles gelées du 18/10 : rien ne bloque le compte privé (P4), grille manager (P6), 10 jours sans visite (L7), groupe TL (E8).
 Cas fictifs, sans réseau ni Discord."""
 import asyncio
 import sys
@@ -15,46 +15,26 @@ import parcours  # noqa: E402
 import sortie_auto  # noqa: E402
 
 
-class PaiementAvantPriveTests(unittest.TestCase):
-    def _paie(self, regime="clic", wallets=None, actif=True):
-        return N(actif=lambda: actif, regime=lambda uid: regime, _lire=lambda: {"wallets": wallets or {}})
-
-    def test_clic_sans_adresse_bloque(self):
-        with patch.object(parcours, "paie_clics", self._paie()):
-            self.assertFalse(parcours.moyen_paiement_ok("1"))
-
-    def test_usdc_ou_iban_debloque(self):
-        for adresse in ("0x" + "a" * 40, "FR7630006000011234567890189"):
-            with patch.object(parcours, "paie_clics", self._paie(wallets={"1": {"adresse": adresse}})):
-                self.assertTrue(parcours.moyen_paiement_ok("1"))
-
-    def test_fixe_jamais_bloque(self):
-        with patch.object(parcours, "paie_clics", self._paie(regime="fixe")):
-            self.assertTrue(parcours.moyen_paiement_ok("1"))
-
-    def test_panne_ne_bloque_pas(self):
-        def casse():
-            raise OSError("disque")
-        with patch.object(parcours, "paie_clics", N(actif=lambda: True, regime=lambda uid: "clic", _lire=casse)):
-            self.assertTrue(parcours.moyen_paiement_ok("1"))
-
-    def test_regle_coupable(self):
-        with patch.object(parcours, "paie_clics", self._paie()), patch.object(parcours, "PAIEMENT_AVANT_PRIVE", False):
-            self.assertTrue(parcours.moyen_paiement_ok("1"))
-
-    def test_texte_donne_les_deux_commandes(self):
-        texte = parcours.TEXTE_PAIEMENT_AVANT_PRIVE.format(n=3)
-        self.assertIn("`!wallet 0x…`", texte)
-        self.assertIn("`!wallet FR76…`", texte)
-        self.assertIn("compte 3", texte)
-
-
 class GrilleManagerTests(unittest.TestCase):
     def test_defauts_du_18_10(self):
         self.assertEqual(equipes_tl.MANAGER_PRIME_USD, 50.0)
         self.assertEqual(equipes_tl.MANAGER_SEUIL_EQUIPE, 2500)
         self.assertEqual(equipes_tl.TL_PRIME_VA_USD, 10.0)
         self.assertEqual(equipes_tl.TL_SEUIL_VA, 500)
+
+    def test_ancienne_grille_railway_ignoree(self):
+        import importlib
+        with patch.dict("os.environ", {"MANAGER_PRIME_USD": "75", "MANAGER_SEUIL_EQUIPE": "3 000"}):
+            module = importlib.reload(equipes_tl)
+            grille = (module.MANAGER_PRIME_USD, module.MANAGER_SEUIL_EQUIPE)
+            averti = any("ancienne grille" in a for a in module.AVERTISSEMENTS)
+        importlib.reload(equipes_tl)
+        self.assertEqual(grille, (50.0, 2500))
+        self.assertTrue(averti)
+
+    def test_paiement_ne_bloque_plus_le_prive(self):
+        self.assertFalse(hasattr(parcours, "moyen_paiement_ok"))
+        self.assertFalse(hasattr(parcours, "TEXTE_PAIEMENT_AVANT_PRIVE"))
 
 
 class InactifsTests(unittest.TestCase):

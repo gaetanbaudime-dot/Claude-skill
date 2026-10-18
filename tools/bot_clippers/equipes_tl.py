@@ -93,6 +93,16 @@ TL_SEUIL_VA = _nombre("TL_SEUIL_VA", 500, int)
 # 18/10 (Gaëtan, règles gelées P6 : « 50 $ par TL au-dessus de 2 500 visites les 15 derniers jours ») : remplace 75 $ / 3 000 du 10/10.
 MANAGER_PRIME_USD = _nombre("MANAGER_PRIME_USD", 50.0)
 MANAGER_SEUIL_EQUIPE = _nombre("MANAGER_SEUIL_EQUIPE", 2500, int)
+# 18/10 : Railway porte encore MANAGER_PRIME_USD=75 / MANAGER_SEUIL_EQUIPE=3000 (grille du 10/10, vue dans `!tl liste`) et Gaëtan
+# ne voit pas ces variables. L'ancienne grille posée en variable est ignorée : la règle gelée (50 $ / 2 500) s'applique.
+if MANAGER_PRIME_USD == 75.0:
+    AVERTISSEMENTS.append("MANAGER_PRIME_USD=75 (ancienne grille du 10/10) ignoré : 50 $ appliqués (règle gelée du 18/10)")
+    journal.warning(AVERTISSEMENTS[-1])
+    MANAGER_PRIME_USD = 50.0
+if MANAGER_SEUIL_EQUIPE == 3000:
+    AVERTISSEMENTS.append("MANAGER_SEUIL_EQUIPE=3000 (ancienne grille du 10/10) ignoré : 2 500 appliqués (règle gelée du 18/10)")
+    journal.warning(AVERTISSEMENTS[-1])
+    MANAGER_SEUIL_EQUIPE = 2500
 EQUIPE_COMPTE_TL = _oui("EQUIPE_COMPTE_TL")                             # 0 : le TL hors du total de son équipe
 # Revue L10 (R2) : un manager qui clippe lui-même sur une créatrice qu'il manage reste VA de cette équipe (le TL est primé sur
 # lui), mais ses visites ne comptent pas dans le total qui le paie (sinon 2 050 à lui + 1 000 d'équipe = 75 $ sur sa production).

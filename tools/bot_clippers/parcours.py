@@ -64,34 +64,8 @@ WARMUP_H = int(os.environ.get("PARCOURS_WARMUP_H", "24") or 24)
 # 48 h après le compte 2, quand 4 Reels sont publiés sur le compte 2 ET 4 Reels de plus sur le compte 1 depuis la création du
 # compte 2 (`sources_reels`, base retenue dans `base_reels["3"]`).
 PRIVE_EN_2 = False
-# 18/10 (Gaëtan, règles gelées P4 : « adresse USDC obligatoire pour tout le monde et les nouveaux, sauf Lilian, Caroline, Lucas,
-# Josué payés sur leur IBAN ») : le compte privé (celui qui porte le lien GAML) ne part qu'avec un moyen de paiement enregistré
-# (`!wallet 0x…` USDC, ou `!wallet FR76…` IBAN pour les Français payés par virement). Les clippers au fixe ne sont pas bloqués.
-# PARCOURS_PAIEMENT_AVANT_PRIVE=0 coupe la règle.
-PAIEMENT_AVANT_PRIVE = os.environ.get("PARCOURS_PAIEMENT_AVANT_PRIVE", "1").strip() not in ("0", "non", "false", "")
-
-
-def moyen_paiement_ok(uid) -> bool:
-    """Vrai si le clipper peut recevoir son compte privé côté paie : un moyen de paiement enregistré (USDC ou IBAN), ou pas au
-    clic (fixe), ou la paie au clic éteinte. Une panne de lecture ne bloque jamais le parcours (vrai)."""
-    if not PAIEMENT_AVANT_PRIVE:
-        return True
-    try:
-        if not paie_clics.actif() or paie_clics.regime(str(uid)) != "clic":
-            return True
-        d = paie_clics._lire()
-        return bool(((d.get("wallets") or {}).get(str(uid)) or {}).get("adresse"))
-    except Exception as erreur:                                         # noqa: BLE001 — la paie ne bloque jamais le parcours
-        journal.warning("Moyen de paiement de %s illisible : %s", uid, type(erreur).__name__)
-        return True
-
-
-TEXTE_PAIEMENT_AVANT_PRIVE = ("Tes 4 Reels sont bien là ✅\n\n"
-                              "Pour recevoir ton compte {n} (le privé, celui qui porte ton lien payé), il me faut ton moyen de "
-                              "paiement.\n\n"
-                              "Écris ici `!wallet 0x…` avec ton adresse USDC (réseau Ethereum / ERC20).\n\n"
-                              "Tu es payé par virement bancaire ? Écris `!wallet FR76…` avec ton IBAN.\n\n"
-                              "Ton compte {n} part tout seul dès que c'est fait.")
+# 18/10 (Gaëtan, P4 révisée : « Go pas bloquer le process pour ça ») : le moyen de paiement ne bloque JAMAIS la création d'un
+# compte. L'adresse USDC est demandée dans l'app à chaque paiement ; Lilian, Caroline, Lucas, Josué restent payés sur IBAN.
 
 
 def ordre(fiche_p: dict) -> str:
@@ -2505,7 +2479,7 @@ async def _programme_du_jour(client, maintenant=None) -> list:
         d = _lire()                                                     # relu et réécrit sans attente entre les deux : le passage
         fiche_p = d.get(uid) or {}                                      # de l'heure et celui du scan n'envoient jamais deux fois
         programme = fiche_p.get("programme") or []
-        partants, gardes, dites, paiements = [], [], [], []
+        partants, gardes, dites = [], [], []
         for x in programme:
             if not _a_traiter(fiche_p, x, maintenant):
                 gardes.append(x)
@@ -2515,12 +2489,6 @@ async def _programme_du_jour(client, maintenant=None) -> list:
                 partants.append(x)
             elif not _etape_attendue(fiche_p, x):
                 continue                                                # déjà envoyée (`!etape` du staff) : retirée, sans message
-            elif (int(x.get("n") or 0) == n_prive(fiche_p) and not moyen_paiement_ok(uid)
-                  and reels_pour(uid, fiche_p, int(x.get("n") or 0)) >= REELS_OUVERTURE):
-                gardes.append(x)                                        # 18/10 (P4) : Reels là, moyen de paiement absent
-                if fiche_p.get("paiement_dit") != int(x.get("n") or 0):  # une fois par compte : il sait ce qui manque
-                    fiche_p["paiement_dit"] = int(x.get("n") or 0)
-                    paiements.append(int(x.get("n") or 0))
             elif int(x.get("n") or 0) not in (2, 3) or reels_pour(uid, fiche_p, int(x.get("n") or 0)) >= REELS_OUVERTURE:
                 partants.append(x)                                      # 08/10 : la routine (7), 11/10 : « ligne », sans Reels
             else:
@@ -2531,7 +2499,7 @@ async def _programme_du_jour(client, maintenant=None) -> list:
                     # 09/10 (revue) : `!pseudo` du compte qui manque de Reels, pas toujours du compte 1 ; un compte BAN : bloqué
                     manque = [src for src, c in reels_detail(uid, fiche_p, n_x) if c < REELS_OUVERTURE] or sources_reels(fiche_p, n_x)
                     dites.append((n_x, condition_texte(uid, fiche_p, n_x), manque, _bloque_sources(uid, fiche_p, n_x)))
-        if gardes == programme and not dites and not paiements:
+        if gardes == programme and not dites:
             continue
         fiche_p["programme"] = gardes
         _ecrire(d)
@@ -2545,11 +2513,6 @@ async def _programme_du_jour(client, maintenant=None) -> list:
                                     f"Tu publies sous un autre @ ? Tape `!pseudo {srcs[0]}` puis ton vrai @.")
             except (discord.Forbidden, discord.HTTPException) as erreur:
                 journal.warning("Attente du compte %s de %s : %s", n_x, uid, erreur)
-        for n_x in paiements:                                           # 18/10 (P4) : une fois, le moyen de paiement
-            try:
-                await _suite(salon, f"{membre.mention} " + TEXTE_PAIEMENT_AVANT_PRIVE.format(n=n_x))
-            except (discord.Forbidden, discord.HTTPException) as erreur:
-                journal.warning("Paiement avant le compte %s de %s : %s", n_x, uid, erreur)
         for item in partants:
             n = int(item.get("n") or 0)
             try:
