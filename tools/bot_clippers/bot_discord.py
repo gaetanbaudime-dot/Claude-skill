@@ -4642,6 +4642,44 @@ async def ecrire_onglet_funnel(lignes: list) -> bool:
         return False
 
 
+ONGLET_PARCOURS = os.environ.get("ONGLET_PARCOURS", "Parcours").strip() or "Parcours"
+
+
+async def ecrire_onglet_parcours() -> int:
+    """18/10 (action 16) : l'onglet « Parcours » (une ligne par clipper, ses dates clés), réécrit chaque matin. Renvoie le nombre
+    de clippers écrits (0 si rien n'a pu l'être). Jamais bloquant pour le digest."""
+    if not (SHEET_CANDIDATURES_ID and google_api.actif()):
+        return 0
+    import table_parcours
+    try:
+        from zoneinfo import ZoneInfo
+        paris = ZoneInfo("Europe/Paris")
+    except Exception:                                                   # noqa: BLE001
+        paris = timezone(timedelta(hours=2))
+    try:
+        paie = paie_clics._lire()
+    except Exception:                                                   # noqa: BLE001
+        paie = {}
+    d_parcours = parcours._lire()
+    registre = lire_json(FICHIER_EQUIPES, {})
+    noms = {}
+    for uid in set(d_parcours) | set(registre):
+        m = membre_par_id(uid)
+        if m is not None:
+            noms[uid] = m.display_name
+    table = table_parcours.lignes(d_parcours, lire_json(FICHIER_PIPELINE, {}), registre, paie,
+                                  paie_clics.payees if paie else None, noms, datetime.now(paris).date(), paris,
+                                  exclus=frozenset(ADMIN_IDS))
+    try:
+        await google_api.sheets_creer_onglet(SHEET_CANDIDATURES_ID, ONGLET_PARCOURS)
+        await google_api.sheets_effacer(SHEET_CANDIDATURES_ID, f"{ONGLET_PARCOURS}!A1:Z2000")
+        await google_api.sheets_ecrire(SHEET_CANDIDATURES_ID, f"{ONGLET_PARCOURS}!A1", table)
+        return len(table) - 1
+    except Exception as erreur:                                         # noqa: BLE001
+        journal.warning("Onglet %s : %s", ONGLET_PARCOURS, erreur)
+        return 0
+
+
 def compteurs_funnel(pipe: dict, jour, registre: dict | None = None) -> dict:
     """09/10 (Gaëtan : « Termine tout le funnel entier Telegram > Forms > Formation > Quizz > Discord > attribution créatrice… ») :
     les flux d'un jour (Paris) pour le digest. quiz_ok et quiz_ko : le quizz du site (dernier essai de chaque numéro, staff exclu),
@@ -4965,8 +5003,18 @@ async def boucle_rappels():
                     if ligne_f:
                         blocs_d.append(("funnel", ligne_f))
                     await ecrire_onglet_funnel(serie_f)
+                    await ecrire_onglet_parcours()                      # 18/10 (action 16) : la table « Parcours »
                 except Exception as erreur:                                 # noqa: BLE001
                     journal.warning("Digest : funnel quotidien (%s)", erreur)
+                # 1 ter. 18/10 (action 35) : quiz réussi depuis 24 h, pas sur Discord → un lien de relance par personne, une fois
+                liste_q = []
+                try:
+                    liste_q = relances.quiz_sans_discord(pipe, lire_json(DONNEES / "relances.json", {"relances": {}}))
+                    bloc_q = relances.bloc_quiz_sans_discord(liste_q)
+                    if bloc_q:
+                        blocs_d.append(("quiz_sans_discord", bloc_q))
+                except Exception as erreur:                                 # noqa: BLE001
+                    journal.warning("Digest : relance quiz sans Discord (%s)", erreur)
                 # 2. Les bloqués, seulement s'il y en a (bloques.lignes_digest : plus de « personne 🎉 »).
                 # 3. Le bilan de la sortie automatique (sa passe du jour ne poste plus rien : sortie_auto.bilan_pour_digest).
                 bloques_d, jours_sortie, sortie_d = [], [], []
@@ -5059,6 +5107,10 @@ async def boucle_rappels():
                         etat.pop("sauvegarde_erreur", None)
                         ecrire_json(FICHIER_RAPPELS, etat)
                         try:
+                            relances.marquer_quiz_sans_discord(liste_q)     # 18/10 : une seule relance par personne
+                        except Exception as erreur:                         # noqa: BLE001
+                            journal.warning("Digest : relances quiz non comptées (%s)", erreur)
+                        try:
                             sortie_auto.oublier_bilan_dit(jours_sortie)
                         except Exception as erreur:                         # noqa: BLE001
                             journal.warning("Digest : bilan de sortie non oublié (%s)", erreur)
@@ -5076,7 +5128,7 @@ async def boucle_rappels():
                             membre_n = membre_par_id(m.group(1))
                             return membre_n.display_name if membre_n else "membre parti"
                         if telegram.TELEGRAM_QUOTIDIEN:
-                            texte_tg = (entete + "\n\n" + "\n\n".join(t for c, t in blocs_d if c not in ("bloques", "sortie", "appel")))[:3900]
+                            texte_tg = (entete + "\n\n" + "\n\n".join(t for c, t in blocs_d if c not in ("bloques", "sortie", "appel", "quiz_sans_discord")))[:3900]
                             try:
                                 await telegram.envoyer_telegram(re.sub(r"<@!?(\d+)>", _prenom, texte_tg).replace("**", "*"))
                             except Exception as erreur:                     # noqa: BLE001

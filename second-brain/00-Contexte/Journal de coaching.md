@@ -22,6 +22,17 @@ tags: [contexte/coaching]
 
 ## Décisions prises
 
+### 2026-10-18 (bots) — L'assistant ne promet plus rien qu'il ne fait pas ; `!sortie` expulse ; la relance du quiz réussi part à H+24
+
+> [!tip] Verdict
+> L'assistant IA ne dit plus « ton manager regarde » : soit il répond, soit il transmet vraiment. Un compte 1 parti sans e-mail ni mot de passe alerte le salon admin avec `!remettre-compte1 UID`. `!sortie Prénom raison` sort et expulse (`garder` pour laisser sur le serveur). Chaque matin, le point du jour liste les quiz réussis depuis 24 h qui ne sont pas sur Discord, avec un lien de relance pré-écrit (une seule relance par personne).
+
+- **Demande de Gaëtan (18/10)** : « Assistant IA, BOT Gaëtan : améliore, simplifie, vérifie. On déroule le plan comme prévu, on passe à semaine 2-3. »
+- **Ce qui cassait** : Mathieu a reçu sept fois « mets une capture, ton manager regarde » sans que personne ne soit prévenu ; Julien a lu « VPN actif » (inventé), puis « ton salon est vide », puis l'inverse ; Julien et Mavie ont attendu deux jours un compte 1 sans accès, sans alerte ; `!sortie Andry` a été refusé cinq fois puis a répondu « MP envoyé, 0 rôle retiré » (faux).
+- **Semaines 2-3 du plan, codé ce jour** : relance H+24 (action 35), onglet « Parcours » une ligne par clipper avec ses dates clés (16), classement par équipe TL le lundi et 30 jours dans `!mesclics` (28), alerte codes à 2 h (26), `!tableau` remplacé par `!funnel` (23). Déjà en place : places réelles (33), contrôle du lien en bio (22), liste des inactifs à 10 jours dans le point du matin (29, sortie validée par un humain).
+- **Avocat du diable** : la relance H+24 reste manuelle (un appui par personne) ; si personne n'appuie, la fuite ne bouge pas. Et `!sortie` qui expulse par défaut est irréversible pour le clipper (il doit être réinvité).
+- **Prédiction (18/10, revue le 01/11)** : la part des quiz réussis qui arrivent sur Discord sous 72 h passe au-dessus de 60 % sur la quinzaine ; plus aucun clipper n'attend plus de 24 h un compte 1 sans accès.
+
 ### 2026-10-13 (comptes) — Un clipper crée toujours ses comptes ; un compte lancé ne change jamais de clipper, il part sur Metricool
 
 > [!tip] Verdict

@@ -125,6 +125,76 @@ def a_relancer(pipe: dict, etat: dict, maintenant=None) -> list:
     return out[:MAX_JOUR]
 
 
+def quiz_sans_discord(pipe: dict, etat: dict, maintenant=None) -> list:
+    """18/10 (action 35 du plan : « relance unique à H+24 du reçu au quiz non arrivé sur Discord », fuite estimée à 50 %) :
+    [(cand_id, prénom, pays, heures depuis le quiz, lien Telegram, étiquette, tel)] des candidats qui ont RÉUSSI le quiz il y a 24 h
+    à 7 jours et ne sont pas sur Discord (aucune liaison par numéro), jamais relancés pour ça. UNE relance par personne."""
+    maintenant = maintenant or datetime.now(timezone.utc)
+    lies = {cle_tel(l.get("tel")) for l in (pipe.get("liaisons") or {}).values() if l.get("tel")}
+    faites = etat.get("discord") or {}
+    web = pipe.get("candidatures_web") or {}
+    par_tel = {}
+    for cid, fiche in web.items():
+        if (fiche.get("quiz") or {}).get("reussi"):
+            par_tel.setdefault(cle_tel(fiche.get("tel")), []).append(cid)
+    out = []
+    for cle, cids in par_tel.items():
+        if not cle or cle in lies or cle in faites or any(tel_exclu(web[c].get("tel")) for c in cids):
+            continue
+        cid = max(cids, key=lambda c: str((web[c].get("quiz") or {}).get("date") or ""))
+        d = _jour((web[cid].get("quiz") or {}).get("date"))
+        if d is None:
+            continue
+        heures = (maintenant - d).total_seconds() / 3600
+        if heures < DELAIS_H[0] or heures > FENETRE_JOURS * 24:
+            continue
+        tel = str(web[cid].get("tel") or "")
+        cand = (pipe.get("candidatures") or {}).get(tel) or {}
+        prenom = str(cand.get("prenom") or "").strip() or "toi"
+        if prenom.lower().startswith("test"):
+            continue
+        lien, etiquette = lien_telegram(cand.get("pseudo", ""), tel)
+        if not lien and len(re.sub(r"\D", "", tel)) < 8:
+            continue
+        out.append((cid, prenom, cand.get("pays", ""), int(heures), lien, etiquette, tel))
+    out.sort(key=lambda x: -x[3])
+    return out[:MAX_JOUR]
+
+
+def texte_relance_discord(prenom: str, lien: str) -> str:
+    return (f"Bravo {prenom}, tu as réussi le quiz ✅\n\nDernière étape : rejoins le Discord. Ta créatrice et ton compte 1 "
+            f"t'y attendent :\n\n{lien}")
+
+
+def bloc_quiz_sans_discord(liste: list) -> str:
+    """Le bloc du point du matin : un lien par personne, message déjà écrit (même règle de lien que `ligne`)."""
+    if not liste:
+        return ""
+    lignes = [f"🚪 **Quiz réussi, pas encore sur Discord : {len(liste)}** · appuie, relis, envoie (une seule relance)."]
+    for cid, prenom, pays, heures, lien, etiquette, tel in liste:
+        texte = quote(texte_relance_discord(prenom, _deps["lien_formation"](cid)), safe=":/")
+        chiffres = re.sub(r"\D", "", tel or "")
+        if lien and etiquette != "par numéro":
+            appui = f"[Telegram {etiquette}](<{lien}?text={texte}>)"
+        elif len(chiffres) >= 8:
+            appui = f"[WhatsApp](<https://wa.me/{chiffres}?text={texte}>)"
+        else:
+            appui = f"[Telegram par numéro](<{lien}?text={texte}>)"
+        lignes.append(f"**{prenom}**{' · ' + pays if pays else ''} · quiz il y a {heures} h · {appui}")
+    return "\n".join(lignes)
+
+
+def marquer_quiz_sans_discord(liste: list):
+    """Chaque personne listée l'est une fois : sa relance est comptée dès qu'elle est postée."""
+    if not liste:
+        return
+    etat = _deps["lire_json"](_deps["FICHIER"], {"relances": {}})
+    maintenant = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    for _cid, *_r, tel in liste:
+        etat.setdefault("discord", {})[cle_tel(tel)] = maintenant
+    _deps["ecrire_json"](_deps["FICHIER"], etat)
+
+
 def texte_relance(prenom: str, lien: str) -> str:
     """09/10 (revue du lot L3 : 10 messages pour 30 candidats, deux copies par candidat côté Telegram) : le message pré-rempli,
     court parce qu'il voyage encodé dans le lien. Bonjour, une action, son lien."""

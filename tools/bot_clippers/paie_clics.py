@@ -1456,6 +1456,7 @@ def texte_mesclics(d: dict, uid: str, nom: str) -> str:
     hier = _aujourdhui() - timedelta(days=1)
     h = somme(d, lids, hier, hier)
     s7 = somme(d, lids, hier - timedelta(days=6), hier)
+    s30 = somme(d, lids, hier - timedelta(days=29), hier)               # 18/10 (action 28) : hier, 7 j et 30 j
     debut, fin = periode_en_cours()
     debut = _debut_paie(uid, debut, d)                                  # 08/10 : passé au clic ce jour-là
     q = somme(d, lids, debut, min(fin, hier))
@@ -1483,6 +1484,7 @@ def texte_mesclics(d: dict, uid: str, nom: str) -> str:
             + ligne_hier +
             f"Sur 7 jours : **{visites_7}** visites qui comptent, sur {visiteurs_7} visiteurs"
             + (f" ({_jours_non_lus(n7)})" if n7 else "") + ".\n\n"
+            + (f"Sur 30 jours : **{_fmt(s30['payes'])}** visites qui comptent.\n\n" if s30["jours"] else "")
             + ((f"💸 **Ta paie en cours : {montant_q}** ({visites_q} visites du {debut.strftime('%d/%m')} au "
                 f"{min(fin, hier).strftime('%d/%m')}{reste_q}), date de paie prévue : {prochaine_paie(_aujourdhui()).strftime('%d/%m')}.\n") if au_clic else
                (f"Période du {debut.strftime('%d/%m')} au {min(fin, hier).strftime('%d/%m')} : **{visites_q} visites**"
@@ -2596,8 +2598,10 @@ def top_uids(d: dict, hier: date, n: int = 5) -> list:
     return [uid for uid, v in sorted((r for r in rangs if r[1] > 0), key=lambda r: -r[1])[:n]]
 
 
-def texte_classement(d: dict, nom_de, hier: date, n: int = 5) -> str:
-    """28/09 (GO n° 7) : le lundi, dans #dopamine, les cinq premiers en visites payées sur les sept derniers jours. '' si personne."""
+def texte_classement(d: dict, nom_de, hier: date, n: int = 5, equipe_de=None) -> str:
+    """28/09 (GO n° 7) : le lundi, dans #dopamine, les cinq premiers en visites payées sur les sept derniers jours. '' si personne.
+    18/10 (action 28 du plan : « classement par équipe TL ») : `equipe_de(uid)` → nom de l'équipe (prénom du TL) ou None ; les
+    équipes sont classées dessous, avec le seuil de prime d'équipe."""
     debut = hier - timedelta(days=6)
     par_uid = {}
     for lid, info in d["liens"].items():
@@ -2612,8 +2616,24 @@ def texte_classement(d: dict, nom_de, hier: date, n: int = 5) -> str:
         return ""
     rangs.sort(key=lambda r: -r[1])
     lignes = [f"{i}. **{nom}** · {_fmt(v)} visites = {_usd(v * TAUX_CLIC)}" for i, (nom, v) in enumerate(rangs[:n], 1)]
-    return (f"🏆 **Top {min(n, len(rangs))} de la semaine** ({debut.strftime('%d/%m')} → {hier.strftime('%d/%m')})\n" + "\n".join(lignes)
-            + f"\n-# {len(rangs)} clipper(s) ont fait des visites cette semaine. Une visite = {_usd(TAUX_CLIC)}.")
+    texte = (f"🏆 **Top {min(n, len(rangs))} de la semaine** ({debut.strftime('%d/%m')} → {hier.strftime('%d/%m')})\n" + "\n".join(lignes)
+             + f"\n-# {len(rangs)} clipper(s) ont fait des visites cette semaine. Une visite = {_usd(TAUX_CLIC)}.")
+    if equipe_de is not None:
+        equipes = {}
+        for uid, lids in par_uid.items():
+            try:
+                nom_e = equipe_de(uid)
+            except Exception:                                           # noqa: BLE001
+                nom_e = None
+            if nom_e:
+                e = equipes.setdefault(nom_e, [0, 0])
+                e[0] += somme(d, lids, debut, hier)["payes"]
+                e[1] += 1
+        if equipes:
+            ordre = sorted(equipes.items(), key=lambda x: -x[1][0])
+            texte += ("\n\n👥 **Équipes de la semaine**\n" + "\n".join(
+                f"{i}. **Équipe {nom}** · {_fmt(v)} visites · {k} clipper(s)" for i, (nom, (v, k)) in enumerate(ordre, 1)))
+    return texte
 
 
 async def envoyer_lignes_matin(d: dict) -> int:
@@ -3085,7 +3105,13 @@ async def boucle(client, deps: dict):
                 try:
                     canal_c = await _deps["canal_dopamine"]()
                     prenom_c = lambda uid: (getattr(_deps["membre_par_id"](uid), "display_name", None) or f"id {uid}").split(" - ")[0]   # noqa: E731
-                    texte_c = texte_classement(d, prenom_c, maintenant.date() - timedelta(days=1))
+                    try:                                        # 18/10 (action 28) : le classement par équipe TL
+                        import equipes_tl
+                        va_tl = equipes_tl.tl_par_va()
+                    except Exception:                           # noqa: BLE001
+                        va_tl = {}
+                    texte_c = texte_classement(d, prenom_c, maintenant.date() - timedelta(days=1),
+                                               equipe_de=(lambda uid: prenom_c(va_tl[uid]) if uid in va_tl else None) if va_tl else None)
                     if canal_c is not None and texte_c:
                         await canal_c.send(texte_c[:1990])
                     if texte_c and _deps.get("apres_classement"):       # 29/09 (GO axe 8) : le lien de parrainage aux cinq premiers

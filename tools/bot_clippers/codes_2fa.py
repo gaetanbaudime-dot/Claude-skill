@@ -2648,8 +2648,8 @@ async def _sante_ok():
 # 18/10 (action 26 du plan : « zéro code pendant deux jours en octobre, personne ne l'a vu ») : la boîte peut être lisible et ne
 # plus rien recevoir (transfert coupé, adresse changée). Aucun e-mail Meta arrivé depuis CODES_SILENCE_MIN minutes, de jour à
 # Paris (CODES_SILENCE_HEURES, défaut 9 h → 23 h : la nuit, le silence est normal) : une ligne au salon admin, une fois par
-# silence ; une seconde quand les codes reviennent. CODES_SILENCE_MIN=0 coupe la surveillance.
-SILENCE_MIN = int(os.environ.get("CODES_SILENCE_MIN", "180") or 0)
+# silence ; une seconde quand les codes reviennent. CODES_SILENCE_MIN=0 coupe la surveillance. 18/10 : 120 min par défaut (action 26 du plan : « aucun code relayé depuis 2 h »).
+SILENCE_MIN = int(os.environ.get("CODES_SILENCE_MIN", "120") or 0)
 SILENCE_HEURES = tuple(int(x) for x in (os.environ.get("CODES_SILENCE_HEURES", "9-23") or "9-23").split("-")[:2])
 
 
