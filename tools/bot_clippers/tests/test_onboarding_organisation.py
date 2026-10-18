@@ -137,6 +137,55 @@ class Organisation(unittest.IsolatedAsyncioTestCase):
         self.assertIn('Message du compte 1 vérifié', await fn(membre.guild, membre, 'Fictive', None, {}, []))
         ns['onboarding'].livrer.assert_awaited_once()
 
+    async def test_parcours_ordinaire_preserve_autres_permissions_tl(self):
+        ns, membre, salon, _ = self.contexte()
+        originale = discord.PermissionOverwrite(view_channel=True, read_message_history=True,
+            send_messages=False, attach_files=False, embed_links=True, add_reactions=True,
+            manage_messages=False)
+        avant = originale.pair()
+        salon.overwrites_for = lambda m: originale
+        resultat = await charger('onboarder_membre', ns)(membre.guild, membre, 'Fictive', None, {}, [])
+        self.assertIn('Message du compte 1 vérifié', resultat)
+        cible = salon.set_permissions.await_args.args[0]
+        kw = salon.set_permissions.await_args.kwargs
+        self.assertEqual(90, cible.id)
+        self.assertEqual({'overwrite', 'reason'}, set(kw))
+        envoyee = kw['overwrite']
+        self.assertTrue(envoyee.view_channel and envoyee.send_messages and envoyee.read_message_history)
+        self.assertFalse(envoyee.attach_files)
+        self.assertTrue(envoyee.embed_links)
+        for permission, valeur in originale:
+            if permission not in ('view_channel', 'send_messages', 'read_message_history'):
+                self.assertEqual(valeur, getattr(envoyee, permission), permission)
+        self.assertEqual(avant, originale.pair())
+
+    async def test_parcours_ancien_clippeur_ou_rang_ne_remplace_pas_clippeur(self):
+        for nom in ('Ancien Clippeur', 'Clippeur confirmé', 'Rookie', 'Elite'):
+            with self.subTest(nom=nom):
+                ns, membre, salon, _ = self.contexte()
+                membre.guild.roles[0].name = nom
+                resultat = await charger('onboarder_membre', ns)(membre.guild, membre, 'Fictive', None, {}, [])
+                self.assertIn('Rôle Clippeur absent, ambigu ou configuration divergente', resultat)
+                ns['onboarding'].livrer.assert_not_awaited()
+                ns['poser_role_equipe'].assert_not_awaited()
+
+    async def test_parcours_ordinaire_ecriture_ou_historique_refuse_ne_livre_rien(self):
+        for permission in ('send_messages', 'read_message_history'):
+            with self.subTest(permission=permission):
+                ns, membre, salon, _ = self.contexte()
+                def droits(personne):
+                    valeurs = dict(view_channel=True, send_messages=True, read_message_history=True)
+                    if personne.id == membre.id:
+                        valeurs[permission] = False
+                    return N(**valeurs)
+                salon.permissions_for = droits
+                resultat = await charger('onboarder_membre', ns)(membre.guild, membre, 'Fictive', None, {}, [])
+                self.assertIn('Organisation non confirmée', resultat)
+                ns['onboarding'].livrer.assert_not_awaited()
+                ns['parcours'].demarrer_parcours.assert_not_awaited()
+                ns['attribution']._sortir_d_attente.assert_not_called()
+                self.assertEqual(90, salon.set_permissions.await_args.args[0].id)
+
     async def test_message_local_sans_preuve_distante_ne_clot_pas_attente(self):
         for panne in ('absent', 'lecture', 'humain'):
             ns, membre, salon, _ = self.contexte()
@@ -153,6 +202,17 @@ class Organisation(unittest.IsolatedAsyncioTestCase):
 
 class Informations(unittest.IsolatedAsyncioTestCase):
     setUp = orchestration.OnboardingTests.setUp
+
+    def test_role_clippeur_exige_nom_normalise_exact_et_unique(self):
+        for nom in ('Ancien Clippeur', 'Clippeur confirmé', 'SuperClippeur', 'Clippeurs', 'АClippeur', 'Rookie', 'Elite'):
+            with self.subTest(nom=nom):
+                self.assertIsNone(accueil.role_clippeur(N(roles=[N(id=1, name=nom)])))
+        for nom in ('Clippeur', ' CLIPPEUR ', '🎬 · Clippeur'):
+            role = N(id=1, name=nom)
+            ancien = N(id=2, name='Ancien Clippeur')
+            self.assertIs(role, accueil.role_clippeur(N(roles=[ancien, role])))
+        self.assertIsNone(accueil.role_clippeur(N(roles=[N(id=1, name='Clippeur', managed=True)])))
+        self.assertIsNone(accueil.role_clippeur(N(roles=[N(id=1, name='Clippeur'), N(id=2, name='Clippeur')])))
 
     def test_selection_dans_la_seule_categorie_sans_repli_arbitraire(self):
         perso, info = N(id=1, name='fictif'), N(id=80, name='ℹ️-informations')

@@ -80,6 +80,7 @@ class OnboardingTests(unittest.IsolatedAsyncioTestCase):
         guild = SimpleNamespace(me=SimpleNamespace(id=91), roles=[clippeur, role])
         membre.guild = guild
         salon = SimpleNamespace(id=99, category_id=50, guild=guild, set_permissions=AsyncMock(), permissions_for=droits,
+            overwrites_for=lambda m:discord.PermissionOverwrite(),
             fetch_message=AsyncMock(return_value=SimpleNamespace(id=123, author=guild.me, content='<#80>')))
         guild.fetch_channel = AsyncMock(side_effect=lambda mid: salon if mid == 99 else info)
         guild.fetch_member = AsyncMock(side_effect=lambda uid: membre if uid == 42 else SimpleNamespace(id=90))

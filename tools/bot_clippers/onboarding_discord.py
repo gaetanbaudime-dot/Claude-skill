@@ -5,10 +5,21 @@ import unicodedata
 import discord
 
 
+def surcharge_acces_tl(salon, tl):
+    """Ouvrir les trois accès attendus sans effacer les autres permissions du TL."""
+    overwrite = discord.PermissionOverwrite.from_pair(*salon.overwrites_for(tl).pair())
+    overwrite.update(view_channel=True, send_messages=True, read_message_history=True)
+    return overwrite
+
+
 def role_clippeur(guild):
     """Le rôle Clippeur doit être unique ; un rang ou une équipe ne le remplace pas."""
+    def nom_exact(role):
+        nom = unicodedata.normalize('NFKD', role.name.casefold())
+        nom = ''.join(c for c in nom if not unicodedata.combining(c))
+        return re.findall(r'[^\W_]+', nom) == ['clippeur']
     candidats = [r for r in guild.roles if not getattr(r, 'managed', False)
-                 and re.search(r'(?<!\w)clippeur(?!\w)', r.name.casefold())]
+                 and nom_exact(r)]
     return candidats[0] if len(candidats) == 1 else None
 
 

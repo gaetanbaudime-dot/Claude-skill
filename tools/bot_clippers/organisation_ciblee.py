@@ -16,7 +16,7 @@ import unicodedata
 
 import discord
 import choix_creatrice
-from onboarding_discord import role_clippeur
+from onboarding_discord import role_clippeur, surcharge_acces_tl
 from onboarding_preuves import salon_vide_verifie, tl_pour
 
 
@@ -140,8 +140,10 @@ async def examiner(guild, root, uid, mapping):
         if not salon.permissions_for(guild.me).manage_roles:
             raise Retenue('Permission du bot insuffisante pour l’accès TL.')
         actions.append(('tl', tl.id))
-    if not actions and not salon.permissions_for(membre).view_channel:
-        raise Retenue('Le clippeur reste sans accès : surcharge individuelle hors périmètre.')
+    droits_membre = salon.permissions_for(membre)
+    if not actions and not (droits_membre.view_channel and droits_membre.send_messages
+                            and droits_membre.read_message_history):
+        raise Retenue('Lecture, écriture ou historique refusé au clippeur : restriction hors périmètre.')
     if sources(root, uid, mapping) != affectation:
         raise Retenue('Affectation modifiée pendant la lecture : relancer le diagnostic.')
     reference = {**affectation, 'salon': str(salon.id), 'categorie': str(categorie.id),
@@ -186,9 +188,8 @@ async def appliquer(guild, root, uid, mapping, source, diagnostic):
         genre, identifiant = action
         salon = courant['salon']
         attendues = dict(courant['permissions'])
-        overwrite = copy(salon.overwrites_for(courant['tl']))
         if genre == 'tl':
-            overwrite.update(view_channel=True, send_messages=True, read_message_history=True)
+            overwrite = surcharge_acces_tl(salon, courant['tl'])
             attendues[str(identifiant)] = [p.value for p in overwrite.pair()]
         journaliser(root, uid, source, 'intention', action=action, permissions_avant=courant['permissions'])
         try:

@@ -155,6 +155,48 @@ class OrganisationCiblee(unittest.IsolatedAsyncioTestCase):
         self.assertIn('Historique privé présent ou illisible', await self.appeler())
         self.aucun_effet()
 
+    async def verifier_refus_clippeur(self, permission, deja_organise):
+        restriction = discord.PermissionOverwrite(view_channel=True, send_messages=True,
+            read_message_history=True, attach_files=False, add_reactions=False)
+        setattr(restriction, permission, False)
+        self.salon.overwrites[self.membre] = restriction
+        avant = restriction.pair()
+        autres_avant = self.salon.overwrites_for(self.autre).pair()
+        if deja_organise:
+            self.membre.roles.extend([self.clippeur, self.creatrice])
+            self.salon.category_id = self.categorie.id
+            self.salon.overwrites[self.tl].update(view_channel=True, send_messages=True, read_message_history=True)
+        texte = await self.appeler()
+        self.assertIn('Lecture, écriture ou historique refusé', texte)
+        self.assertNotIn('Organisation vérifiée', texte)
+        journal = self.root/'organisation-42.jsonl'
+        if deja_organise:
+            self.aucun_effet()
+            self.assertFalse(journal.exists())
+        else:
+            self.assertTrue(journal.exists())
+            self.assertNotIn('termine', {e['etat'] for e in self.journal()})
+            self.assertEqual('non_confirme', self.journal()[-1]['etat'])
+        self.assertEqual(avant, self.salon.overwrites_for(self.membre).pair())
+        self.assertEqual(autres_avant, self.salon.overwrites_for(self.autre).pair())
+        self.assertTrue(all(a.args[0].id == self.tl.id for a in self.salon.set_permissions.await_args_list))
+        self.sources_inchangees()
+
+    async def test_ecriture_refusee_apres_reparation_ne_marque_pas_succes(self):
+        await self.verifier_refus_clippeur('send_messages', deja_organise=False)
+
+    async def test_lecture_refusee_apres_reparation_ne_marque_pas_succes(self):
+        await self.verifier_refus_clippeur('view_channel', deja_organise=False)
+
+    async def test_historique_refuse_apres_reparation_ne_marque_pas_succes(self):
+        await self.verifier_refus_clippeur('read_message_history', deja_organise=False)
+
+    async def test_ecriture_refusee_organisation_deja_en_place_ne_marque_pas_succes(self):
+        await self.verifier_refus_clippeur('send_messages', deja_organise=True)
+
+    async def test_historique_refuse_organisation_deja_en_place_ne_marque_pas_succes(self):
+        await self.verifier_refus_clippeur('read_message_history', deja_organise=True)
+
     async def test_historique_deja_visible_tl_pas_de_nouvelle_exposition(self):
         self.salon.overwrites[self.tl].update(view_channel=True, read_message_history=True, send_messages=False)
         self.salon.history = Mock(side_effect=AssertionError('Lecture inutile'))
@@ -242,6 +284,15 @@ class OrganisationCiblee(unittest.IsolatedAsyncioTestCase):
         self.role_bot.position = 1
         self.assertIn('Hiérarchie', await self.appeler())
         self.aucun_effet()
+
+    async def test_ancien_clippeur_ou_rang_seul_retenu_sans_mutation(self):
+        for nom in ('Ancien Clippeur', 'Clippeur confirmé', 'Rookie', 'Elite'):
+            with self.subTest(nom=nom):
+                self.clippeur.name = nom
+                self.assertIn('rôles attendus absents ou ambigus', await self.appeler())
+                self.aucun_effet()
+        self.assertFalse((self.root/'organisation-42.jsonl').exists())
+        self.sources_inchangees()
 
     async def test_changement_affectation_durant_lecture_retenu(self):
         async def lire():

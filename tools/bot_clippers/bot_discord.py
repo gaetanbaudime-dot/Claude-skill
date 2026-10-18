@@ -5441,7 +5441,7 @@ async def onboarder_membre(g, m_, creatrice_c: str, par, etats_cl: dict, mgrs: l
                 if not await onboarding_preuves.salon_vide_verifie(salon_c):
                     return "⚠️ Accès TL retenu : historique présent ou illisible, vérification humaine nécessaire."
             try:
-                await salon_c.set_permissions(tl, view_channel=True, send_messages=True, read_message_history=True,
+                await salon_c.set_permissions(tl, overwrite=onboarding_discord.surcharge_acces_tl(salon_c, tl),
                                               reason="Team leader configuré du clippeur")
             except (discord.HTTPException, TimeoutError, OSError):
                 return "⚠️ Accès TL non confirmé : reprise conservée."
