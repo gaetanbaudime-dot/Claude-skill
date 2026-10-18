@@ -64,6 +64,8 @@ WARMUP_H = int(os.environ.get("PARCOURS_WARMUP_H", "24") or 24)
 # 48 h après le compte 2, quand 4 Reels sont publiés sur le compte 2 ET 4 Reels de plus sur le compte 1 depuis la création du
 # compte 2 (`sources_reels`, base retenue dans `base_reels["3"]`).
 PRIVE_EN_2 = False
+# 18/10 (Gaëtan, P4 révisée : « Go pas bloquer le process pour ça ») : le moyen de paiement ne bloque JAMAIS la création d'un
+# compte. L'adresse USDC est demandée dans l'app à chaque paiement ; Lilian, Caroline, Lucas, Josué restent payés sur IBAN.
 
 
 def ordre(fiche_p: dict) -> str:
@@ -1599,7 +1601,7 @@ def vues_persistantes(client=None) -> list:
     """09/10 : les boutons persistants du parcours (custom_id fixes, ils survivent aux redémarrages) : « ✅ » des étapes
     (BoutonEtape), « ✅ J'ai écrit à Gaëtan » (BoutonWhatsApp) et « ✅ C'est fait » de la bienvenue (BoutonPret, « pret:<uid> »).
     Enregistrés sur `client` (sinon le client de configurer) ; la liste est renvoyée dans tous les cas."""
-    classes = [BoutonEtape, BoutonWhatsApp, BoutonPret]
+    classes = [BoutonEtape, BoutonWhatsApp, BoutonPret, BoutonGroupeTL]
     client = client if client is not None else _deps.get("client")
     if client is not None and hasattr(client, "add_dynamic_items"):
         client.add_dynamic_items(*classes)
@@ -2055,6 +2057,76 @@ class BoutonWhatsApp(discord.ui.DynamicItem[discord.ui.Button], template=r"wa:(?
                                      f"ajoute-le au groupe. Pas vrai ? `!wa @{prenom} non`.")
             except Exception:                                           # noqa: BLE001
                 pass
+
+
+class BoutonGroupeTL(discord.ui.DynamicItem[discord.ui.Button], template=r"watl:(?P<uid>[0-9]+)"):
+    """18/10 (Gaëtan, règles gelées E8 : « le groupe WhatsApp créatrice est créé par le TL, qui appuie sur groupe créé ; Gaëtan
+    ne crée plus de groupe, mais il doit être dans le groupe ») : posé dans le salon perso à l'arrivée, sous un message qui
+    mentionne le TL. Seul le TL du clipper (ou un admin) peut appuyer : l'heure est notée (`whatsapp`, `whatsapp_par` = tl:<id>),
+    Gaëtan est prévenu au salon admin. Persistant (custom_id), comme les autres boutons du parcours."""
+
+    def __init__(self, uid: str):
+        super().__init__(discord.ui.Button(label="👥 Groupe WhatsApp créé", style=discord.ButtonStyle.success,
+                                           custom_id=f"watl:{uid}"))
+        self.uid = str(uid)
+
+    @classmethod
+    async def from_custom_id(cls, interaction, item, match):
+        return cls(match["uid"])
+
+    async def callback(self, interaction: discord.Interaction):
+        qui = str(interaction.user.id)
+        tl = ""
+        try:
+            import equipes_tl
+            import onboarding_preuves
+            creatrice = str((_lire().get(self.uid) or {}).get("creatrice") or "")
+            # la même résolution que l'arrivée : l'affectation du clipper, sinon le TL unique de sa créatrice (`!tl Chloé @x`)
+            tl = str(onboarding_preuves.tl_pour(self.uid, creatrice, equipes_tl.tl_par_va(), equipes_tl._fiches()) or "")
+            admin = equipes_tl.est_admin(interaction.user)
+        except Exception:                                               # noqa: BLE001
+            admin = False
+        if qui != tl and not admin:
+            await interaction.response.send_message("Ce bouton est pour le team leader de ce clipper 🙂", ephemeral=True)
+            return
+        deja = (_lire().get(self.uid) or {}).get("whatsapp_par", "")
+        if not marquer_whatsapp(self.uid, par=f"tl:{qui}"):
+            await interaction.response.send_message("Le parcours de ce clipper n'a pas encore commencé.", ephemeral=True)
+            return
+        await interaction.response.send_message("👥 Noté : groupe WhatsApp créé. Merci !", ephemeral=True)
+        if not str(deja).startswith("tl:"):
+            try:
+                canal = await _deps["canal_admin"]() if _deps.get("canal_admin") else None
+                if canal is not None:
+                    f_wa = _lire().get(self.uid) or {}
+                    await canal.send(f"👥 Groupe WhatsApp de {f_wa.get('prenom') or self.uid} (<@{self.uid}>, "
+                                     f"{f_wa.get('creatrice') or '?'}) créé par <@{qui}>.")
+            except Exception:                                           # noqa: BLE001
+                pass
+
+
+TEXTE_GROUPE_TL = ("👥 {tl} : crée le groupe WhatsApp de {prenom} pour {creatrice} (toi, {prenom} et Gaëtan), puis appuie sur "
+                   "le bouton ci-dessous.")
+
+
+async def demander_groupe_tl(salon, uid: str, tl, prenom: str, creatrice: str) -> bool:
+    """18/10 (E8) : le message au TL dans le salon perso, une seule fois par clipper (`groupe_tl_demande` dans la fiche, écrit
+    avant l'envoi). Renvoie True si le message est parti. Jamais d'exception : l'arrivée ne dépend pas de ce message."""
+    try:
+        d = _lire()
+        fiche_p = d.get(str(uid))
+        if fiche_p is None or fiche_p.get("groupe_tl_demande") or tl is None:
+            return False
+        fiche_p["groupe_tl_demande"] = _maintenant()
+        _ecrire(d)
+        vue = discord.ui.View(timeout=None)
+        vue.add_item(BoutonGroupeTL(str(uid)))
+        await salon.send(TEXTE_GROUPE_TL.format(tl=tl.mention, prenom=prenom or "ce clipper", creatrice=creatrice or "sa créatrice"),
+                         view=vue)
+        return True
+    except Exception as erreur:                                         # noqa: BLE001
+        journal.warning("Demande de groupe au TL pour %s : %s", uid, type(erreur).__name__)
+        return False
 
 
 # ------------------------------------------------------------------ app clippers

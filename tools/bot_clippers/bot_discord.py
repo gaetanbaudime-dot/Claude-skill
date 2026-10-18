@@ -45,6 +45,7 @@ import parcours                           # parcours guidé du clipper dans son 
 import etats_comptes                      # colonne ETAT du classeur mise à jour depuis Instagram (26/09)
 import dashboard                          # 09/10 (dashboard) : onglet Dashboard, une ligne par compte, réécrit toutes les 15 min si changé
 import matin                              # un seul message du matin par clipper (26/09)
+import fusion_forms                       # 18/10 : réponses des anciens Google Forms en haut de « Candidatures bot »
 import sortie_auto                        # sortie automatique : averti à 3 jours sans Reel, sorti à 7 (30/09)
 import parrainage                         # !parrain : 5 $ au parrain à la première paie du filleul (28/09)
 import pods                              # !pods : POD neufs au classeur des logins (30/09)
@@ -240,6 +241,7 @@ FICHIER_FAQ_APPRISE = DONNEES / "faq_apprise.md"             # ajouts via !appre
 FICHIER_AJOUTS = DONNEES / "connaissances_ajouts.md"         # 05/10 : les ajouts de Gaëtan en texte libre (!apprendre), PRIMAIRES
 FICHIER_COMPTEUR_VERSE = DONNEES / "compteur_verse.json"     # {"total": float, "message_id": int}
 FICHIER_INVITES = DONNEES / "invites.json"                   # attribution des joins par invitation
+FICHIER_FUSION_FORMS = DONNEES / "fusion_forms.json"                   # 18/10 : sources des Forms déjà fusionnées
 JOURNAL_PAIEMENTS = DONNEES / "paiements.jsonl"              # trace de chaque !paiement
 FICHIER_EQUIPES = DONNEES / "equipes.json"                   # registre des signatures : {membre_id: {"equipe", "par", "date"}}
 FICHIER_RAPPELS = DONNEES / "rappels.json"                   # anti-doublon des rappels quotidiens/hebdo
@@ -2488,6 +2490,8 @@ async def lire_candidatures_sheets(forcer: bool = False) -> list:
     for onglet, source in ((SHEET_CANDIDATURES_FORM_ONGLET, "formulaire"), (SHEET_CANDIDATURES_ONGLET, "site")):
         if not onglet:
             continue
+        if source == "formulaire" and fusion_forms.principal_fusionne(FICHIER_FUSION_FORMS):
+            continue                                                    # 18/10 : ses réponses sont en haut de l'onglet du site
         try:
             brut = await lire_onglet_candidatures(onglet)
         except Exception as erreur:                                        # noqa: BLE001
@@ -2503,8 +2507,8 @@ async def lire_candidatures_sheets(forcer: bool = False) -> list:
             if not any(x.strip() for x in r[:6]):
                 continue
             c = {champ: r[i].strip() for champ, i in cols.items()}
-            c["source"] = source
             c["src"] = r[i_src].strip() if i_src is not None else ""
+            c["source"] = "formulaire" if c["src"].startswith("form-") else source   # 18/10 : réponses des Forms fusionnées
             c["date"] = _date_candidature(c.get("date", ""))
             c["tel_chiffres"] = _chiffres_tel(c.get("tel", ""))
             lignes.append(c)
@@ -2716,6 +2720,19 @@ async def entretien_candidatures_sheet():
     09/10 (revue du funnel : la ligne « 📋 Classeur des candidatures » repartait au salon admin à chaque redéploiement) : le bilan
     va au journal, plus jamais au salon. 10/10 (L9a) : plus de notation /8 des onglets (plus lue par personne)."""
     await client.wait_until_ready()
+    if SHEET_CANDIDATURES_ID and google_api.actif() and SHEET_CANDIDATURES_ONGLET:
+        try:                                                            # 18/10 : réponses des anciens Forms, une fois
+            bilan = await fusion_forms.executer(google_api, SHEET_CANDIDATURES_ID, SHEET_CANDIDATURES_ONGLET,
+                                                SHEET_CANDIDATURES_FORM_ONGLET, FICHIER_FUSION_FORMS, normaliser,
+                                                _colonnes_candidature, lire_onglet_candidatures)
+            if bilan:
+                _cache_candidatures["quand"] = 0.0
+                journal.info(bilan)
+                salon = await canal_admin()
+                if salon is not None:
+                    await salon.send(bilan)
+        except Exception as erreur:                                     # noqa: BLE001 — jamais bloquer le démarrage
+            journal.warning("Fusion des Forms : %s", erreur)
     try:
         deplacees = await compacter_candidatures_sheet()
     except Exception as erreur:                                            # noqa: BLE001
@@ -5476,6 +5493,9 @@ async def onboarder_membre(g, m_, creatrice_c: str, par, etats_cl: dict, mgrs: l
             p_final = parcours._lire().get(uid_m) or {}
             if not (p_final.get("messages") or {}).get("1"):
                 return "⚠️ Compte 1 non livré : reprise conservée. " + str(bilan_onb_c)[:120]
+            demande_groupe = getattr(parcours, "demander_groupe_tl", None)     # 18/10 (E8) : le TL crée le groupe WhatsApp
+            if demande_groupe is not None:                                    # jamais au prix de l'arrivée (la fonction n'échoue pas)
+                await demande_groupe(salon_c, uid_m, tl, prenom_c, creatrice_c)
             attribution._sortir_d_attente(uid_m)
             attribution.resoudre_blocage(uid_m)
             return (f"{'🆕' if cree_c else '✅'} {m_.display_name} → {creatrice_c} · <#{salon_c.id}>"
