@@ -1559,6 +1559,7 @@ def _cle_tri(t) -> tuple:
 
 def _numeroter(entree: dict) -> dict:
     e = _etat()
+    e["dernier_code"] = _maintenant().isoformat(timespec="seconds")   # 18/10 : la surveillance du silence (action 26)
     e["n"] = int(e.get("n") or 0) + 1
     entree["n"] = e["n"]
     return entree
@@ -2644,6 +2645,57 @@ async def _sante_ok():
         await _admin("✅ Boîte des codes de nouveau lisible.")
 
 
+# 18/10 (action 26 du plan : « zéro code pendant deux jours en octobre, personne ne l'a vu ») : la boîte peut être lisible et ne
+# plus rien recevoir (transfert coupé, adresse changée). Aucun e-mail Meta arrivé depuis CODES_SILENCE_MIN minutes, de jour à
+# Paris (CODES_SILENCE_HEURES, défaut 9 h → 23 h : la nuit, le silence est normal) : une ligne au salon admin, une fois par
+# silence ; une seconde quand les codes reviennent. CODES_SILENCE_MIN=0 coupe la surveillance.
+SILENCE_MIN = int(os.environ.get("CODES_SILENCE_MIN", "180") or 0)
+SILENCE_HEURES = tuple(int(x) for x in (os.environ.get("CODES_SILENCE_HEURES", "9-23") or "9-23").split("-")[:2])
+
+
+def silence_a_signaler(dernier_iso: str, maintenant: datetime, heure_paris: int, seuil_min: int = None,
+                       heures: tuple = None) -> int:
+    """Les minutes de silence à signaler (0 = rien à dire) : seuil dépassé et heure de Paris dans la plage de jour."""
+    seuil = SILENCE_MIN if seuil_min is None else seuil_min
+    debut, fin = heures or SILENCE_HEURES
+    if not seuil or not dernier_iso or not (debut <= heure_paris < fin):
+        return 0
+    try:
+        dernier = datetime.fromisoformat(str(dernier_iso))
+    except ValueError:
+        return 0
+    if dernier.tzinfo is None:
+        dernier = dernier.replace(tzinfo=timezone.utc)
+    minutes = int((maintenant - dernier).total_seconds() // 60)
+    return minutes if minutes >= seuil else 0
+
+
+async def surveiller_silence():
+    """Un passage de la surveillance (appelé à chaque tour du lecteur)."""
+    e = _etat()
+    maintenant = _maintenant()
+    if not e.get("dernier_code"):                                       # premier démarrage : le silence part de maintenant
+        e["dernier_code"] = maintenant.isoformat(timespec="seconds")  # écrit avec le prochain état sauvé
+        return
+    try:
+        from zoneinfo import ZoneInfo
+        heure = maintenant.astimezone(ZoneInfo("Europe/Paris")).hour
+    except Exception:                                                   # noqa: BLE001 — base de fuseaux absente
+        heure = (maintenant + timedelta(hours=2)).hour
+    minutes = silence_a_signaler(e["dernier_code"], maintenant, heure)
+    if minutes and not e.get("silence_signale"):
+        h, m = divmod(minutes, 60)
+        if await _admin(f"⚠️ **Aucun code Instagram reçu depuis {h} h {m:02d}** alors que la boîte des codes est lisible.\n\n"
+                        "Vérifie le transfert des e-mails des comptes vers la boîte des codes (adresses iCloud, règle Gmail). "
+                        "D'ici là, un clipper qui crée un compte ne reçoit pas son code."):
+            e["silence_signale"] = e["dernier_code"]
+            _sauver()
+    elif e.get("silence_signale") and e.get("silence_signale") != e.get("dernier_code"):
+        e.pop("silence_signale", None)
+        _sauver()
+        await _admin("✅ Les codes Instagram arrivent de nouveau dans la boîte des codes.")
+
+
 async def boucle_codes(client, canal_admin_async, admin_ids):
     """Le lecteur unique (10/10) : IDLE ou sondage toutes les SONDAGE_SEC secondes, les seuls mails nouveaux, puis
     _traiter_lus. Jamais tuée par un mail ou une panne. 10/10 (revue) : un passage coupé n'avance rien (le Lecteur ne pose
@@ -2692,6 +2744,10 @@ async def boucle_codes(client, canal_admin_async, admin_ids):
             continue
         _SANTE["traitement_echecs"] = 0
         await _sante_ok()
+        try:
+            await surveiller_silence()
+        except Exception as erreur:                                     # noqa: BLE001 — jamais tuer le lecteur
+            journal.warning("Codes : surveillance du silence : %s", _err(erreur))
         uid = {k: dict(v) for k, v in LECTEUR.etat.items()}
         if uid != _etat().get("uid"):                                  # écrit seulement quand un mail est arrivé
             _etat()["uid"] = uid
