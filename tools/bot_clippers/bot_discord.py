@@ -5496,8 +5496,9 @@ async def onboarder_membre(g, m_, creatrice_c: str, par, etats_cl: dict, mgrs: l
                 return f"❌ {m_.display_name} : {err_c or 'salon impossible'}"
             if tl is not None and not cree_c and not (salon_c.permissions_for(tl).view_channel
                                                       and salon_c.permissions_for(tl).read_message_history):
-                if not await onboarding_preuves.salon_vide_verifie(salon_c):
-                    return "⚠️ Accès TL retenu : historique présent ou illisible, vérification humaine nécessaire."
+                if not await onboarding_preuves.salon_partageable(salon_c, uid_m):
+                    return ("⚠️ Accès TL retenu : historique avec des messages d'autres personnes (ou illisible), "
+                            "vérification humaine nécessaire.")
             if tl is not None:
                 try:
                     await salon_c.set_permissions(tl, overwrite=onboarding_discord.surcharge_acces_tl(salon_c, tl),

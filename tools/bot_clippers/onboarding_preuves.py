@@ -54,6 +54,26 @@ def tl_pour(uid, creatrice, mapping, registre):
     return candidats[0] if len(candidats)==1 else None
 
 
+async def salon_partageable(salon, uid, limite: int = 100) -> bool:
+    """18/10 (Georgial : « Accès TL retenu : historique présent » alors que son salon ne contenait que le compte 1 posté par le bot) :
+    le TL du clipper peut entrer dans un salon dont TOUS les messages (au plus `limite`, lus en entier) viennent du bot ou du
+    clipper lui-même : il n'y découvre rien qu'il ne doive voir (la remise du compte 1 autorise déjà son TL). Un message d'un tiers,
+    un historique plus long que `limite` ou une lecture impossible gardent la vérification humaine."""
+    try:
+        permissions = salon.permissions_for(salon.guild.me)
+        if not (permissions.view_channel and permissions.read_message_history):
+            return False
+        autorises = {str(salon.guild.me.id), str(uid)}
+        n = 0
+        async for message in salon.history(limit=limite + 1):
+            n += 1
+            if n > limite or str(getattr(message.author, "id", "")) not in autorises:
+                return False
+        return True
+    except Exception:
+        return False
+
+
 async def salon_vide_verifie(salon):
     """Lecture bornée : aucun ancien message n'est partagé sur une simple supposition.
 
