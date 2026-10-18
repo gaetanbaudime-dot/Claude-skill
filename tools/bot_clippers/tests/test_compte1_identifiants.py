@@ -38,6 +38,9 @@ class IdentifiantsTests(unittest.TestCase):
         self.assertIsNone(self._lancer([LIGNE], gerant="Thia"))
         self.assertIsNone(self._lancer([LIGNE, dict(LIGNE)]))
 
+    def test_mail_invalide_jamais_envoye(self):
+        self.assertIsNone(self._lancer([dict(LIGNE, mail="Muse2!Echo#98GlowAgency")]))
+
     def test_modele_complet(self):
         texte = remise_compte1.modele("<@7>", "neuf_un", "x@exemple.test", "Secret123")
         for morceau in ("`neuf_un`", "`x@exemple.test`", "`Secret123`", "!code"):
