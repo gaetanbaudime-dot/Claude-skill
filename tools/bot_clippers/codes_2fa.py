@@ -47,6 +47,7 @@ ROLE_MANAGER_NOM = os.environ.get("ROLE_MANAGER_NOM", "Manager").strip()
 # 10/10 : IDLE au plus SONDAGE_SEC secondes (le code arrive en quelques secondes), sinon une lecture toutes les SONDAGE_SEC.
 SONDAGE_SEC = int(os.environ.get("CODES_SONDAGE_SEC", "20") or 20)
 ATTENTE_SEC = int(os.environ.get("CODES_ATTENTE_SEC", "300") or 300)    # le guet après « 📩 Mon code » : 5 min
+CODE_SALON_EFFACE_MIN = int(os.environ.get("CODES_SALON_EFFACE_MIN", "10") or 10)   # 18/10 : `!code` répond dans le salon
 FRAIS_MIN = min(20, max(1, int(os.environ.get("CODES_FRAIS_MIN", "20") or 20)))  # 18/10 (Gaëtan) : les 20 dernières minutes
 SALON_CODES_MINUTES = min(10, max(1, int(os.environ.get("CODES_SALON_MINUTES", "10") or 10)))
 CACHE_MIN = SALON_CODES_MINUTES  # tout code récupérable doit dater de moins de dix minutes
@@ -2566,15 +2567,14 @@ async def _commande_salon_commun(message, manager: bool, admin: bool, adresses_d
     except (discord.Forbidden, discord.HTTPException, AttributeError):
         await message.reply(TEXTE_MP_FERMES, view=vue_mon_code())
         return True
-    try:
-        await message.reply(TEXTE_MP, view=vue_mon_code(), delete_after=120)
-    except (discord.Forbidden, discord.HTTPException):
-        pass
+    # 18/10 (Gaëtan : « je veux juste que ce putain de code 2FA marche et soit renvoyé en clair dans le salon code-instagram ») :
+    # `!code` répond DANS le salon où il a été tapé, en réponse au clipper, code en clair ; le message s'efface tout seul au bout de
+    # CODE_SALON_EFFACE_MIN minutes (un code ne sert qu'une fois et expire). Avant : « je t'envoie ton code en message privé ».
     courant = {"msg": None}
 
     async def nouveau(t):
         if courant["msg"] is None:
-            courant["msg"] = await message.author.send(t)
+            courant["msg"] = await message.reply(t, mention_author=True, delete_after=CODE_SALON_EFFACE_MIN * 60)
         else:
             await courant["msg"].edit(content=t)
 
