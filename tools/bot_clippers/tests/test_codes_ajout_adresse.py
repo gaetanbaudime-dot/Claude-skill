@@ -58,8 +58,29 @@ class AjoutAdresseTests(unittest.TestCase):
             finally:
                 self.c._deps.pop("compte_a_creer", None)
 
+    def test_code_meta_inscription(self):
+        # 18/10 (Diamondra) : « Authenticate your profile » envoyé par Meta pendant la création du compte 1
+        i = dict(self.c.classer("Meta <security@facebookmail.com>", "Authenticate your profile",
+                                "Use this code to authenticate your profile: 482913."), alias="a@icloud.com")
+        self.assertEqual(i["decision"], "garder")
+        self.c._deps["compte_a_creer"] = lambda alias: True
+        try:
+            r = self.c.promouvoir_creation(i)
+        finally:
+            self.c._deps.pop("compte_a_creer", None)
+        self.assertEqual((r["decision"], r["type"], r["code"]), ("donner", "creation", "482913"))
+
+    def test_code_meta_avec_mot_de_passe_garde(self):
+        i = dict(self.c.classer("Meta <security@facebookmail.com>", "Authenticate your profile",
+                                "Use this code to reset your password: 482913."), alias="a@icloud.com")
+        self.c._deps["compte_a_creer"] = lambda alias: True
+        try:
+            self.assertNotEqual(self.c.promouvoir_creation(i)["decision"], "donner")
+        finally:
+            self.c._deps.pop("compte_a_creer", None)
+
     def test_jamais_hors_instagram(self):
-        i = self.info(de="Facebook <security@facebookmail.com>")
+        i = self.info(de="Inconnu <fraude@example.net>")
         self.assertFalse(i.get("ajout_adresse"))
 
 
