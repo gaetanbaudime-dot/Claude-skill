@@ -74,6 +74,8 @@ class AideStaffTests(unittest.TestCase):
             self.assertIn("confirmation e-mail", texte)
             self.assertIn("`!dashboard scan` lance un scan payant", texte)
             self.assertNotIn("!sécurité", texte)
+            self.assertIn('`!onboarding @membre`', texte)
+            self.assertNotIn('`!onboarding @membre Chloé`', texte)
         for syntaxe in ("`!audit-discussions export nouveau`", "`!audit-discussions export`",
                         "`!audit-discussions export livrer`", "Propriétaire du serveur + admin"):
             self.assertIn(syntaxe, ADMIN)
@@ -110,6 +112,22 @@ class SaisieEtRafaleTests(unittest.IsolatedAsyncioTestCase):
             "_deps": {"lire_json": lambda *_: {}, "FICHIER_EQUIPES": "inutilise", "salon_perso": lambda _: "salon-fictif"}})
         self.assertTrue(await ns["commande_staff"](self.message([membre]), "!onboarding <@73> Chloé"))
         self.assertEqual(livraison.await_args.args, (membre, "Chloé", "salon-fictif"))
+
+    async def test_onboarding_sans_creatrice_utilise_affectation_existante(self):
+        membre = SimpleNamespace(id=73)
+        livraison = AsyncMock(return_value='Résultat fictif')
+        registre = {'73': {'creatrice': 'Sarah'}}
+        ns = extraire('onboarding.py', {'commande_staff'}, {
+            'actif': lambda: True, 'livrer': livraison,
+            '_deps': {'lire_json': lambda *_: registre, 'FICHIER_EQUIPES': 'inutilise', 'salon_perso': lambda _: 'salon-fictif'}})
+        await ns['commande_staff'](self.message([membre]), '!onboarding <@73>')
+        self.assertEqual(livraison.await_args.args, (membre, 'Sarah', 'salon-fictif'))
+        registre.clear()
+        message = self.message([membre])
+        await ns['commande_staff'](message, '!onboarding <@73>')
+        self.assertIn("d'abord", message.reply.call_args.args[0])
+        self.assertIn('`!creatrice @clipper Chloé`', message.reply.call_args.args[0])
+        self.assertEqual(1, livraison.await_count)
 
     async def test_rafale_continue_apres_echec_et_ne_route_pas_dashboard(self):
         commandes = AsyncMock(side_effect=[RuntimeError("échec fictif"), False, True])

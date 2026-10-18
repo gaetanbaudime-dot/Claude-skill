@@ -11,7 +11,7 @@ ADMIN = """🧰 **Aide admin · essentiel**
 
 **Agir — vérifier le résultat avant la suite**
 • `!creatrice @membre Chloé` — affecter et lancer le parcours.
-• `!onboarding @membre Chloé` — reprise forcée ; peut réserver des accès et renvoyer une étape.
+• `!onboarding @membre` — reprendre sa créatrice affectée ; peut réserver des accès et renvoyer une étape.
 • `!pseudo @membre 1 vrai_pseudo` — renommer un compte, pas permuter les comptes.
 • `!dashboard` — réécrire le suivi sans scan ; `!dashboard scan` lance un scan payant.
 • `!code [adresse]` — connexion, création et confirmation e-mail ; accès contrôlé, réponse privée.
@@ -38,7 +38,7 @@ MANAGER = """🧰 **Aide manager · essentiel**
 
 **Agir — vérifier le résultat avant la suite**
 • `!creatrice @membre Chloé` — affecter et lancer le parcours.
-• `!onboarding @membre Chloé` — reprise forcée ; peut réserver des accès et renvoyer une étape.
+• `!onboarding @membre` — reprendre sa créatrice affectée ; peut réserver des accès et renvoyer une étape.
 • `!pseudo @membre 1 vrai_pseudo` — renommer un compte, pas permuter les comptes.
 • `!etape @membre` — renvoyer l'étape ; avec un numéro, la forcer.
 • `!note @membre texte` — ajouter une note.

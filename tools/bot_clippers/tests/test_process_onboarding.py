@@ -69,17 +69,30 @@ class OnboardingTests(unittest.IsolatedAsyncioTestCase):
 
     def contexte(self):
         registre = {'pipeline': {'etats': {'42': {'etat': 'valide', 'score_quiz': '10 / 10'}}}, 'equipes': {}, 'onboarding': {}}
-        role = SimpleNamespace(name='Fictive')
-        membre = SimpleNamespace(id=42, display_name='Fictif - Fictive', roles=[SimpleNamespace(name='Clippeur')],
+        role = SimpleNamespace(id=2, name='Fictive')
+        clippeur = SimpleNamespace(id=1, name='Clippeur')
+        membre = SimpleNamespace(id=42, display_name='Fictif - Fictive', roles=[clippeur],
                                  edit=AsyncMock(), add_roles=AsyncMock())
-        salon = SimpleNamespace(id=99, set_permissions=AsyncMock(), permissions_for=lambda tl:SimpleNamespace(view_channel=True,read_message_history=True))
+        membre.add_roles.side_effect = lambda r, **kw: membre.roles.append(r)
+        droits = lambda m: SimpleNamespace(view_channel=True, send_messages=True, read_message_history=True)
+        info = SimpleNamespace(id=80, name='ℹ️-informations', category_id=50, permissions_for=droits)
+        categorie = SimpleNamespace(id=50, text_channels=[info])
+        guild = SimpleNamespace(me=SimpleNamespace(id=91), roles=[clippeur, role])
+        membre.guild = guild
+        salon = SimpleNamespace(id=99, category_id=50, guild=guild, set_permissions=AsyncMock(), permissions_for=droits,
+            fetch_message=AsyncMock(return_value=SimpleNamespace(id=123, author=guild.me, content='<#80>')))
+        guild.fetch_channel = AsyncMock(side_effect=lambda mid: salon if mid == 99 else info)
+        guild.fetch_member = AsyncMock(side_effect=lambda uid: membre if uid == 42 else SimpleNamespace(id=90))
         onb = SimpleNamespace(lien_drive_creatrice=AsyncMock(return_value='https://example.invalid/drive'),
                               livrer=AsyncMock(return_value='1 compte(s)'))
-        parcours = SimpleNamespace(demarrer_parcours=AsyncMock(), demarrer_selon_classeur=AsyncMock(), _lire=lambda:{"42":{"messages":{"1":"fictif"}}})
+        parcours = SimpleNamespace(demarrer_parcours=AsyncMock(), demarrer_selon_classeur=AsyncMock(), _lire=lambda:{"42":{"messages":{"1":"123"}}})
         ns = {'onboarding_preuves':onboarding_preuves,'FICHIER_ONBOARDING':'onboarding','FICHIER_PARCOURS':'parcours','FICHIER_SORTIS':'sortis','DONNEES':Path(self.tmp.name),'ancien_sans_salon': lambda m: False, 'parcours_a_demarrer': lambda uid: True,
               'equipes_tl': SimpleNamespace(tl_par_va=lambda: {'42': '90'}),
               'membre_par_id': lambda uid: SimpleNamespace(id=90), 'onboarding': onb,
-              '_ONBOARDINGS_EN_COURS': set(), 'categorie_de_creatrice': lambda g, cr: None,
+              '_ONBOARDINGS_EN_COURS': set(), 'categorie_de_creatrice': lambda g, cr: categorie,
+              'equipe_deduite': lambda uid: ('', ''), 'ROLE_EQUIPE_UNIQUE': 'Clippeur',
+              'role_team': lambda g, code: clippeur,
+              'poser_role_equipe': AsyncMock(side_effect=lambda g, m, code, par: m.roles.append(clippeur)),
               'assurer_salon_perso': AsyncMock(return_value=(salon, False, '')),
               'prenom_distinct': lambda m, n: 'Fictif', 'normaliser': str.lower,
               'prenom_de': lambda m: 'Fictif', 'FICHIER_EQUIPES': 'equipes', 'FICHIER_PIPELINE': 'pipeline',
@@ -95,12 +108,12 @@ class OnboardingTests(unittest.IsolatedAsyncioTestCase):
         ns, membre, salon, registre = self.contexte()
         membre.add_roles.side_effect = discord.Forbidden(SimpleNamespace(status=403, reason='fictif'), 'refus fictif')
         fn = charger('onboarder_membre', ns)
-        resultat = await fn(SimpleNamespace(), membre, 'Fictive', None, {}, [])
+        resultat = await fn(membre.guild, membre, 'Fictive', None, {}, [])
         self.assertIn('refusé', resultat)
         ns['onboarding'].livrer.assert_not_awaited()
         ns['parcours'].demarrer_parcours.assert_not_awaited()
-        membre.add_roles.side_effect = None
-        await fn(SimpleNamespace(), membre, 'Fictive', None, {}, [])
+        membre.add_roles.side_effect = lambda r, **kw: membre.roles.append(r)
+        await fn(membre.guild, membre, 'Fictive', None, {}, [])
         ns['onboarding'].livrer.assert_awaited_once()
         ns['parcours'].demarrer_parcours.assert_awaited_once()
         self.assertEqual('99', registre['equipes']['42']['salon_id'])
@@ -113,7 +126,7 @@ class OnboardingTests(unittest.IsolatedAsyncioTestCase):
             if manque == 'tl': ns['equipes_tl'].tl_par_va = lambda: {}
             if manque == 'quiz': registre['pipeline']['etats']['42'].pop('score_quiz')
             fn = charger('onboarder_membre', ns)
-            await fn(SimpleNamespace(), membre, 'Fictive', None, {}, [])
+            await fn(membre.guild, membre, 'Fictive', None, {}, [])
             ns['assurer_salon_perso'].assert_not_awaited()
             membre.add_roles.assert_not_awaited()
             ns['onboarding'].livrer.assert_not_awaited()
@@ -129,7 +142,7 @@ class OnboardingTests(unittest.IsolatedAsyncioTestCase):
         ns,membre,salon,_=self.contexte()
         salon.permissions_for=lambda tl:SimpleNamespace(view_channel=False,read_message_history=False)
         fn=charger('onboarder_membre',ns)
-        resultat=await fn(SimpleNamespace(),membre,'Fictive',None,{},[])
+        resultat=await fn(membre.guild,membre,'Fictive',None,{},[])
         self.assertIn('historique',resultat)
         salon.set_permissions.assert_not_awaited()
         ns['onboarding'].livrer.assert_not_awaited()
@@ -141,9 +154,9 @@ class OnboardingTests(unittest.IsolatedAsyncioTestCase):
             entre.set();await sortie.wait();return 'https://example.invalid/drive'
         ns['onboarding'].lien_drive_creatrice.side_effect=drive
         fn=charger('onboarder_membre',ns)
-        un=asyncio.create_task(fn(SimpleNamespace(),membre,'Fictive',None,{},[]))
+        un=asyncio.create_task(fn(membre.guild,membre,'Fictive',None,{},[]))
         await entre.wait()
-        deux=await fn(SimpleNamespace(),membre,'Fictive',None,{},[])
+        deux=await fn(membre.guild,membre,'Fictive',None,{},[])
         self.assertIn('déjà en cours',deux)
         sortie.set();await un
         ns['onboarding'].livrer.assert_awaited_once()
@@ -152,7 +165,7 @@ class OnboardingTests(unittest.IsolatedAsyncioTestCase):
         ns,membre,salon,_=self.contexte()
         ns['parcours']._lire=lambda:{}
         fn=charger('onboarder_membre',ns)
-        resultat=await fn(SimpleNamespace(),membre,'Fictive',None,{},[])
+        resultat=await fn(membre.guild,membre,'Fictive',None,{},[])
         self.assertIn('non livré',resultat)
         ns['attribution']._sortir_d_attente.assert_not_called()
 
@@ -220,7 +233,7 @@ class OnboardingTests(unittest.IsolatedAsyncioTestCase):
         ns,membre,salon,_=self.contexte()
         ns['onboarding'].livrer.side_effect=TimeoutError('fictif')
         fn=charger('onboarder_membre',ns)
-        resultat=await fn(SimpleNamespace(),membre,'Fictive',None,{},[])
+        resultat=await fn(membre.guild,membre,'Fictive',None,{},[])
         self.assertIn('reprise conservée',resultat)
         ns['attribution']._sortir_d_attente.assert_not_called()
         ns['parcours'].demarrer_parcours.assert_not_awaited()
@@ -236,12 +249,13 @@ class OnboardingTests(unittest.IsolatedAsyncioTestCase):
         registre.update(onboarding={},parcours={},sortis=[])
         registre[Path(self.tmp.name)/'parcours_oublis.json']={}
         channels=[]
-        guild=SimpleNamespace(me=SimpleNamespace(id=91),fetch_channels=AsyncMock(side_effect=lambda:list(channels)))
+        guild=membre.guild
+        guild.fetch_channels=AsyncMock(side_effect=lambda:list(channels))
         membre.guild=guild
         salon.guild=guild;salon.topic='clipper-uid:42'
         ouvert=False
         def permissions(m):
-            return SimpleNamespace(view_channel=m.id==91 or ouvert,read_message_history=m.id==91 or ouvert)
+            return SimpleNamespace(view_channel=m.id==91 or ouvert,send_messages=m.id==91 or ouvert,read_message_history=m.id==91 or ouvert)
         salon.permissions_for=permissions
         async def vide(**kw):
             if False:yield None
@@ -276,7 +290,7 @@ class OnboardingTests(unittest.IsolatedAsyncioTestCase):
              patch.multiple(reel,_lire=lambda:deepcopy(etat_parcours),_ecrire=ecrire_parcours,
                  _deps={'membre_par_id':lambda uid:membre},_reprendre_trace=lambda *a:None,
                  _ligne_du_compte=AsyncMock(return_value=True),_comptes_ordonnes=lambda *a,**kw:['compte-fictif'],
-                 _contexte=AsyncMock(return_value={'prenom':'Fictif','creatrice':'Fictive'}),
+                 _contexte=AsyncMock(return_value={'prenom':'Fictif','creatrice':'Fictive','_info_id':80,'info':'<#80>'}),
                  _rendre=lambda texte,ctx:texte,_vue=lambda *a:None,_retirer_pret=AsyncMock()):
             await ns['accueillir_site'](membre,'inv-fictive',{'cand':'cand-fictif','prenom':'Fictif'},None)
             self.assertTrue(ouvert)
@@ -293,10 +307,10 @@ class OnboardingTests(unittest.IsolatedAsyncioTestCase):
         ns,membre,salon,_=self.contexte()
         salon.permissions_for=lambda tl:SimpleNamespace(view_channel=False,read_message_history=False)
         fn=charger('onboarder_membre',ns)
-        self.assertIn('historique',await fn(SimpleNamespace(),membre,'Fictive',None,{},[]))
+        self.assertIn('historique',await fn(membre.guild,membre,'Fictive',None,{},[]))
         ns['onboarding'].livrer.assert_not_awaited()
-        salon.permissions_for=lambda tl:SimpleNamespace(view_channel=True,read_message_history=True)
-        await fn(SimpleNamespace(),membre,'Fictive',None,{},[])
+        salon.permissions_for=lambda tl:SimpleNamespace(view_channel=True,send_messages=True,read_message_history=True)
+        await fn(membre.guild,membre,'Fictive',None,{},[])
         ns['onboarding'].livrer.assert_awaited_once()
 
 
@@ -312,8 +326,8 @@ class OnboardingTests(unittest.IsolatedAsyncioTestCase):
             await a.signaler_blocage(membre,'Fictive','⚠️ Team leader absent ou ambigu')
             ns['attribution'].resoudre_blocage=a.resoudre_blocage
             ns['onboarding'].livrer.return_value='lignes déjà affectées ; la livraison effective est suivie séparément dans le parcours.'
-            resultat=await charger('onboarder_membre',ns)(SimpleNamespace(),membre,'Fictive',None,{},[],declencheur='!creatrice')
-            self.assertIn('Compte 1 livré (message confirmé)',resultat)
+            resultat=await charger('onboarder_membre',ns)(membre.guild,membre,'Fictive',None,{},[],declencheur='!creatrice')
+            self.assertIn('Message du compte 1 vérifié ; remise des accès non attestée',resultat)
             self.assertNotIn('42',etat['blocages_notifications'])
             await a.signaler_blocage(membre,'Fictive',resultat)
             self.assertEqual(1,admin.send.await_count)
@@ -404,7 +418,7 @@ class RepriseAttributionTests(unittest.IsolatedAsyncioTestCase):
         f['equipes']['42']={'creatrice':'Autre'}
         decision={'creatrice':'Fictive','source':'revue-fictive','par':'90','date':'2026-10-17'}
         fn=charger('onboarder_membre',ns)
-        await fn(SimpleNamespace(),m,'Autre',None,{},[],decision=decision)
+        await fn(m.guild,m,'Autre',None,{},[],decision=decision)
         self.assertEqual('Fictive',f['equipes']['42']['creatrice'])
         self.assertEqual('Fictive',ns['onboarding'].livrer.await_args.args[1])
         self.assertEqual(decision,f['pipeline']['etats']['42']['decision_creatrice'])
@@ -414,7 +428,7 @@ class RepriseAttributionTests(unittest.IsolatedAsyncioTestCase):
         f['pipeline']['etats']['42']['creatrice_attendue']='Autre'
         f['equipes']['42']={'creatrice':'Fictive'}
         avant=deepcopy(f)
-        resultat=await charger('onboarder_membre',ns)(SimpleNamespace(),m,'Autre',None,{},[])
+        resultat=await charger('onboarder_membre',ns)(m.guild,m,'Autre',None,{},[])
         self.assertIn('divergent',resultat)
         self.assertEqual(avant,f)
         ns['onboarding'].lien_drive_creatrice.assert_not_awaited()
@@ -429,7 +443,7 @@ class RepriseAttributionTests(unittest.IsolatedAsyncioTestCase):
             f['pipeline']['etats']['42']['creatrice_attendue']='Fictive'
             avant=deepcopy(f)
             decision={'creatrice':'Fictive','source':'revue-fictive','par':'90','date':'2026-10-17'} if explicite else None
-            resultat=await charger('onboarder_membre',ns)(SimpleNamespace(),m,'Fictive',None,{},[],decision=decision)
+            resultat=await charger('onboarder_membre',ns)(m.guild,m,'Fictive',None,{},[],decision=decision)
             self.assertIn('Rôle de créatrice divergent',resultat)
             self.assertEqual(avant,f)
             ns['onboarding'].livrer.assert_not_awaited()
@@ -447,7 +461,7 @@ class RepriseAttributionTests(unittest.IsolatedAsyncioTestCase):
             comptes=db.execute('SELECT * FROM accounts').fetchall()
             aliases=db.execute('SELECT * FROM aliases').fetchall()
         decision={'creatrice':'Fictive','source':'revue-fictive','par':'90','date':'2026-10-17'}
-        resultat=await charger('onboarder_membre',ns)(SimpleNamespace(),m,'Fictive',None,{},[],decision=decision)
+        resultat=await charger('onboarder_membre',ns)(m.guild,m,'Fictive',None,{},[],decision=decision)
         self.assertIn('rapprochement',resultat)
         self.assertEqual(avant,f)
         with self.store.transaction() as db:
@@ -459,7 +473,7 @@ class RepriseAttributionTests(unittest.IsolatedAsyncioTestCase):
         for silencieux in (False,True):
             ns,m,salon,f=self.contexte()
             ns['ecrire_json']=Mock() if silencieux else Mock(side_effect=OSError('disque fictif'))
-            resultat=await charger('onboarder_membre',ns)(SimpleNamespace(),m,'Fictive',None,{},[])
+            resultat=await charger('onboarder_membre',ns)(m.guild,m,'Fictive',None,{},[])
             self.assertIn('Choix retenu',resultat)
             ns['onboarding'].lien_drive_creatrice.assert_not_awaited()
             salon.set_permissions.assert_not_awaited()
@@ -469,7 +483,7 @@ class RepriseAttributionTests(unittest.IsolatedAsyncioTestCase):
         f['equipes']['42']={}
         ns['onboarding'].livrer.side_effect=OSError('livraison fictive interrompue')
         fn=charger('onboarder_membre',ns)
-        msg=SimpleNamespace(id=77,guild=SimpleNamespace(),author=SimpleNamespace(id=90,display_name='Responsable fictif'),reply=AsyncMock())
+        msg=SimpleNamespace(id=77,guild=m.guild,author=SimpleNamespace(id=90,display_name='Responsable fictif'),reply=AsyncMock())
         m.mention='<@42>'
         ns.update(est_manager=lambda a:True,chercher_membre=lambda *a,**k:m,
                   onboarder_membre=fn)

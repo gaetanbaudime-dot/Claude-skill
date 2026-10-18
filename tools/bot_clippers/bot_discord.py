@@ -3084,6 +3084,7 @@ async def renommer_salons_perso() -> int:
 
 async def assurer_salon_perso(guild, membre, categorie, prenom_creatrice: str, raison: str):
     import process_adapters
+    import onboarding_discord
     store = process_adapters.store()
     cle = "salon:" + str(membre.id)
     with store.lock(cle):
@@ -3100,14 +3101,16 @@ async def assurer_salon_perso(guild, membre, categorie, prenom_creatrice: str, r
                 return None, False, "salon déjà créé absent : rapprochement requis, aucune recréation"
             if any(p != uid for p in proprietaires(existant)) or any(c.id != existant.id for c in matches):
                 return None, False, "identité du salon contradictoire : rapprochement requis"
-            return existant, False, ""
+            existant, erreur = await onboarding_discord.ranger_categorie(existant, categorie, raison)
+            return existant, False, erreur
         if any(any(p != uid for p in proprietaires(c)) for c in matches):
             return None, False, "identité du salon contradictoire : rapprochement requis"
         if len(matches) > 1:
             return None, False, "plusieurs salons pour cette identité : rapprochement requis"
         if matches:
             store.put(cle, {"salon_id": str(matches[0].id)})
-            return matches[0], False, ""
+            salon, erreur = await onboarding_discord.ranger_categorie(matches[0], categorie, raison)
+            return salon, False, erreur
         job = store.get(cle)
         if job.get("creation_incertaine"):
             return None, False, "création de salon incertaine : vérification requise avant tout doublon"
@@ -3167,7 +3170,7 @@ async def _assurer_salon_perso(guild, membre, categorie, prenom_creatrice: str, 
             if mgr not in salon.overwrites:
                 await salon.set_permissions(mgr, view_channel=True, send_messages=True, read_message_history=True, reason=raison)
         if categorie is not None and salon.category != categorie:
-            await salon.edit(category=categorie, topic=sujet, reason=raison)
+            salon = await salon.edit(category=categorie, sync_permissions=False, topic=sujet, reason=raison)
         elif prenom_creatrice and (salon.topic or "") != sujet:
             await salon.edit(topic=sujet, reason=raison)
         avert_r = await ranger_salon_perso(guild, membre, salon, raison)
@@ -5373,12 +5376,13 @@ async def onboarder_membre(g, m_, creatrice_c: str, par, etats_cl: dict, mgrs: l
     catégorie de sa créatrice, registre, pseudo « Prénom - Créatrice », rôle Clippeur et rôle de la créatrice, roster, comptes du
     classeur (3 comptes neufs du même POD), lien, alias 2FA, parcours à l'étape que le classeur implique. Renvoie une ligne de bilan.
     09/10 (Gaëtan : « Les clippeurs se font submerger d'informations ») : plus d'accueil ici. Le seul message du nouveau est celui
-    du parcours (créatrice, vidéos d'origine, WhatsApp), puis son compte 1.
+    du parcours (créatrice, salon informations et premier identifiant préparé), sans confirmation WhatsApp.
     10/10 (vérification L10) : « nouveau venu » (`nouveau` : True/False décidé par l'appelant, sinon parcours_a_demarrer) est
     calculé AVANT d'écrire la créatrice au registre et passé à livrer (jamais les comptes déjà créés d'un ancien du même prénom) ; un nouveau homonyme reçoit
     un prénom distinct (prenom_distinct) dans son pseudo et au Gérant ; la liste « sans salon » ne vaut que pour un ancien arrivé
     avant le 09/10 (ancien_sans_salon) ; l'attente d'une créatrice est close."""
     import choix_creatrice
+    import onboarding_discord
     if decision is None and str(m_.id) in _ONBOARDINGS_EN_COURS:
         return "⏳ Onboarding déjà en cours ; reprise conservée."
     async with choix_creatrice.verrou(str(m_.id)):
@@ -5427,14 +5431,20 @@ async def onboarder_membre(g, m_, creatrice_c: str, par, etats_cl: dict, mgrs: l
             if not drive:
                 return "⚠️ Accès Drive non vérifié : onboarding en attente."
             cat = categorie_de_creatrice(g, creatrice_c)
+            info_c = onboarding_discord.salon_information(cat)
+            if cat is None or info_c is None:
+                return "⚠️ Catégorie ou salon informations absent ou ambigu : onboarding en attente."
             salon_c, cree_c, err_c = await assurer_salon_perso(g, m_, cat, creatrice_c, f"salon d'équipe par {par_nom}")
             if salon_c is None or err_c:
                 return f"❌ {m_.display_name} : {err_c or 'salon impossible'}"
             if not cree_c and not (salon_c.permissions_for(tl).view_channel and salon_c.permissions_for(tl).read_message_history):
                 if not await onboarding_preuves.salon_vide_verifie(salon_c):
                     return "⚠️ Accès TL retenu : historique présent ou illisible, vérification humaine nécessaire."
-            await salon_c.set_permissions(tl, view_channel=True, send_messages=True, read_message_history=True,
-                                          reason="Team leader configuré du clippeur")
+            try:
+                await salon_c.set_permissions(tl, view_channel=True, send_messages=True, read_message_history=True,
+                                              reason="Team leader configuré du clippeur")
+            except (discord.HTTPException, TimeoutError, OSError):
+                return "⚠️ Accès TL non confirmé : reprise conservée."
             prenom_c = prenom_distinct(m_, nouveau_v)
             renomme = normaliser(prenom_c) != normaliser(prenom_de(m_))         # avant l'edit : discord.py ne met pas m_ à jour tout de suite
             registre_se = lire_json(FICHIER_EQUIPES, {})
@@ -5457,9 +5467,13 @@ async def onboarder_membre(g, m_, creatrice_c: str, par, etats_cl: dict, mgrs: l
                 except (discord.Forbidden, discord.HTTPException):
                     extras.append("pseudo refusé (« Gérer les pseudos », rôle du bot au-dessus)"
                                   + (f" : homonyme, renomme-le « {pseudo_cible} » à la main" if renomme else ""))
-            if not any(normaliser(n) in normaliser(r.name) for r in m_.roles for n in NOMS_RANGS):
+            code_equipe = fiche_c.get("equipe") or equipe_deduite(m_.id)[0]
+            role_eq_attendu = role_team(g, code_equipe) if code_equipe or ROLE_EQUIPE_UNIQUE else None
+            if role_eq_attendu is None or role_eq_attendu != onboarding_discord.role_clippeur(g):
+                return "⚠️ Rôle Clippeur absent, ambigu ou configuration divergente : reprise nécessaire."
+            if role_eq_attendu not in m_.roles:
                 # 09/10 : l'équipe vient de la fiche ou de la liaison (indicatif, pays), plus jamais « mg » par défaut
-                role_eq = await poser_role_equipe(g, m_, fiche_c.get("equipe") or equipe_deduite(m_.id)[0], par_id)
+                role_eq = await poser_role_equipe(g, m_, code_equipe, par_id)
                 if role_eq and ("refusé" in role_eq or "aucun rôle" in role_eq):
                     return "⚠️ " + role_eq + " : parcours non livré, reprise nécessaire"
                 if role_eq:
@@ -5473,6 +5487,13 @@ async def onboarder_membre(g, m_, creatrice_c: str, par, etats_cl: dict, mgrs: l
                     extras.append(f"rôle {role_c.name}")
                 except (discord.Forbidden, discord.HTTPException):
                     return "⚠️ rôle créatrice refusé : parcours non livré, reprise nécessaire"
+            try:
+                m_, salon_c, info_c = await onboarding_discord.verifier_organisation(
+                    g, m_, salon_c, cat, tl, (role_eq_attendu, role_c), info_c)
+                choix_creatrice.verifier_roles(m_, role_c, roles_creatrices(g))
+            except (discord.HTTPException, TimeoutError, OSError, RuntimeError) as erreur:
+                detail = str(erreur) if isinstance(erreur, RuntimeError) else type(erreur).__name__
+                return f"⚠️ Organisation non confirmée ({detail}) : reprise conservée."
             roster.ajouter(creatrice_c, prenom_c)
             try:
                 bilan_onb_c = await onboarding.livrer(m_, creatrice_c, salon_c, declencheur=declencheur or f"!salons-equipe par {par_id}",
@@ -5493,6 +5514,11 @@ async def onboarder_membre(g, m_, creatrice_c: str, par, etats_cl: dict, mgrs: l
             p_final = parcours._lire().get(uid_m) or {}
             if not (p_final.get("messages") or {}).get("1"):
                 return "⚠️ Compte 1 non livré : reprise conservée. " + str(bilan_onb_c)[:120]
+            try:
+                await onboarding_discord.confirmer_accueil(process_adapters.store(), salon_c, uid_m,
+                    p_final["messages"]["1"], creatrice_c, info_c)
+            except (discord.HTTPException, TimeoutError, OSError, RuntimeError):
+                return "⚠️ Message du compte 1 ou informations non vérifiés : reprise conservée."
             demande_groupe = getattr(parcours, "demander_groupe_tl", None)     # 18/10 (E8) : le TL crée le groupe WhatsApp
             if demande_groupe is not None:                                    # jamais au prix de l'arrivée (la fonction n'échoue pas)
                 await demande_groupe(salon_c, uid_m, tl, prenom_c, creatrice_c)
@@ -5500,7 +5526,7 @@ async def onboarder_membre(g, m_, creatrice_c: str, par, etats_cl: dict, mgrs: l
             attribution.resoudre_blocage(uid_m)
             return (f"{'🆕' if cree_c else '✅'} {m_.display_name} → {creatrice_c} · <#{salon_c.id}>"
                     + (f" · ⚠️ {err_c}" if err_c else "") + (" · " + ", ".join(extras) if extras else "")
-                    + " · Compte 1 livré (message confirmé) · " + bilan_onb_c.split(" : ", 1)[-1][:160])
+                    + " · Message du compte 1 vérifié ; remise des accès non attestée.")
         finally:
             _ONBOARDINGS_EN_COURS.discard(uid_m)
 

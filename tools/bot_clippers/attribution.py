@@ -669,7 +669,7 @@ def a_signaler(bilan: str, note: str = "") -> bool:
     if any(m.lower() in t for m in MARQUES_A_SIGNALER):
         return True
     b = str(bilan or "").lower()
-    if "compte 1 livré (message confirmé)" in b:
+    if "message du compte 1 vérifié ; remise des accès non attestée" in b or "compte 1 livré (message confirmé)" in b:
         return False
     if "déjà livré" in b and "rien renvoyé" in b:
         return False
