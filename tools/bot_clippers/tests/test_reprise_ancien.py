@@ -46,6 +46,11 @@ class RepriseTests(unittest.TestCase):
         r = reprise_ancien.reprendre(self.store, "7", [], PROV)           # relancée sans @ : rien n'est retiré
         self.assertEqual((r["comptes"], r["deja"]), (1, True))
 
+    def test_a_creer_devient_reservation(self):
+        """18/10 (Alvaro) : le @ « à créer » à son nom est réservé, la remise des identifiants peut partir."""
+        reprise_ancien.reprendre(self.store, "7", ["neuf_un", "vieux"], PROV, a_creer={"neuf_un"})
+        self.assertEqual(self.store.counts("7"), {"reserved": 1, "unknown": 1})
+
     def test_depart_avec_lien_refuse(self):
         self.store.put("sortie:7", {"lien": "x"})
         with self.assertRaises(Bloque):

@@ -6056,8 +6056,18 @@ async def commande_reprise(message, texte: str) -> bool:
     handles = reprise_ancien.handles_connus(uid, lire_json(FICHIER_ONBOARDING, {}), lire_json(FICHIER_PARCOURS, {}))
     provenance = {"source": f"discord-message:{message.id}", "par": str(message.author.id),
                   "date": datetime.now(timezone.utc).isoformat(timespec="seconds")}
+    a_creer = set()
+    try:                                                                # 18/10 : les @ « à créer » à son nom = réservations
+        noms = {normaliser(n) for n in (prenom_de(membre), membre.display_name.split(" - ")[0]) if n}
+        for ligne in await onboarding.lire_comptes():
+            h = str(ligne.get("handle") or "").strip().lstrip("@").lower()
+            if (h in handles and onboarding._norm(ligne.get("etat", "")) in onboarding.A_CREER
+                    and normaliser(str(ligne.get("gerant") or "")) in noms):
+                a_creer.add(h)
+    except Exception as erreur:                                         # noqa: BLE001 — sans classeur : tout reste incertain
+        journal.warning("Reprise de %s : classeur illisible (%s)", uid, type(erreur).__name__)
     try:
-        bilan_r = reprise_ancien.reprendre(process_adapters.store(), uid, handles, provenance)
+        bilan_r = reprise_ancien.reprendre(process_adapters.store(), uid, handles, provenance, a_creer)
     except RuntimeError as erreur:
         await message.reply(f"⛔ Reprise de {membre.display_name} refusée : {erreur}. Rien n'a été changé.")
         return True

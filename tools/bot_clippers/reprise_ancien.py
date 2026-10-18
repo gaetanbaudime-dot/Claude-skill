@@ -41,8 +41,11 @@ def handles_connus(uid: str, onboarding: dict | None, parcours: dict | None) -> 
     return sorted(h for h in propres if _HANDLE.fullmatch(h))
 
 
-def reprendre(store, uid: str, handles: list, provenance: dict) -> dict:
-    """Écrit l'historique à vie de l'ancien (additif). Renvoie {"comptes": n, "deja": bool}."""
+def reprendre(store, uid: str, handles: list, provenance: dict, a_creer=frozenset()) -> dict:
+    """Écrit l'historique à vie de l'ancien (additif). Renvoie {"comptes": n, "deja": bool}.
+    18/10 (Alvaro, Diamondra : « Réservation nominative non confirmée » au `!remettre-compte1`) : un @ encore « à créer » au
+    classeur et déjà au nom du clipper est une RÉSERVATION (reserved), pas un compte incertain : la remise des identifiants
+    l'exige. Les autres @ connus restent « incertains » (unknown). Les deux comptent dans les trois places."""
     uid = str(uid)
     if not all(str(provenance.get(k) or "").strip() for k in ("source", "par", "date")):
         raise Bloque("Provenance de la reprise incomplète")
@@ -52,7 +55,9 @@ def reprendre(store, uid: str, handles: list, provenance: dict) -> dict:
     deja = bool(store.get("reprise-ancien:" + uid))
     preuve = json.dumps({"type": "reprise_ancien_staff", "provenance": provenance, "handles": handles,
                          "comptes_registre_avant": connus}, ensure_ascii=False, sort_keys=True)
-    store.reconcile(uid, [{"aliases": [h], "status": "unknown", "evidence": preuve} for h in handles], preuve)
+    a_creer = {str(h).strip().lstrip("@").lower() for h in a_creer}
+    store.reconcile(uid, [{"aliases": [h], "status": "reserved" if h in a_creer else "unknown", "evidence": preuve}
+                          for h in handles], preuve)
     store.put("reprise-ancien:" + uid, {"provenance": provenance, "handles": handles, "avant": connus})
     total = sum(n for s, n in store.counts(uid).items() if s in ("created", "reserved", "unknown"))
     return {"comptes": total, "deja": deja}
