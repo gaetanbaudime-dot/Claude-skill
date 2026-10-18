@@ -233,13 +233,15 @@ class DemandeTests(unittest.TestCase):
         self.assertEqual(asyncio.run(self.c.servir_interaction(i, "connexion", "other@example.invalid")), "refus")
         self.assertNotIn("222222", str(i.edit_original_response.call_args))
 
-    def test_mp_fermes_pas_de_code_dans_salon(self):
+    def test_code_en_clair_dans_le_salon(self):
+        # 18/10 (Gaëtan : « renvoyé en clair dans le salon code-instagram ») : `!code` répond dans le salon, MP fermés ou non
         self.entree()
         m = types.SimpleNamespace(author=types.SimpleNamespace(id=100,
              send=AsyncMock(side_effect=self.c.discord.Forbidden("fermes"))), reply=AsyncMock())
-        asyncio.run(self.c._commande_salon_commun(m, False, False, usage="connexion"))
-        self.assertNotIn("111111", str(m.reply.call_args_list))
-        self.assertIn("fermés", m.reply.call_args.args[0])
+        self.c.ATTENTE_SEC = 0                                          # pas de guet de 5 minutes dans le test
+        asyncio.run(self.c._commande_salon_commun(m, False, False, usage="connexion", adresse="one@example.invalid"))
+        self.assertIn("111111", str(m.reply.call_args_list))
+        m.author.send.assert_not_awaited()
 
     def test_retrait_push_historique_vers_salon(self):
         self.c.classer_mail = lambda _: dict(mid="synthetique", alias="one@example.invalid", code="111111",
