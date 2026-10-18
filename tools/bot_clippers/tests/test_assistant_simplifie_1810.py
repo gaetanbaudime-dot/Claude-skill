@@ -118,3 +118,14 @@ class BloquesProducteursTests(unittest.TestCase):
         l = bloques.liste(parcours, {"Chloé": ["Lucas", "Thia"]}, lambda p: {"Lucas": "1", "Thia": "2"}[p], lambda u: "",
                           {}, maintenant=datetime(2026, 10, 18, tzinfo=timezone.utc), produit=lambda uid: uid == "1")
         self.assertEqual([x[1] for x in l], ["Thia"])
+
+
+class IdentiteClippingTests(unittest.TestCase):
+    def test_rianah_clipping_chloe_appartient_a_rianah(self):
+        rianah = SimpleNamespace(display_name="Rianah - Chloé", id=5)
+        ns = extraire("bot_discord.py", {"membre_par_prenom"},
+                      {"re": re, "normaliser": normaliser, "lire_json": lambda *_: {"5": {}}, "FICHIER_EQUIPES": "x",
+                       "membre_par_id": lambda uid: rianah})
+        for g in ("rianah clipping chloe", "rianah clipping sarah", "rianah"):
+            self.assertIs(ns["membre_par_prenom"](g), rianah, g)
+        self.assertIsNone(ns["membre_par_prenom"]("rianah metricool"))
