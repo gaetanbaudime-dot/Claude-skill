@@ -6066,6 +6066,15 @@ async def commande_reprise(message, texte: str) -> bool:
                         + f") · {places} place(s) restante(s). Parcours relancé sur {creatrice}…")
     if not places:
         await message.reply("⚠️ Trois comptes déjà connus : aucun nouveau compte ne partira (règle C1).")
+    # 18/10 (Georgial : « Preuve de quiz réussi absente : onboarding en attente », puis `!quiz-ok` refusé « déjà dans l'agence ») :
+    # un ancien déjà au registre n'a parfois plus d'état de quiz au pipeline. La reprise est la décision explicite d'un admin : elle
+    # tient lieu de validation (valide_par « reprise »), sans effacer un score ni une date déjà là.
+    pipe_r = lire_json(FICHIER_PIPELINE, {"liaisons": {}, "etats": {}})
+    info_r = pipe_r.setdefault("etats", {}).setdefault(uid, {})
+    if not (info_r.get("score_quiz") and info_r.get("etat") in ("quiz_ok", "valide", "attente_attribution")):
+        info_r.update({"etat": "valide", "score_quiz": info_r.get("score_quiz") or "reprise", "valide_par": "reprise",
+                       "validation": info_r.get("validation") or provenance["date"], "reprise_par": provenance["par"]})
+        ecrire_json(FICHIER_PIPELINE, pipe_r)
     return await commande_creatrice(message, f"!creatrice <@{uid}> {creatrice} forcer")
 
 
