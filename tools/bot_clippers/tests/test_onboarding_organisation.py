@@ -5,6 +5,7 @@ from unittest.mock import AsyncMock, patch
 
 import discord
 import onboarding_discord as accueil
+import remise_compte1
 import test_process_onboarding as orchestration
 from test_process_onboarding import charger
 
@@ -12,6 +13,23 @@ from test_process_onboarding import charger
 class Organisation(unittest.IsolatedAsyncioTestCase):
     setUp = orchestration.OnboardingTests.setUp
     contexte = orchestration.OnboardingTests.contexte
+
+    async def test_preuve_accueil_avant_demande_tl_de_claude(self):
+        ns, membre, salon, _ = self.contexte()
+        ordre = []
+        preuve = salon.fetch_message.return_value
+        async def lire(mid):
+            ordre.append('preuve')
+            return preuve
+        async def demander(*a):
+            ordre.append('groupe')
+            return False
+        salon.fetch_message.side_effect = lire
+        ns['parcours'].demander_groupe_tl = AsyncMock(side_effect=demander)
+        ns['attribution']._sortir_d_attente.side_effect = lambda *a: ordre.append('cloture')
+        resultat = await charger('onboarder_membre', ns)(membre.guild, membre, 'Fictive', None, {}, [])
+        self.assertEqual(['preuve', 'groupe', 'cloture'], ordre)
+        self.assertIn('Message du compte 1 vérifié', resultat)
 
     async def test_salon_identifie_deplace_sans_synchroniser_ni_recreer(self):
         for journalise in (False, True):
@@ -225,7 +243,9 @@ class Informations(unittest.IsolatedAsyncioTestCase):
         self.assertIsNone(accueil.salon_information(None))
 
     async def test_complement_apres_timeout_sans_reenvoyer_compte_ni_secrets(self):
-        original = N(id=123, author=N(id=91), content='Ancien accueil SECRET_FICTIF', edit=AsyncMock())
+        contenu_claude = ('Bienvenue Fictif !\n\n' + remise_compte1.modele(
+            '<@42>', 'compte_fictif', 'fictif@exemple.invalid', 'SECRET_FICTIF'))
+        original = N(id=123, author=N(id=91), content=contenu_claude, edit=AsyncMock())
         messages = {123: original}
         salon = N(id=99, guild=N(me=N(id=91)),
                   fetch_message=AsyncMock(side_effect=lambda mid:messages[mid]),
@@ -243,8 +263,10 @@ class Informations(unittest.IsolatedAsyncioTestCase):
             await accueil.confirmer_accueil(self.store, salon, '42', '123', 'Fictive', N(id=80))
         salon.send.assert_awaited_once()
         original.edit.assert_not_awaited()
-        self.assertEqual('Ancien accueil SECRET_FICTIF', original.content)
-        self.assertNotIn('SECRET_FICTIF', salon.send.await_args.args[0])
+        self.assertEqual(contenu_claude, original.content)
+        for champ in ('compte_fictif', 'fictif@exemple.invalid', 'SECRET_FICTIF'):
+            self.assertIn(champ, original.content)
+            self.assertNotIn(champ, salon.send.await_args.args[0])
         self.assertIn('<#80>', salon.send.await_args.args[0])
         self.assertEqual({}, self.store.get('message-compte1:42'))
         self.assertEqual('124', self.store.get('message-infos:42')['message_id'])

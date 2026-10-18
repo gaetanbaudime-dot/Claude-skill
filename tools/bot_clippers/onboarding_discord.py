@@ -68,7 +68,7 @@ async def verifier_organisation(guild, membre, salon, categorie, tl, roles, info
 
 
 async def confirmer_accueil(store, salon, uid, message_id, creatrice, info):
-    """Vérifier le message réel ; compléter les anciennes propositions sans secrets."""
+    """Vérifier le message réel ; compléter les informations à part, sans modifier la remise du compte."""
     import process_livraison
 
     async def lire(mid):

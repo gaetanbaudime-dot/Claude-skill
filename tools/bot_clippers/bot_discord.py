@@ -5375,8 +5375,8 @@ async def onboarder_membre(g, m_, creatrice_c: str, par, etats_cl: dict, mgrs: l
     """Un clipper prêt à travailler (corps de `!salons-equipe`, réutilisé au démarrage pour le roster) : salon perso dans la
     catégorie de sa créatrice, registre, pseudo « Prénom - Créatrice », rôle Clippeur et rôle de la créatrice, roster, comptes du
     classeur (3 comptes neufs du même POD), lien, alias 2FA, parcours à l'étape que le classeur implique. Renvoie une ligne de bilan.
-    09/10 (Gaëtan : « Les clippeurs se font submerger d'informations ») : plus d'accueil ici. Le seul message du nouveau est celui
-    du parcours (créatrice, salon informations et premier identifiant préparé), sans confirmation WhatsApp.
+    La bienvenue et la remise du compte 1 restent gérées par parcours. Ici, l'organisation du salon est contrôlée avant ce flux,
+    puis la présence du message et de la mention du salon informations est vérifiée sans modifier la remise.
     10/10 (vérification L10) : « nouveau venu » (`nouveau` : True/False décidé par l'appelant, sinon parcours_a_demarrer) est
     calculé AVANT d'écrire la créatrice au registre et passé à livrer (jamais les comptes déjà créés d'un ancien du même prénom) ; un nouveau homonyme reçoit
     un prénom distinct (prenom_distinct) dans son pseudo et au Gérant ; la liste « sans salon » ne vaut que pour un ancien arrivé
