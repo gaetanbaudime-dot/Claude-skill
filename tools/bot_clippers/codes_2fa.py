@@ -47,7 +47,7 @@ ROLE_MANAGER_NOM = os.environ.get("ROLE_MANAGER_NOM", "Manager").strip()
 # 10/10 : IDLE au plus SONDAGE_SEC secondes (le code arrive en quelques secondes), sinon une lecture toutes les SONDAGE_SEC.
 SONDAGE_SEC = int(os.environ.get("CODES_SONDAGE_SEC", "20") or 20)
 ATTENTE_SEC = int(os.environ.get("CODES_ATTENTE_SEC", "300") or 300)    # le guet après « 📩 Mon code » : 5 min
-FRAIS_MIN = min(10, max(1, int(os.environ.get("CODES_FRAIS_MIN", "10") or 10)))  # toujours au plus 10 minutes
+FRAIS_MIN = min(20, max(1, int(os.environ.get("CODES_FRAIS_MIN", "20") or 20)))  # 18/10 (Gaëtan) : les 20 dernières minutes
 SALON_CODES_MINUTES = min(10, max(1, int(os.environ.get("CODES_SALON_MINUTES", "10") or 10)))
 CACHE_MIN = SALON_CODES_MINUTES  # tout code récupérable doit dater de moins de dix minutes
 JOURS_AMORCE = int(os.environ.get("BANS_JOURS", "3") or 3)              # premier passage : les mails Meta de 3 jours
@@ -912,6 +912,19 @@ def _verification_identite_existante(sujet: str, corps: str, code: str) -> bool:
     return True
 
 
+_INSCRIPTION = re.compile(r"(?:someone )?tried to sign up for (?:an )?instagram(?: account)?|"
+                          r"(?:une personne )?a tente de creer un compte (?:an )?instagram")
+_PAS_INSCRIPTION = re.compile(r"password|mot de passe|reset|reinitialis|recover|recup|forgot|oubli|settings|parametres|reglages|"
+                              r"\bchang\w*|\bmodif\w*|\bupdat\w*|backup|secours|two.factor|deux facteurs|authenticator|authentificat")
+
+
+def _inscription_instagram(sujet, corps) -> bool:
+    """18/10 : vrai pour le seul modèle d'inscription d'Instagram (« tried to sign up » / « a tenté de créer un compte »), sans
+    aucun mot de changement, de mot de passe, de réglages ou de double authentification dans le début du mail."""
+    debut = plat(f"{sujet} . {corps}")[:700]
+    return bool(_INSCRIPTION.search(debut)) and not _PAS_INSCRIPTION.search(debut)
+
+
 def confirmation_email_fr(sujet):
     return bool(re.fullmatch(r"confirmer l'adresse e-?mail[.!]?", plat(sujet).strip()))
 
@@ -929,7 +942,42 @@ def _confirmation_email_fr(sujet, corps, compte):
     return codes[0]
 
 
+# 18/10, 13 h 52 (Gaëtan : « Donne tous les codes SAUF changer les informations, mots de passe et mail ») : ce qui fait d'un code
+# Meta un code de CHANGEMENT, jamais donné. Lu dans tout le mail (sujet, corps, toutes les parties).
+CHANGEMENT_RE = re.compile(
+    r"password|mot de passe|contrasena|senha|passwort|\bmdp\b|reset\w*|reinitialis\w*|recover\w*|recup\w*|forgot\w*|oubli\w*|"
+    r"backup codes?|codes? de secours|secret key|cle secrete|totp|authenticator app|settings|parametres|reglages|"
+    r"\b(?:chang\w*|modif\w*|updat\w*|mettre a jour|mis a jour|remplac\w*|replac\w*|supprim\w*|delet\w*|remov\w*|"
+    r"ajout\w*|add(?:ed|ing)?|new email|nouvelle adresse|e-?mail address change|email change)\b")
+
+
+REGLAGES_RE = re.compile(r"modif\w* (?:the |your )?(?:settings|parametres|reglages)|tried to modify|tente de modifier|"
+                         r"(?:change|update|modifier|changer) (?:your |votre |the |l.)?(?:email|e-mail|adresse|password|mot de passe)|"
+                         r"reset (?:your )?password|reinitialiser (?:votre )?mot de passe")
+
+
 def classer(from_header, sujet: str, corps: str, complets=None) -> dict:
+    """La décision de _classer_base ; pour un code gardé d'un mail Meta ou Instagram, garde aussi le code (code_brut, jamais
+    affiché ni stocké tant qu'il n'est pas donné) et dit s'il parle d'un changement (promouvoir_creation décide)."""
+    info = _classer_base(from_header, sujet, corps, complets)
+    if info.get("decision") == "donner" and info.get("code"):
+        # 18/10 (Diamondra : « Authenticate your profile — Someone tried to modify settings ») : un code dont la phrase d'avant
+        # dit qu'on MODIFIE les réglages, le mot de passe ou l'e-mail n'est jamais donné, même au format d'un code de connexion.
+        avant = plat(INVISIBLES.sub("", str(corps or ""))).split(plat(str(info["code"])), 1)[0][-400:]
+        if REGLAGES_RE.search(avant):
+            return dict(info, decision="garder", code=None, libelle="changement des réglages, du mot de passe ou de l'e-mail")
+        return info
+    if info.get("decision") != "garder" or not expediteur_meta(from_header):
+        return info
+    s_, c_ = INVISIBLES.sub("", str(sujet or "")), INVISIBLES.sub("", str(corps or ""))
+    code = info.get("code") or _code_du_mail(s_, c_[:600])
+    if not code:
+        return info
+    tout = " ".join(plat(x) for x in [s_, c_] + list(complets or []))
+    return dict(info, code_brut=code, changement=bool(CHANGEMENT_RE.search(tout)))
+
+
+def _classer_base(from_header, sujet: str, corps: str, complets=None) -> dict:
     """La décision sur un mail : {"decision": "donner"|"garder"|"alerte"|"rien", "type": "creation"|"connexion"|"appel"|"",
     "code": str|None, "libelle": str, "compte": str}. « donner » = le clipper peut l'avoir ; « garder » = un code qui ne
     sort jamais (une ligne admin sans le code) ; « alerte » = un changement déjà fait ; « rien » = le reste.
@@ -979,7 +1027,14 @@ def classer(from_header, sujet: str, corps: str, complets=None) -> dict:
     if reconnu:
         return dict(sortie, decision="donner", type=reconnu, libelle=QUOI[reconnu])
     if not expediteur_instagram(from_header):
-        return dict(sortie, decision="garder", code=None, libelle="OTP e-mail sans but sûr reconnu")
+        # 18/10 (Diamondra : « Authenticate your profile » de Meta, gardé trois fois pendant la création de son compte 1) : le
+        # nouveau parcours d'inscription Instagram passe par un compte Meta. Un code Meta sans aucune famille sensible (ou la
+        # seule adresse e-mail) reste gardé ici, mais peut devenir un code de création si le compte de l'adresse n'est pas créé.
+        profil = re.compile(r"authenticate your profile|authentifie[rz] votre profil|authentification de (?:votre )?profil")
+        familles = {libelle for t in [texte] + [_lisible(x, compte, code) for x in complets or []]
+                    for libelle, motif in NOIRE_RE if motif.search(profil.sub(" ", t or ""))}
+        return dict(sortie, decision="garder", libelle="OTP e-mail sans but sûr reconnu",
+                    ajout_adresse=expediteur_meta(from_header) and familles <= {AJOUT_ADRESSE})
     # Les anciens modèles Instagram restent compatibles ; une mention 2FA ambiguë
     # sans but de connexion explicite ne doit pas emprunter leur raccourci.
     if any(_FACTEUR_EMAIL.search(_sans_pied(plat(t), code)) for t in [sujet, corps] + list(complets or [])):
@@ -1007,6 +1062,12 @@ def classer(from_header, sujet: str, corps: str, complets=None) -> dict:
         action = bool(re.search(r"\b(?:chang\w*|modifi\w*|ajout\w*|supprim\w*|reinitialis\w*|reset|remov\w*|add(?:ing|ed)?)\b", debut))
         if confirmation and verification and adresse and not action:
             return dict(sortie, decision="donner", type="verification", libelle=QUOI["verification"])
+    # 18/10 (Gaëtan : « Ceux-là tu peux renvoyer sans même ouvrir le mail ») : le modèle d'INSCRIPTION d'Instagram, en anglais
+    # (« Someone tried to sign up for Instagram with <adresse> ») et en français (« Une personne a tenté de créer un compte
+    # Instagram en utilisant l'adresse courriel suivante »). Il ne sert qu'à créer un compte neuf avec cette adresse : code de
+    # création, même si le texte cite l'« adresse courriel ». Jamais s'il parle aussi de mot de passe, de réglages ou de changement.
+    if expediteur_instagram(from_header) and _inscription_instagram(sujet, corps):
+        return dict(sortie, decision="donner", type="creation", libelle=QUOI["creation"])
     libelle = _noire(texte)
     if libelle:
         return dict(sortie, decision="garder", libelle=libelle,
@@ -1823,8 +1884,8 @@ def _codes_demande(adresses, usage, depuis):
     """Le bon compte, un usage étiqueté et une date sûre ; aucun mélange entre contextes."""
     if not adresses or (usage != "auto" and (len(adresses) != 1 or usage not in USAGES_EMAIL)):
         return []
-    limite = max(depuis, _maintenant() - timedelta(minutes=2)) if usage == "auto" else depuis
-    candidats = [t for t in codes_recents(adresses, min(FRAIS_MIN, 10))
+    limite = depuis                                                     # 18/10 : le recul de 20 minutes, aussi en « Mon code »
+    candidats = [t for t in codes_recents(adresses, FRAIS_MIN)
                  if t.get("type") in USAGES_EMAIL and (usage == "auto" or t.get("type") == usage)
                  and t.get("code") and _date(t) >= limite
                  and t.get("service", "instagram") in SERVICES_EMAIL]
@@ -1834,6 +1895,8 @@ def _codes_demande(adresses, usage, depuis):
         if contexte not in vus:
             vus.add(contexte)
             derniers.append(t)
+    # 18/10 (Gaëtan : « juste renvoie le dernier code envoyé les 20 dernières minutes ») : le dernier code de chaque compte et de
+    # chaque service (Instagram, Facebook, Meta), jamais un ancien du même contexte.
     return derniers
 
 
@@ -1860,7 +1923,7 @@ async def _servir(adresses: set, dire, cle_guet: str, duree: int = None, minutes
         await dire(TEXTE_CHOIX)
         return "choix"
     duree = ATTENTE_SEC if duree is None else duree
-    depuis = _maintenant() - timedelta(minutes=2)
+    depuis = _maintenant() - timedelta(minutes=FRAIS_MIN)              # 18/10 (Gaëtan) : le dernier code des 20 dernières minutes
     guet = {"dire": dire, "texte": TEXTE_ATTENTE}
     verrou = verrou_guet(cle_guet)
     async with verrou:
@@ -1947,7 +2010,7 @@ async def _servir(adresses: set, dire, cle_guet: str, duree: int = None, minutes
                 if montre:
                     _noter_montre(cle_guet, admissibles if usage == "auto" else [montre])
             if fini:
-                if not montre:
+                if not montre and not code_montre_recemment(cle_guet):
                     _signaler_code_absent(cle_guet, adresses, usage)
                 return "code" if montre else "panne" if lecteur_en_panne() else "rien"
             await _attendre_nouveau(min(5.0, fin - time.monotonic()))
@@ -1967,6 +2030,14 @@ def texte_code_absent(uid: str, adresses: set, usage: str, panne: bool) -> str:
                            "de cette adresse), ou Instagram ne l'a pas encore envoyé.")
     return (f"🚨 **Code Instagram pas reçu** : <@{uid}> a appuyé sur « 📩 Mon code » et rien n'est arrivé en "
             f"{ATTENTE_SEC // 60} minutes ({usage or 'auto'}, adresse {formes or 'inconnue'}).\n\n{cause}")
+
+
+def code_montre_recemment(cle_guet: str, minutes: int = None) -> bool:
+    """18/10 (Pierre et Georgial : alerte « pas reçu » à 13 h 57 alors qu'un code leur avait été montré à 13 h 52) : vrai si un code
+    a été montré à ce clipper pendant la fenêtre (le guet qui finit, ou un appui précédent). Pas d'alerte dans ce cas."""
+    minutes = FRAIS_MIN if minutes is None else minutes
+    limite = _iso(_maintenant() - timedelta(minutes=minutes))
+    return any(v >= limite for v in (_MONTRES.get(cle_guet) or {}).values())
 
 
 def _signaler_code_absent(cle_guet: str, adresses: set, usage: str):
@@ -2602,8 +2673,20 @@ def promouvoir_creation(info: dict) -> dict:
     (« e-mail ajouté ou changé »). Il devient un code de création, donné au seul clipper de cette adresse, quand :
       - le mail vient d'Instagram, porte un code, et l'adresse e-mail est la seule famille sensible touchée (ajout_adresse) ;
       - l'adresse a UN propriétaire, et le compte qui lui est attaché n'est PAS encore créé (dep « compte_a_creer »).
-    Un compte déjà créé garde la règle : un changement d'adresse sur un compte vivant n'est jamais donné."""
-    if info.get("decision") != "garder" or not info.get("ajout_adresse") or not info.get("code") or not info.get("alias"):
+    Un compte déjà créé garde la règle : un changement d'adresse sur un compte vivant n'est jamais donné.
+
+    18/10, 13 h 52 (Gaëtan : « Donne tous les codes SAUF changer les informations, mots de passe et mail… On est parfaitement
+    protégé si on donne les codes login et sign up ») : tout code gardé d'un mail Meta ou Instagram (code_brut) est donné au
+    clipper de l'adresse s'il ne parle d'aucun changement (changement=False : ni mot de passe, ni e-mail, ni réglages, ni
+    récupération). Le type : vérification (« Authenticate », identité), sinon connexion."""
+    if info.get("decision") != "garder" or not info.get("alias"):
+        return info
+    if info.get("code_brut") and not info.get("changement"):
+        sujet = plat(str(info.get("sujet") or ""))
+        typ = "verification" if re.search(r"authenticat|identit|confirmation d.adresse|verif", sujet) else "connexion"
+        journal.info("Codes : code Meta sans changement (%s) → donné (%s)", info.get("libelle"), typ)
+        return dict(info, decision="donner", code=info["code_brut"], type=typ, libelle=QUOI.get(typ, "connexion"))
+    if not info.get("ajout_adresse") or not info.get("code"):
         return info
     verifier = _deps.get("compte_a_creer")
     try:

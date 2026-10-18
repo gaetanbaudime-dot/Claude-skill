@@ -88,3 +88,21 @@ class CodeAbsentEtGardienTests(unittest.IsolatedAsyncioTestCase):
         finally:
             codes_2fa._SANTE.clear()
             codes_2fa._SANTE.update(ancien)
+
+
+class FausseAlerteTests(unittest.TestCase):
+    def test_pas_d_alerte_si_un_code_a_ete_montre(self):
+        import codes_2fa
+        maintenant = datetime(2026, 10, 18, 10, 0, tzinfo=timezone.utc)
+        ancien_m, ancien_t = dict(codes_2fa._MONTRES), codes_2fa._maintenant
+        codes_2fa._maintenant = lambda: maintenant
+        try:
+            codes_2fa._MONTRES["u|7"] = {"mid1": codes_2fa._iso(maintenant - timedelta(minutes=5))}
+            self.assertTrue(codes_2fa.code_montre_recemment("u|7"))
+            self.assertFalse(codes_2fa.code_montre_recemment("u|8"))
+            codes_2fa._MONTRES["u|9"] = {"mid2": codes_2fa._iso(maintenant - timedelta(minutes=40))}
+            self.assertFalse(codes_2fa.code_montre_recemment("u|9"))
+        finally:
+            codes_2fa._MONTRES.clear()
+            codes_2fa._MONTRES.update(ancien_m)
+            codes_2fa._maintenant = ancien_t

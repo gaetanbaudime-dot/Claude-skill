@@ -137,7 +137,7 @@ class PointUniqueTests(unittest.TestCase):
     def test_code_expire_meme_apres_lecture_precedente(self):
         self.entree("111111")
         self.assertIn("111111",self.servir()[1])
-        self.now+=timedelta(minutes=3)
+        self.now+=timedelta(minutes=21)                                 # 18/10 : la fenêtre passe à 20 minutes
         self.assertNotIn("111111",self.servir()[1])
 
     def test_frais_deja_lu_accessible_sans_nouveau_menu(self):
@@ -152,7 +152,7 @@ class PointUniqueTests(unittest.TestCase):
         self.assertNotIn("111111",texte)
 
     def test_codes_anciens_futurs_et_non_email_non_presentes(self):
-        self.entree("111111",age=3)
+        self.entree("111111",age=21)                                    # 18/10 : au-delà des 20 minutes
         self.entree("222222",age=-10)
         self.entree("333333",usage="2fa")
         self.entree("444444",service="unknown")
