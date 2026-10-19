@@ -72,6 +72,9 @@ def assignment_diagnostics(data, uid, normalize_handle):
     return counts
 
 
+MAX_COMPTES = 6
+
+
 def normalized(s):
     return "".join(c for c in unicodedata.normalize("NFD", str(s or "").casefold())
                    if unicodedata.category(c) != "Mn").strip()
@@ -124,6 +127,8 @@ def unique_aliases(uid, creator, first_name, roster, sheet_rows, owners):
         return set(), "ownership_conflict"
     if not candidates:
         return set(), "no_verified_address"
-    if len(seen_handles) > 3:
+    # 19/10 (Esperance : 4 lignes à son nom, un compte 1 remplacé) : un clipper garde souvent l'ancienne ligne d'un compte
+    # remplacé ou banni. Au-delà de 6 comptes seulement, on bloque pour revue manuelle.
+    if len(seen_handles) > MAX_COMPTES:
         return set(), "too_many_accounts"
     return candidates, "matched"

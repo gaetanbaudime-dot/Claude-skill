@@ -46,10 +46,16 @@ class OtpIdentityTests(unittest.TestCase):
         self.assertFalse(result)
         self.assertEqual(status, "ambiguous_or_not_in_roster")
 
-    def test_four_accounts_requires_manual_review(self):
+    def test_quatre_comptes_acceptes_sept_bloques(self):
+        # 19/10 (Esperance) : un compte remplacé laisse une 4e ligne ; c'est normal. Au-delà de 6 : revue manuelle.
         more = self.lines + [{"creatrice": "Sophie", "gerant": "Diamondra",
                               "handle": "sophie.four", "mail": "four@icloud.com"}]
         result, status = unique_aliases("u100", "Sophie", "Diamondra", self.roster, more, {})
+        self.assertEqual(status, "matched")
+        self.assertIn("four@icloud.com", result)
+        trop = self.lines + [{"creatrice": "Sophie", "gerant": "Diamondra", "handle": f"sophie.x{i}",
+                              "mail": f"x{i}@icloud.com"} for i in range(7)]
+        result, status = unique_aliases("u100", "Sophie", "Diamondra", self.roster, trop, {})
         self.assertFalse(result)
         self.assertEqual(status, "too_many_accounts")
 

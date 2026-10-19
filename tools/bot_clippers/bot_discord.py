@@ -666,9 +666,16 @@ async def _actualiser_adresses_codes(uid):
             }
         mails, diagnostic = otp_identity.unique_aliases(
             uid, creatrice, prenom, actifs, lignes, proprietaires)
+        # 19/10 : une écriture de la fiche pendant la lecture du classeur ne jette plus le résultat (les propriétaires
+        # sont relus APRÈS le classeur) ; on retire seulement une adresse devenue celle d'un autre clipper.
         if revision is None or revision != _revision_adresses_codes():
-            _OTP_UID_CACHE.pop(uid, None)
-            return _adresses_codes_fiche(uid)
+            revision = _revision_adresses_codes()
+            if revision is None:
+                _OTP_UID_CACHE.pop(uid, None)
+                return _adresses_codes_fiche(uid)
+            fiches = (lire_json(FICHIER_ONBOARDING, {}) or {}).get("clippers") or {}
+            mails = set(mails) - {m for autre in fiches if str(autre) != uid for m in _adresses_codes_fiche(autre)}
+            deja = _adresses_codes_fiche(uid)
         if mails:
             _OTP_UID_CACHE[uid] = {"mails": mails, "revision": revision,
                                    "jusque": time.monotonic() + max(420, codes_2fa.ATTENTE_SEC + 90)}
@@ -705,6 +712,19 @@ def adresses_codes_de(uid) -> set:
         revision = _revision_adresses_codes()
         if revision is not None and cache.get("revision") == revision:
             return propres | set(cache.get("mails") or ())
+        # 19/10 (Esperance) : le bot réécrit souvent la fiche d'onboarding ; avant, la moindre écriture pendant l'attente du
+        # code effaçait les adresses vérifiées dans le classeur, et l'attente s'arrêtait (« plus d'adresse »). On garde le
+        # cache, sauf une adresse devenue entre-temps celle d'un AUTRE clipper (contrôle fait une fois par révision), et
+        # seulement si la fiche a encore des comptes : une fiche vidée (comptes retirés) perd aussi les adresses du classeur.
+        if revision is not None and propres:
+            autres = set()
+            for autre in ((lire_json(FICHIER_ONBOARDING, {}) or {}).get("clippers") or {}):
+                if str(autre) != uid:
+                    autres |= _adresses_codes_fiche(autre)
+            mails = set(cache.get("mails") or ()) - autres
+            if mails:
+                cache.update(mails=mails, revision=revision)
+                return propres | mails
         _OTP_UID_CACHE.pop(uid, None)
     if propres:
         return propres

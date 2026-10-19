@@ -2282,7 +2282,7 @@ def _adresses_membre(membre) -> set:
         return set()
 
 
-async def _rafraichir_membre(membre) -> set:
+async def _rafraichir_membre(membre, timeout: float = 22) -> set:
     """On-demand fallback : Sheets uniquement en cas de liaison UID manquante.
 
     Pour le bouton, reste dans la réponse éphémère; ne jamais publier d'OTP.
@@ -2291,11 +2291,20 @@ async def _rafraichir_membre(membre) -> set:
     if not callable(callback):
         return set()
     try:
-        mails = await asyncio.wait_for(callback(getattr(membre, "id", "")), timeout=22)
+        mails = await asyncio.wait_for(callback(getattr(membre, "id", "")), timeout=timeout)
         return {str(a).strip().lower() for a in mails or () if "@" in str(a)}
     except Exception as erreur:
         journal.warning("Codes : rafraîchissement UID impossible : %s", _err(erreur))
         return set()
+
+
+async def _adresses_a_jour(membre, adresses: set) -> set:
+    """19/10 (Esperance) : l'e-mail de son compte 1 avait été corrigé dans le classeur, mais sa fiche gardait ses 3 anciennes
+    adresses ; le classeur n'était relu que pour une fiche VIDE, donc le code de création arrivé sur la bonne adresse était
+    refusé (« adresse rattachée à personne »). Désormais, à chaque demande, les adresses vérifiées du classeur (même prénom
+    + même créatrice, propriétaire unique) s'AJOUTENT à celles de la fiche. Jamais de retrait, jamais d'adresse d'un autre."""
+    adresses = {str(a).strip().lower() for a in adresses or () if "@" in str(a)}
+    return adresses | await _rafraichir_membre(membre, timeout=10 if adresses else 22)
 
 
 async def _admin(texte: str) -> bool:
@@ -2392,9 +2401,7 @@ async def servir_interaction(interaction, usage="", adresse="") -> str:
     membre = interaction.user
     dire = reponse_privee_unique((str(membre.id), "ephemere"), nouveau,
                                  getattr(interaction, "delete_original_response", None))
-    adresses = _adresses_membre(membre)
-    if not adresses:
-        adresses = await _rafraichir_membre(membre)
+    adresses = await _adresses_a_jour(membre, _adresses_membre(membre))
     if not adresses:
         await _sans_adresse(membre, dire)
         return "sans_adresse"
@@ -2545,8 +2552,7 @@ async def _commande_salon_commun(message, manager: bool, admin: bool, adresses_d
         adresses = {str(a).strip().lower() for a in source() or ()}
     except Exception:
         adresses = set()
-    if not adresses:
-        adresses = await _rafraichir_membre(message.author)
+    adresses = await _adresses_a_jour(message.author, adresses)
     if not adresses:
         await _sans_adresse(message.author, message.reply)
         return True
