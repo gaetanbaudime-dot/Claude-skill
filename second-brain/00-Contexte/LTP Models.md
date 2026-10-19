@@ -41,20 +41,20 @@ Doctrine d'acquisition : "contenu 100% safe sur plateforme, conversion hors plat
 >
 > **La faute à ne pas commettre** : envoyer des clippers sur Sarah/Amanda parce qu'« elles sont grosses ». Plus de subs à 2 €/2,8 € de LTV ne fait quasi pas d'argent — c'est gâcher la ressource rare. **Amanda reste un chantier chat ; Sarah, corrigé le 19/07, n'est même pas un chantier : c'est une démonstration** — ~3 000 subs/mois GRATUITS via le débordement de trafic interne MYM (LTV structurelle ~3 €, confirmé Maxime). [[Supervision chatting (top 5) et le cas Sarah|Le vrai chantier est de la répliquer]] sur les créatrices qui monétisent. Cette matrice **complète** (ne remplace pas) l'ordre de montée créatrices du roster ci-dessous : le roster dit *dans quelles créatrices investir*, cette matrice dit *où va la main-d'œuvre clipping*. Les 4 créatrices à zéro rappellent le vrai plafond : **le trafic (clippers) est le goulot n°1 de l'agence** ([[Théorie des contraintes]]).
 
-### Valeur d'un abonné OF contre MYM — 30 jours au 12/10/2026 (classeur Data G&M, OF en € = total − MYM, conversion du classeur au taux du jour)
+### Valeur d'un abonné OF contre MYM — 30 jours au 19/10/2026 (classeur Data G&M, OF en € = total − MYM, conversion du classeur au taux du jour)
 
 | Créatrice | OF : abonnés · € · €/ab. | MYM : abonnés · € · €/ab. | Écart MYM − OF | Total 30 j |
 |---|---|---|---|---|
-| Chloé | 1 079 · 8 073 € · **7,5 €** | 1 824 · 12 913 € · 7,1 € | −0,4 € | 20 986 € |
-| Sarah | 1 299 · 2 188 € · 1,7 € | 2 120 · 7 862 € · **3,7 €** | +2,0 € | 10 050 € |
-| Sophie | 552 · 3 145 € · **5,7 €** | 1 654 · 7 908 € · 4,8 € | −0,9 € | 11 053 € |
-| Maddy | — | 525 · 5 240 € · **10,0 €** | — | 5 240 € |
-| Clara | 412 · 1 832 € · **4,5 €** | 509 · 675 € · 1,3 € | −3,1 € | 2 507 € |
-| Jade | 396 · 766 € · **1,9 €** | 449 · 532 € · 1,2 € | −0,8 € | 1 298 € |
-| Amanda | 42 · 36 € · 0,8 € | 22 · 101 € · **4,6 €** | +3,7 € | 137 € |
-| **Total** | **3 780 · 16 041 € · 4,2 €** | **7 103 · 35 231 € · 5,0 €** | | **51 272 €** |
+| Chloé | 979 · 9 079 € · **9,3 €** | 1 872 · 13 591 € · 7,3 € | −2,0 € | 22 670 € |
+| Sarah | 747 · 1 860 € · 2,5 € | 1 814 · 7 333 € · **4,0 €** | +1,5 € | 9 193 € |
+| Sophie | 596 · 3 652 € · **6,1 €** | 2 293 · 12 085 € · 5,3 € | −0,9 € | 15 737 € |
+| Maddy | — | 357 · 4 766 € · **13,3 €** | — | 4 766 € |
+| Clara | 319 · 2 043 € · **6,4 €** | 428 · 592 € · 1,4 € | −5,0 € | 2 635 € |
+| Jade | 334 · 767 € · **2,3 €** | 476 · 699 € · 1,5 € | −0,8 € | 1 466 € |
+| Amanda | — | — | — | — (plus saisie depuis le 18/09) |
+| **Total** | **2 975 · 17 402 € · 5,8 €** | **7 240 · 39 066 € · 5,4 €** | | **56 468 €** |
 
-Lecture : **51 272 € sur 30 jours contre 50 364 € la semaine passée (+2 %), un abonné qui vaut un peu moins** (OF 4,2 € contre 4,5 €, MYM 5,0 € contre 5,2 €) : le volume monte encore (10 883 abonnés contre 10 296) mais la valeur s'érode. **Sophie prend la deuxième place : 11 053 € (+3 500 €), dont 7 908 € de MYM en onze jours pour 1 654 abonnés (4,8 €/ab.)** ; Chloé recule à 20 986 € (−1 500 €, son abonné MYM passe de 7,8 à 7,1 €) ; Sarah 10 050 € (+270 €), toujours le plus gros volume (3 419 abonnés) pour la plus faible valeur OF (1,7 €) ; Maddy 5 240 € (−700 €, 10,0 €/ab.) ; Clara 2 507 € (−440 €, MYM tombé à 1,3 €/ab.) ; Jade 1 298 € (OF remonte à 1,9 €) ; Amanda n'est plus saisie depuis le 18/09 (137 € résiduels, sortie de la fenêtre la semaine prochaine). Sur 7 jours (06-12/10, six jours saisis) : **10 871 €, soit 1 812 €/j contre 2 306 €/j la semaine passée (−21 %) et 1 709 €/j sur 30 jours** ; Sophie 4 440 € (MYM 6,3 €/ab.) ; Chloé 2 360 € seulement (OF 4,5 € · MYM 3,8 €, sa semaine la plus faible du mois) ; Maddy 1 967 € pour 59 abonnés MYM (33,3 €/ab., gros payeurs) ; Sarah 1 373 € (OF 3,3 € · MYM 2,3 €) ; Clara 308 € ; Jade 423 €. Contrôle : les totaux de septembre recalculés depuis les onglets retrouvent l'onglet « Subs & LTV » pour les six créatrices (abonnés OF et MYM, €/abonné). Cette synthèse est recalculée chaque lundi par une routine et lue par le bot (`!ltv`, rapport du lundi).
+Lecture : **56 468 € sur 30 jours contre 51 272 € la semaine passée (+10 %), et cette fois c'est la valeur qui monte, pas le volume** (OF 5,8 € contre 4,2 €, MYM 5,4 € contre 5,0 € ; 10 215 abonnés contre 10 883). **Sophie confirme à 15 737 € (+4 700 €), deuxième créatrice de l'agence : 12 085 € de MYM pour 2 293 abonnés (5,3 €/ab.)** ; Chloé 22 670 € (+1 700 €) avec un abonné OF à 9,3 € (7,5 € la semaine passée) ; **Sarah recule à 9 193 € (−860 €) : son volume OF est divisé par deux (747 abonnés contre 1 299) mais chaque abonné vaut plus (2,5 € contre 1,7 €)**, à lire avec la bascule du trafic vers MYM ; Maddy 4 766 € (−470 €, 13,3 €/ab., le plus cher de l'agence) ; Clara 2 635 € (OF 6,4 €, MYM toujours à 1,4 €) ; Jade 1 466 € (+170 €) ; Amanda est sortie de la fenêtre (plus saisie depuis le 18/09). Sur 7 jours (13-19/10, six jours saisis) : **12 653 €, soit 2 109 €/j contre 1 812 €/j la semaine passée (+16 %) et 1 882 €/j sur 30 jours** ; Chloé 5 903 € (OF 12,0 € · MYM 6,3 €) ; Sophie 3 445 € (MYM 5,5 €) ; Sarah 1 969 € (MYM 6,4 €, OF 3,9 €) ; Clara 636 € (OF 7,3 €) ; Maddy 475 € pour 30 abonnés MYM seulement ; Jade 225 €. Contrôle : les totaux de septembre recalculés depuis les onglets retrouvent l'onglet « Subs & LTV » pour les six créatrices. Cette synthèse est recalculée chaque lundi par une routine et lue par le bot (`!ltv`, rapport du lundi).
 
 **Sheet « Data G&M Créatrices » (OF + MYM, €, Synthèse du 28/09/2026, fenêtre au 27/09, dernier jour saisi) :** 30 j glissants **44 473 €** pour 8 790 abonnés (5,06 €/ab., Amanda hors Synthèse) — Chloé 21 720 € (2 918 ab., 7,44 €/ab.) · Sarah 7 641 € (3 061 ab., **2,50 €**) · Maddy 6 182 € (500 ab., **12,36 €**) · Sophie 5 003 € (642 ab., 7,79 €) · Clara 2 814 € (1 100 ab., 2,56 €) · Jade 1 114 € (569 ab., 1,96 €) ; Amanda n'est plus saisie depuis le 18/09. Par mois, tous onglets Amanda comprise : **juillet 54 884 € · août 47 532 € · septembre 1-27 : 41 924 €** (1 553 €/j, contre 1 533 €/j en août). Vue OF/MYM séparée pour Chloé et Sarah demandée le 14/09 (reporting Telegram de la différence de LTV) : en cours.
 
