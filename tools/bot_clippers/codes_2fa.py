@@ -2500,6 +2500,12 @@ async def commande(message, admin_ids, adresses_de_membre=None, alerter=None) ->
         if any(m.lower() not in USAGES_EMAIL and "@" not in m for m in mots[1:]):
             await message.reply(texte_salon_codes() + "\n\nBesoin d'aide ? `!aide-ig`.")
             return True
+        if canal_id == salon_codes_id():
+            # 19/10 (Gaëtan, en connaissance du risque partagé : « peu importe le clippeur, l'utilisateur etc. Celui
+            # qui tape !code dans #code-instagram reçoit le dernier code 2FA login ou sign up des 20 dernières
+            # minutes ») : aucune vérification de propriétaire ici. N'affecte QUE ce chemin précis ; le bouton
+            # « 📩 Mon code » et `!code` ailleurs (salon perso, MP) gardent la vérification par UID, inchangée.
+            return await _commande_salon_partage(message, usage, adresse)
         admin = str(getattr(message.author, "id", "")) in admin_ids
         return await _commande_salon_commun(message, manager, admin, adresses_de_membre, adresse, usage)
     if not manager:
@@ -2589,6 +2595,88 @@ async def _commande_salon_commun(message, manager: bool, admin: bool, adresses_d
         await message.reply(TEXTE_MP_FERMES, view=vue_mon_code())
     except discord.HTTPException:
         await message.reply("La réponse privée n’a pas pu être actualisée. Réessaie avec 📩 Mon code.", view=vue_mon_code())
+    return True
+
+
+def _dernier_code_partage(usage: str = "auto", adresse: str = ""):
+    """19/10 (Gaëtan) : le dernier code « donner » (connexion, création ou vérification d'e-mail), toutes adresses
+    confondues, dans les FRAIS_MIN dernières minutes — sans filtrer par propriétaire. N'est appelé QUE pour `!code`
+    tapé dans le salon commun #code-instagram (voir `commande`) ; tous les autres chemins (bouton, salon perso, MP)
+    continuent de passer par `_servir`/`_codes_demande`, qui vérifient toujours l'UID. `adresse`, si donnée, filtre
+    sur ce seul alias (narrows only, never widens)."""
+    depuis = _maintenant() - timedelta(minutes=FRAIS_MIN)
+    candidats = [t for t in _etat()["codes"]
+                 if t.get("decision") == "donner" and t.get("code")
+                 and t.get("type") in USAGES_EMAIL and (usage == "auto" or t.get("type") == usage)
+                 and t.get("service", "instagram") in SERVICES_EMAIL
+                 and (not adresse or t.get("alias") == adresse)
+                 and _date(t) >= depuis]
+    candidats = sorted(candidats, key=_cle_tri, reverse=True)
+    return candidats[0] if candidats else None
+
+
+async def _servir_salon_partage(dire, cle_guet: str, usage: str = "auto", adresse: str = "",
+                                duree: int = None) -> str:
+    """Équivalent de `_servir`, mais sans aucune vérification de propriétaire : le guet de 5 minutes montre le
+    dernier code admissible toutes adresses confondues. Réservé au salon commun #code-instagram (voir
+    `_dernier_code_partage`)."""
+    duree = ATTENTE_SEC if duree is None else duree
+    guet = {"dire": dire, "texte": TEXTE_ATTENTE}
+    verrou = verrou_guet(cle_guet)
+    async with verrou:
+        _guets[cle_guet] = guet
+    fin = time.monotonic() + duree
+    try:
+        while True:
+            if _guets.get(cle_guet) is not guet:
+                return "remplace"
+            montre = _dernier_code_partage(usage, adresse)
+            fini = time.monotonic() >= fin
+            if montre:
+                texte = _texte_codes([montre]) + "\n\n" + (TEXTE_REFUSE_FIN if fini else TEXTE_REFUSE)
+            else:
+                texte = (TEXTE_PANNE if lecteur_en_panne() and fini else
+                         TEXTE_PANNE_GUET if lecteur_en_panne() else TEXTE_RIEN if fini else TEXTE_ATTENTE)
+            if texte != guet["texte"] or "envoye" not in guet:
+                guet["texte"] = texte
+                async with verrou:
+                    if _guets.get(cle_guet) is not guet:
+                        return "remplace"
+                    await dire(texte)
+                guet["envoye"] = True
+                if montre:
+                    _noter_montre(cle_guet, [montre])
+            if fini:
+                return "code" if montre else "panne" if lecteur_en_panne() else "rien"
+            await _attendre_nouveau(min(5.0, fin - time.monotonic()))
+    finally:
+        if _guets.get(cle_guet) is guet:
+            _guets.pop(cle_guet, None)
+
+
+async def _commande_salon_partage(message, usage: str = "", adresse: str = "") -> bool:
+    """`!code` tapé dans le salon commun #code-instagram : pas de vérification de propriétaire (demande explicite de
+    Gaëtan le 19/10, malgré le risque qu'un autre clippeur du même salon voie ce code pendant qu'il est affiché).
+    Portée inchangée par ailleurs : connexion/création/vérification seulement, jamais un code de récupération ou de
+    changement de sécurité (ceux-là restent `decision != "donner"`, donc jamais vus par `_dernier_code_partage`)."""
+    if not actif():
+        await message.reply("Relais des codes éteint pour l'instant. Dis-le à ton manager.")
+        return True
+    usage = usage or "auto"
+    courant = {"msg": None}
+
+    async def nouveau(t):
+        if courant["msg"] is None:
+            courant["msg"] = await message.reply(t, mention_author=True, delete_after=CODE_SALON_EFFACE_MIN * 60)
+        else:
+            await courant["msg"].edit(content=t)
+
+    dire = reponse_privee_unique((str(message.author.id), "mp"), nouveau)
+    cle = f"u|{getattr(message.author, 'id', '')}"
+    try:
+        await _servir_salon_partage(dire, cle, usage=usage, adresse=adresse)
+    except discord.HTTPException:
+        await message.reply("La réponse n'a pas pu être actualisée. Réessaie avec `!code`.")
     return True
 
 
