@@ -81,17 +81,17 @@ export default function Downloads({ variants }: { variants: RemoteVariant[] }) {
   const canShareSelection = files.length > 0 && canShareFiles(files);
   return <section className={styles.results} aria-label="Vidéos disponibles">
     <div className={styles.resultHeading}><h3>{variants.length === 6 ? "Tes 6 Reels" : `${variants.length} Reel${variants.length > 1 ? "s" : ""} disponible${variants.length > 1 ? "s" : ""}`}</h3><span>HD · 9:16</span></div>
-    {sharingAvailable && variants.length > 1 && <button type="button" className={styles.primary} disabled={busy} onClick={() => void choose(variants)}><ShareIcon />Enregistrer les {variants.length} vidéos</button>}
+    {sharingAvailable && variants.length > 1 && <button type="button" className={styles.primary} disabled={busy} onClick={() => void choose(variants)}><ShareIcon />{device === "apple" ? `Enregistrer les ${variants.length} dans Photos` : `Enregistrer les ${variants.length} vidéos`}</button>}
     <p className={styles.hint}>{device === "apple" ? "Enregistre tes vidéos dans Photos, en une fois ou une par une."
       : device === "android" ? "MP4 compatibles avec ton téléphone. Partage-les ou télécharge-les une par une." : "Enregistre chaque MP4 ou partage le lot depuis ton téléphone."}</p>
     {message && !selection.length && <p role="status" className={styles.transfer}>{message}</p>}
     <ol className={styles.resultList}>{variants.map(video => <li key={video.id} className={styles.resultCard}>
       <div className={styles.resultTop}><span className={styles.number}>{video.index + 1}</span><div className={styles.resultName}><strong>{variantLabel(video.index)}</strong><span>{(video.size / 1048576).toFixed(1)} Mo · MP4</span></div></div>
+      <video className={styles.resultPreview} src={video.url} controls playsInline preload="metadata" aria-label={`Aperçu — ${variantLabel(video.index)}`} />
       <div className={styles.resultActions}>
         {sharingAvailable && <button type="button" className={styles.primary} disabled={busy} onClick={() => void choose([video])} aria-label={`${saveLabel} — ${variantLabel(video.index)}`}><ShareIcon />{saveLabel}</button>}
         <a className={sharingAvailable ? styles.fileLink : styles.primary} href={video.downloadUrl} download={variantFileName(video.index)} onClick={event => download(event, video)} referrerPolicy="no-referrer">Télécharger le MP4</a>
       </div>
-      <details className={styles.previewDetails}><summary>Voir la vidéo</summary><video src={video.url} controls playsInline preload="none" aria-label={`Aperçu — ${variantLabel(video.index)}`} /></details>
     </li>)}</ol>
     <details className={styles.saveHelp}><summary>Retrouver mes vidéos sur mon téléphone</summary>
       <p><strong>iPhone :</strong> utilise Enregistrer dans Photos, puis « Enregistrer la vidéo » dans le menu de partage. Si tu télécharges le MP4 : Fichiers → Téléchargements → ouvre la vidéo → Partager → Enregistrer la vidéo.</p>
