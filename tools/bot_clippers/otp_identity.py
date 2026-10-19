@@ -102,10 +102,16 @@ def unique_aliases(uid, creator, first_name, roster, sheet_rows, owners):
             alias_handles.setdefault(alias, set()).add(handle)
             handle_aliases.setdefault(handle, set()).add(alias)
     candidates, seen_handles, conflicts = set(), set(), 0
+    par_creatrice = {}
     for row in sheet_rows or []:
-        if normalized(row.get("creatrice")) != creator_key:
-            continue
-        if normalized(row.get("gerant")) != name_key:
+        row_creator = normalized(row.get("creatrice"))
+        gerant = normalized(row.get("gerant"))
+        # 19/10 (Rianah) : « Rianah Clipping Sarah » = les comptes de Rianah sur Sarah, même si sa créatrice Discord est Chloé.
+        # Seul le suffixe égal à la créatrice de la ligne compte ; les lignes « Metricool » ne sont pas ses comptes de clipping.
+        if gerant == name_key:
+            if row_creator != creator_key:
+                continue
+        elif not (row_creator and gerant == f"{name_key} clipping {row_creator}"):
             continue
         handle = normalized(str(row.get("handle") or "").lstrip("@"))
         alias = str(row.get("mail") or "").strip().lower()
@@ -121,6 +127,7 @@ def unique_aliases(uid, creator, first_name, roster, sheet_rows, owners):
         if handle in seen_handles:
             continue
         seen_handles.add(handle)
+        par_creatrice.setdefault(row_creator, set()).add(handle)
         candidates.add(alias)
     if conflicts:
         # Fail closed for any ownership conflict; never accidentally mix accounts.
@@ -128,7 +135,7 @@ def unique_aliases(uid, creator, first_name, roster, sheet_rows, owners):
     if not candidates:
         return set(), "no_verified_address"
     # 19/10 (Esperance : 4 lignes à son nom, un compte 1 remplacé) : un clipper garde souvent l'ancienne ligne d'un compte
-    # remplacé ou banni. Au-delà de 6 comptes seulement, on bloque pour revue manuelle.
-    if len(seen_handles) > MAX_COMPTES:
+    # remplacé ou banni. Au-delà de 6 comptes PAR CRÉATRICE seulement, on bloque pour revue manuelle.
+    if any(len(h) > MAX_COMPTES for h in par_creatrice.values()):
         return set(), "too_many_accounts"
     return candidates, "matched"

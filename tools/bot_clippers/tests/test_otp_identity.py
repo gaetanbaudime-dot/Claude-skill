@@ -72,5 +72,20 @@ class OtpIdentityTests(unittest.TestCase):
         self.assertEqual(status, "ownership_conflict")
 
 
+    def test_gerant_prenom_clipping_creatrice(self):
+        # 19/10 (Rianah) : créatrice Discord Chloé, comptes « Rianah Clipping Sarah » sur l'onglet Sarah.
+        roster = {"r1": {"creatrice": "Chloé", "prenom": "Rianah", "active": True}}
+        rows = [
+            {"creatrice": "Chloé", "gerant": "Rianah Clipping Chloé", "handle": "c.one", "mail": "c1@icloud.com"},
+            {"creatrice": "Sarah", "gerant": "Rianah Clipping Sarah", "handle": "s.one", "mail": "s1@icloud.com"},
+            {"creatrice": "Sarah", "gerant": "Rianah Clipping Sarah", "handle": "s.two", "mail": "s2@icloud.com"},
+            {"creatrice": "Sarah", "gerant": "Rianah Metricool", "handle": "s.metri", "mail": "m@icloud.com"},
+            {"creatrice": "Sarah", "gerant": "Rianah Clipping Chloé", "handle": "s.faux", "mail": "faux@icloud.com"},
+        ]
+        result, status = unique_aliases("r1", "Chloé", "Rianah", roster, rows, {})
+        self.assertEqual(status, "matched")
+        self.assertEqual(result, {"c1@icloud.com", "s1@icloud.com", "s2@icloud.com"})
+
+
 if __name__ == "__main__":
     unittest.main()
