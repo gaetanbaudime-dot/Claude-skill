@@ -8,11 +8,11 @@
 .heading>span { font-size:11px; font-weight:600; letter-spacing:.04em; color:#8b96a8; }
 .upload,.selection,.progress,.resultCard { min-width:0; border:1px solid rgba(255,255,255,.08); background:linear-gradient(180deg,rgba(255,255,255,.045),rgba(255,255,255,.02)); border-radius:18px; padding:16px; }
 .intro { margin:0 0 16px; font-size:14px; line-height:1.5; color:#c9d1dc; }
-.primary,.secondary,.change,.fileLink,.stop,.newVideo,.previewDetails>summary { min-height:44px; font:inherit; font-size:14px; font-weight:600; line-height:1.35; cursor:pointer; border-radius:12px; text-align:center; }
+.primary,.secondary,.change,.fileLink,.stop,.newVideo { min-height:44px; font:inherit; font-size:14px; font-weight:600; line-height:1.35; cursor:pointer; border-radius:12px; text-align:center; }
 .primary { width:100%; display:flex; align-items:center; justify-content:center; gap:9px; min-height:50px; padding:12px; border:1px solid transparent; background:#7aa7ff; color:#071020; text-decoration:none; }
 .primary:disabled,.secondary:disabled { opacity:.45; cursor:default; }
 .primary:not(:disabled):active,.secondary:not(:disabled):active { transform:scale(.99); }
-.primary:focus-visible,.secondary:focus-visible,.change:focus-visible,.fileLink:focus-visible,.stop:focus-visible,.newVideo:focus-visible,.previewDetails>summary:focus-visible { outline:2px solid #a9c6ff; outline-offset:3px; }
+.primary:focus-visible,.secondary:focus-visible,.change:focus-visible,.fileLink:focus-visible,.stop:focus-visible,.newVideo:focus-visible,.resultPreview:focus-visible { outline:2px solid #a9c6ff; outline-offset:3px; }
 .secondary { width:100%; border:1px solid rgba(122,167,255,.3); background:rgba(122,167,255,.08); color:#b8d0ff; padding:10px 12px; }
 .limits { margin:12px 0 0; font-size:12px; line-height:1.5; color:#c9d1dc; }
 .hint { margin:8px 0 0; font-size:12px; line-height:1.5; color:#9aa6b8; overflow-wrap:anywhere; }
@@ -52,9 +52,7 @@
 .resultActions .primary { min-height:48px; font-size:13px; padding:12px 8px; }
 .resultActions .fileLink { border:0; min-height:44px; color:#a6b7d1; font-weight:500; }
 .fileLink { display:flex; justify-content:center; align-items:center; padding:8px; font-size:12px; color:#b8d0ff; text-decoration:none; border:1px solid rgba(122,167,255,.18); }
-.previewDetails>summary { display:flex; justify-content:center; align-items:center; list-style:none; color:#9aa6b8; font-size:12px; padding:8px; margin-top:4px; }
-.previewDetails>summary::-webkit-details-marker { display:none; }
-.previewDetails video { display:block; margin-top:8px; width:100%; max-height:380px; aspect-ratio:9/16; object-fit:contain; background:#000; border-radius:10px; }
+.resultPreview { display:block; width:100%; max-width:214px; aspect-ratio:9/16; object-fit:contain; background:#000; border-radius:10px; margin:0 auto 12px; }
 .transfer { font-size:12px; line-height:1.5; color:#c9d1dc; overflow-wrap:anywhere; margin:10px 0; }
 .saveHelp { margin-top:16px; font-size:12px; line-height:1.6; color:#a6b7d1; }
 .saveHelp summary { cursor:pointer; min-height:44px; display:flex; align-items:center; color:#b8d0ff; }
