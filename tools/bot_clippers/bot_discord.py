@@ -9157,6 +9157,8 @@ async def on_ready():
                                 # attendu par un dépôt « onboarding » attend le dépôt
                                 "arrive_avant_vannes": arrive_avant_vannes, "reserve_depot": reserve_au_depot})
 
+        client.loop.create_task(attribution.boucle_reglages())       # 20/10 : coefficients réglés depuis le Cockpit Clipping
+
         async def _attribution_puis_migration():
             # 09/10 (lots L5 et L9, A2) : dans l'ordre, jamais en même temps. (1) les dépôts du roster (sortie de Tara, puis Andry
             # et le second nouveau de Sarah) ; (2) les signés sans créatrice, un par un ; (2 bis, 10/10) les parcours jamais
