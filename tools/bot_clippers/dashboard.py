@@ -1358,6 +1358,35 @@ def _reels_recents(ctx: _Ctx, L: dict) -> tuple:
     return rh, r7, (vues if n else (0 if lu and r7 == 0 else None))
 
 
+REELS_JOURS = 15                                                         # 20/10 (Gaëtan : cards « Reels 15 j » et « Vues 15 j » du Cockpit)
+
+
+def lignes_reels(comptes: list, aujourdhui: date, jours: int = REELS_JOURS) -> list:
+    """20/10 (Gaëtan, Cockpit : « Reels (last 15d) > Vues (last 15d) ») : une ligne par jour × créatrice × gérant sur `jours` jours
+    finissant aujourd'hui (heure de Paris) — Reels publiés ce jour-là (vus par le bot), vues de ces Reels (dernière valeur relevée de
+    chacun) et nombre de Reels dont les vues sont mesurées. `comptes` : [(créatrice, gérant, série du compte)]. Un Reel compte au
+    jour de sa publication ; un compte jamais lu n'apporte rien (minimum, jamais un faux chiffre). Pur, testé."""
+    debut = aujourdhui - timedelta(days=jours - 1)
+    agg = {}
+    for cr, gerant, serie in comptes or []:
+        reels = (serie or {}).get("reels") if isinstance((serie or {}).get("reels"), dict) else {}
+        for x in reels.values():
+            p = _instant(x.get("publie")) if isinstance(x, dict) else None
+            if p is None:
+                continue
+            j = _paris(p).date()
+            if not debut <= j <= aujourdhui:
+                continue
+            a = agg.setdefault((j.isoformat(), str(cr or "").strip(), str(gerant or "").strip()), [0, 0, 0])
+            a[0] += 1
+            pts = [pt for pt in (x.get("vues") or []) if isinstance(pt, list) and len(pt) == 2
+                   and isinstance(pt[1], (int, float)) and not isinstance(pt[1], bool) and _instant(pt[0])]
+            if pts:
+                a[1] += int(max(pts, key=lambda pt: _instant(pt[0]))[1])
+                a[2] += 1
+    return [[j, cr, g, str(a[0]), str(a[1]), str(a[2])] for (j, cr, g), a in sorted(agg.items())]
+
+
 def _pilotage(ctx: _Ctx, comptes_l: list, creatrices: set) -> dict:
     """Les tables du pilotage, en texte (écrites telles quelles) : `comptes` (une ligne par compte montré, l'état du moment) et
     `clics` (une ligne par jour × créatrice × axe × source × personne, sur PILOTAGE_JOURS jours dont aujourd'hui jusqu'au dernier
@@ -1429,7 +1458,8 @@ def _pilotage(ctx: _Ctx, comptes_l: list, creatrices: set) -> dict:
              for (ji, cr, axe, src, q), a in sorted(agg.items())]
     boutons_l = [[ji, cr, axe, src, q, str(b[0]), str(b[1]), str(b[2])] for (ji, cr, axe, src, q), b in sorted(agg_b.items())]
     actifs = sorted(lid for lid in ctx.liens if ctx.cat(lid) not in INACTIFS)
-    return {"comptes": comptes, "clics": clics, "boutons": boutons_l, "lids_boutons": actifs}
+    reels = lignes_reels([(nom_cr(L["cr"]), (L["c"] or {}).get("gerant"), L.get("serie")) for L in comptes_l], ctx.j0)
+    return {"comptes": comptes, "clics": clics, "boutons": boutons_l, "lids_boutons": actifs, "reels": reels}
 
 
 def construire(e: dict, maintenant: datetime = None) -> dict:

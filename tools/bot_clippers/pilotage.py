@@ -39,6 +39,9 @@ ENTETE_COMPTES = ["Créatrice", "Axe", "Type", "Gérant", "@", "ETAT", "Follower
                   "Reels auj.", "Reels hier", "Reels 7 j", "Vues 7 j (48 h)", "Vues 7 j d'avant", "Clics auj.", "Clics hier",
                   "Clics 7 j", "Clics 7 j d'avant", "Dernier Reel", "Mesure", "Vues 7 j (dernier relevé)"]   # 13/10 : + vues récentes
 ENTETE_CLICS = ["Jour", "Créatrice", "Axe", "Source", "Qui", "Visites payables", "Visites hors robots", "Liens", "Liens non relevés"]
+# 20/10 (Gaëtan, Cockpit Clipping) : Reels publiés et leurs vues, jour × créatrice × gérant, sur 15 jours (dashboard.lignes_reels)
+ONGLET_REELS = "Pilotage reels"
+ENTETE_REELS = ["Jour", "Créatrice", "Gérant", "Reels", "Vues (dernier relevé)", "Reels mesurés"]
 ENTETE_SUBS = ["Jour", "Créatrice", "Subs OF", "CA OF ($)", "Subs MYM", "CA MYM (€)", "Saisi"]
 # 13/10 : les clics sur les boutons OnlyFans et MYM des pages (boutons.py), jour × créatrice × axe × source × personne
 ONGLET_BOUTONS = "Pilotage boutons"
@@ -298,7 +301,8 @@ async def publier(pil: dict, maintenant: datetime = None) -> int:
             _relever_boutons(pil, aujourdhui)                           # 13/10 : en tâche de fond, au plus toutes les 3 h
             for titre, entete, lignes in ((ONGLET_COMPTES, ENTETE_COMPTES, pil.get("comptes")),
                                           (ONGLET_CLICS, ENTETE_CLICS, pil.get("clics")),
-                                          (ONGLET_BOUTONS, ENTETE_BOUTONS, pil.get("boutons"))):
+                                          (ONGLET_BOUTONS, ENTETE_BOUTONS, pil.get("boutons")),
+                                          (ONGLET_REELS, ENTETE_REELS, pil.get("reels"))):
                 if isinstance(lignes, list) and await _ecrire(classeur, titre, entete, lignes):
                     ecrits += 1
             # 13/10 (Gaëtan : « si le clippeur met à jour ses @, mets à jour le sheet et l'application de son team leader ») : les @
