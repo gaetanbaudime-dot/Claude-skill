@@ -1,6 +1,7 @@
 import type { RemoteVariant } from "./server-video";
 export const CAPTION_LABELS = ["Variante 1 + Hook", "Variante 2 Verticale", "Variante 3 Bleue", "Variante 4 + Hook", "Variante 5 Classique", "Variante 6 Mouvement"] as const;
 export type NativePhase = "checking" | "upload" | "preparing" | "native" | "variants" | "exports" | "cached";
+export type UploadProgress = { loaded: number; total: number; elapsedSeconds: number; bytesPerSecond: number };
 
 export type ClientConfiguration = { apiBase?: string; storageScope?: string };
 
@@ -47,6 +48,7 @@ type Options = {
   onVariant?: (variant: RemoteVariant) => void;
   onPhase?: (phase: NativePhase) => void;
   onResume?: (resuming: boolean) => void;
+  onUploadProgress?: (value: UploadProgress) => void;
 };
 type PolishResult = { url: string; downloadUrl: string; size: number };
 type Checkpoint = {
@@ -163,19 +165,31 @@ function gcsUpload(file: File, target: string, opts: Options) {
   return new Promise<void>((resolve, reject) => {
     abortCheck(opts.signal);
     const xhr = new XMLHttpRequest();
+    const started = performance.now();
+    let sent = 0;
+    const report = (loaded: number) => {
+      sent = Math.max(sent, Math.min(file.size, Math.max(0, loaded)));
+      const elapsedSeconds = Math.max(0, (performance.now() - started) / 1000);
+      opts.onUploadProgress?.({ loaded: sent, total: file.size, elapsedSeconds,
+        bytesPerSecond: elapsedSeconds > 0 ? sent / elapsedSeconds : 0 });
+      opts.onProgress?.(Math.round(5 + sent / file.size * 20));
+    };
     xhr.open("PUT", target); xhr.timeout = 10 * 60 * 1000;
     xhr.setRequestHeader("Content-Type", "application/octet-stream");
     xhr.upload.onprogress = event => {
-      if (event.lengthComputable) opts.onProgress?.(Math.round(5 + event.loaded / event.total * 20));
+      if (event.lengthComputable) report(event.loaded);
     };
     const stop = () => xhr.abort();
     opts.signal?.addEventListener("abort", stop, { once: true });
     xhr.onloadend = () => opts.signal?.removeEventListener("abort", stop);
-    xhr.onload = () => xhr.status >= 200 && xhr.status < 300 ? resolve()
-      : reject(new Error("L'envoi du rush a échoué (" + xhr.status + ")."));
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) { report(file.size); resolve(); }
+      else reject(new Error("L'envoi du rush a échoué (" + xhr.status + ")."));
+    };
     xhr.onerror = () => reject(new Error("L'envoi du rush est bloqué par le navigateur."));
     xhr.ontimeout = () => reject(new Error("L'envoi du rush a dépassé le délai autorisé."));
     xhr.onabort = () => reject(new DOMException("Annulé", "AbortError"));
+    report(0);
     xhr.send(file);
   });
 }
@@ -198,7 +212,21 @@ async function uploadPreparedSource(file: File, state: Checkpoint, save: () => v
   if (target.ready && target.uploadId) { state.mirroredBeforeCaptions = true; save(); return String(target.uploadId); }
   if (!target.uploaded) {
     opts.onStatus?.('IA G&M · envoi du rush…');
-    await gcsUpload(file, String(target.uploadUrl), opts);
+    try { await gcsUpload(file, String(target.uploadUrl), opts); }
+    catch (error) {
+      abortCheck(opts.signal);
+      // A mobile connection may disappear after storage accepted the complete
+      // PUT. Read its exact-sized object before asking for another transfer.
+      // Never replay a raw upload or paid import on an ambiguous response.
+      const confirmation = await sourceRequest({ action: 'target', sourceToken: state.sourceToken }, opts).catch(() => null);
+      abortCheck(opts.signal);
+      if (confirmation?.ready && confirmation.uploadId) {
+        state.mirroredBeforeCaptions = true; save(); return String(confirmation.uploadId);
+      }
+      if (!confirmation?.uploaded) throw error;
+      opts.onUploadProgress?.({ loaded: file.size, total: file.size, elapsedSeconds: 0, bytesPerSecond: 0 });
+      opts.onProgress?.(25);
+    }
   }
   opts.onStatus?.('IA G&M · retournement du rush avant les sous-titres…');
   opts.onPhase?.("preparing");
@@ -207,11 +235,28 @@ async function uploadPreparedSource(file: File, state: Checkpoint, save: () => v
   state.mirroredBeforeCaptions = true; save();
   return String(prepared.uploadId);
 }
-async function checkpointKey(file: File) {
+async function checkpointKey(file: File, signal?: AbortSignal) {
   // Full-content SHA prevents another rush with the same name/size from
   // inheriting paid edits. Preserve existing jobs when removing the code gate.
-  const digest = await crypto.subtle.digest("SHA-256", await file.arrayBuffer());
-  const hex = (value: ArrayBuffer) => Array.from(new Uint8Array(value), n => n.toString(16).padStart(2, "0")).join("");
+  let digest: ArrayBuffer | Uint8Array;
+  if (file.size > 8 * 1024 * 1024 && typeof file.slice === "function") {
+    // A phone must not retain a 250 MiB ArrayBuffer before upload. The vetted
+    // incremental implementation produces the exact same full-file SHA-256;
+    // only one 1 MiB slice is read at a time. Yield so paint/cancel stay usable.
+    const { sha256 } = await import("@noble/hashes/sha2.js");
+    const hash = sha256.create();
+    const chunkSize = 1024 * 1024;
+    for (let offset = 0; offset < file.size; offset += chunkSize) {
+      abortCheck(signal);
+      hash.update(new Uint8Array(await file.slice(offset, offset + chunkSize).arrayBuffer()));
+      if ((offset / chunkSize + 1) % 4 === 0) await sleep(0, signal);
+    }
+    abortCheck(signal);
+    digest = hash.digest();
+  } else {
+    digest = await crypto.subtle.digest("SHA-256", await file.arrayBuffer());
+  }
+  const hex = (value: ArrayBuffer | Uint8Array) => Array.from(value instanceof Uint8Array ? value : new Uint8Array(value), n => n.toString(16).padStart(2, "0")).join("");
   const sourceHash = hex(digest);
   return CHECKPOINT_PREFIX + sourceHash;
 }
@@ -276,6 +321,24 @@ async function availableFinal(item: PolishResult, opts: Options): Promise<boolea
     throw new Error("La disponibilité d’un fichier enregistré n’a pas pu être confirmée. Réessaie plus tard : aucun traitement supplémentaire n’a été lancé.");
   }
   return true;
+}
+async function storageHealth(opts: Options) {
+  const signal = opts.signal
+    ? AbortSignal.any([opts.signal, AbortSignal.timeout(30000)]) : AbortSignal.timeout(30000);
+  const reply = await fetch("/api/finish", { method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ action: "health" }), signal, cache: "no-store" });
+  const storage = await reply.json().catch(() => ({}));
+  if (!reply.ok || storage.ready !== true) {
+    throw new Error(String(storage.error || "Le service de téléchargement est momentanément indisponible. Le rush n'a pas été envoyé."));
+  }
+}
+function hasCheckpointHistory() {
+  for (let index = 0; index < window.localStorage.length; index++) {
+    const key = window.localStorage.key(index);
+    if (key?.startsWith(CHECKPOINT_PREFIX) || key?.startsWith(LEGACY_CHECKPOINT_PREFIX)) return true;
+  }
+  return false;
 }
 function artifactIdentity(value: string | null | undefined): string | null {
   if (!value) return null;
@@ -355,7 +418,7 @@ async function waitForNative(checkpoint: Checkpoint, key: string, opts: Options,
   }
 }
 
-async function generate(file: File, opts: Options, key: string) {
+async function generate(file: File, opts: Options, key: string, preflight?: Promise<void>) {
   const started = performance.now();
   const previous = readCheckpoint(key);
   opts.onResume?.(!!previous);
@@ -446,15 +509,9 @@ async function generate(file: File, opts: Options, key: string) {
     throw new Error("La session d’envoi de ce rush a expiré. Sa progression est conservée ; aucun nouvel import n’a été lancé.");
   }
   opts.onStatus?.("IA G&M · préparation du montage…");
-  const healthSignal = opts.signal
-    ? AbortSignal.any([opts.signal, AbortSignal.timeout(30000)]) : AbortSignal.timeout(30000);
-  const storageReply = await fetch("/api/finish", { method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ action: "health" }), signal: healthSignal, cache: "no-store" });
-  const storage = await storageReply.json().catch(() => ({}));
-  if (!storageReply.ok || storage.ready !== true) {
-    throw new Error(String(storage.error || "Le service de téléchargement est momentanément indisponible. Le rush n'a pas été envoyé."));
-  }
+  // Await the read-only storage preflight before any upload/create/prepare or
+  // paid mutation. Cached final files above still bypass storage health.
+  await (preflight || storageHealth(opts));
   if (!state.projectId && !state.submitting && !state.uploadId) { state.uploadId = await uploadPreparedSource(file, state, save, opts); save(); }
   if (!state.projectId && state.submitting) {
     opts.onPhase?.("checking");
@@ -712,11 +769,20 @@ async function generateOpusVariations(file: File, opts: Options = {}) {
   abortCheck(opts.signal);
   opts.onPhase?.("checking");
   const started = performance.now();
-  const key = await checkpointKey(file);
-  abortCheck(opts.signal);
   if (!navigator.locks) throw new Error("Ton navigateur ne permet pas de protéger la reprise entre deux onglets. Ouvre le module dans un navigateur récent avant de lancer le montage.");
-  const result = await navigator.locks.request(key, opts.signal ? { signal: opts.signal } : {}, () => generate(file, opts, key));
-  return { ...result, processingMs: performance.now() - started };
+  const preflightController = new AbortController();
+  // A first-time owner cannot have cached finals. Overlap only this read-only
+  // check with fingerprinting; existing jobs retain their six-HEAD fast path.
+  const preflight = !hasCheckpointHistory() ? storageHealth({ ...opts, signal: opts.signal
+    ? AbortSignal.any([opts.signal, preflightController.signal]) : preflightController.signal }) : undefined;
+  // Hashing may fail or be cancelled before the preflight is awaited.
+  void preflight?.catch(() => undefined);
+  try {
+    const key = await checkpointKey(file, opts.signal);
+    abortCheck(opts.signal);
+    const result = await navigator.locks.request(key, opts.signal ? { signal: opts.signal } : {}, () => generate(file, opts, key, preflight));
+    return { ...result, processingMs: performance.now() - started };
+  } finally { preflightController.abort(); }
 }
 
 

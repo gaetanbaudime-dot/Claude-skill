@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { createNativeClient, type NativePhase } from "./lib/opus-native";
+import { createNativeClient, type NativePhase, type UploadProgress } from "./lib/opus-native";
 import type { RemoteVariant } from "./lib/server-video";
 import { elapsedSince } from "./lib/processing-status";
 
@@ -17,10 +17,14 @@ export function useReelsJob({ apiBase }: { apiBase: string }) {
   const [phase, setPhase] = useState<NativePhase>("checking");
   const [resuming, setResuming] = useState<boolean | null>(null);
   const [elapsed, setElapsed] = useState(0);
+  const [upload, setUpload] = useState<UploadProgress | null>(null);
+  const [processingElapsed, setProcessingElapsed] = useState(0);
+  const [online, setOnline] = useState(true);
   const [variants, setVariants] = useState<RemoteVariant[]>([]);
   const [error, setError] = useState<string | null>(null);
   const controller = useRef<AbortController | null>(null);
   const started = useRef(0);
+  const processingStarted = useRef<number | null>(null);
   const mounted = useRef(true);
   const previewRef = useRef<string | null>(null);
   const account = useRef(apiBase);
@@ -30,6 +34,13 @@ export function useReelsJob({ apiBase }: { apiBase: string }) {
     return () => { mounted.current = false; controller.current?.abort(); if (previewRef.current) URL.revokeObjectURL(previewRef.current); };
   }, []);
   useEffect(() => {
+    const update = () => setOnline(navigator.onLine !== false);
+    update();
+    window.addEventListener?.("online", update);
+    window.addEventListener?.("offline", update);
+    return () => { window.removeEventListener?.("online", update); window.removeEventListener?.("offline", update); };
+  }, []);
+  useEffect(() => {
     if (account.current === apiBase) return;
     account.current = apiBase;
     controller.current?.abort(); controller.current = null;
@@ -37,10 +48,15 @@ export function useReelsJob({ apiBase }: { apiBase: string }) {
     previewRef.current = null;
     setFile(null); setPreview(null); setDuration(null); setVariants([]); setStage("idle");
     setError(null); setElapsed(0); setPhase("checking"); setResuming(null);
+    setUpload(null); setProcessingElapsed(0); processingStarted.current = null;
   }, [apiBase]);
   useEffect(() => {
     if (stage !== "processing") return;
-    const timer = window.setInterval(() => setElapsed(elapsedSince(started.current, performance.now())), 1000);
+    const timer = window.setInterval(() => {
+      const now = performance.now();
+      setElapsed(elapsedSince(started.current, now));
+      if (processingStarted.current !== null) setProcessingElapsed(elapsedSince(processingStarted.current, now));
+    }, 1000);
     return () => window.clearInterval(timer);
   }, [stage]);
 
@@ -53,6 +69,7 @@ export function useReelsJob({ apiBase }: { apiBase: string }) {
     previewRef.current = URL.createObjectURL(next);
     setFile(next); setPreview(previewRef.current); setDuration(null);
     setStage("ready"); setError(null); setVariants([]); setElapsed(0); setResuming(null); setPhase("checking");
+    setUpload(null); setProcessingElapsed(0); processingStarted.current = null;
   }, []);
   const metadata = useCallback((seconds: number) => {
     if (controller.current) return;
@@ -65,12 +82,14 @@ export function useReelsJob({ apiBase }: { apiBase: string }) {
     if (previewRef.current) URL.revokeObjectURL(previewRef.current);
     previewRef.current = null;
     setFile(null); setPreview(null); setDuration(null); setStage("idle"); setError(null); setVariants([]); setElapsed(0);
+    setUpload(null); setProcessingElapsed(0); processingStarted.current = null;
   }, []);
   const run = useCallback(async () => {
     if (!file || duration === null || duration > 180 || controller.current) return;
     const operation = new AbortController(); controller.current = operation;
     const current = () => mounted.current && controller.current === operation;
     started.current = performance.now(); setElapsed(0); setPhase("checking"); setResuming(null); setError(null); setStage("processing");
+    setUpload(null); setProcessingElapsed(0); processingStarted.current = null;
     // Keep already verified downloads visible while retrying this same file.
     try {
       window.localStorage.setItem("gm:reels-storage-check", "1"); window.localStorage.removeItem("gm:reels-storage-check");
@@ -80,7 +99,14 @@ export function useReelsJob({ apiBase }: { apiBase: string }) {
       const client = createNativeClient({ apiBase, storageScope });
       const result = await client.generateOpusVariations(file, {
         signal: operation.signal,
-        onPhase: value => { if (current()) setPhase(value); },
+        onPhase: value => {
+          if (!current()) return;
+          setPhase(value);
+          if (!["checking", "upload", "cached"].includes(value) && processingStarted.current === null) {
+            processingStarted.current = performance.now();
+          }
+        },
+        onUploadProgress: value => { if (current()) setUpload(value); },
         onResume: value => { if (current()) setResuming(value); },
         onVariant: value => { if (current()) setVariants(previous => [...previous.filter(v => v.index !== value.index), value].sort((a,b) => a.index-b.index)); },
       });
@@ -95,7 +121,7 @@ export function useReelsJob({ apiBase }: { apiBase: string }) {
       if (current()) { setElapsed(elapsedSince(started.current, performance.now())); controller.current = null; }
     }
   }, [apiBase, file, duration]);
-  return { stage, file, preview, duration, phase, resuming, elapsed, variants, error, choose, metadata, reset, run,
+  return { stage, file, preview, duration, phase, resuming, elapsed, upload, processingElapsed, online, variants, error, choose, metadata, reset, run,
     stop: () => controller.current?.abort() };
 }
 export type ReelsJob = ReturnType<typeof useReelsJob>;

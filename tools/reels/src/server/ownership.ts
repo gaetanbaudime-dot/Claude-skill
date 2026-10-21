@@ -131,7 +131,12 @@ export async function authorize(owner: Owner, store: OwnershipStore, operation: 
       if (matches.length && !has(claim, fresh)) throw new OwnershipUnavailable();
       if (!matches.length && !additions.some(row => row.kind === claim.kind && row.resource === claim.resource && row.parent === claim.parent)) additions.push({ ...claim, owner: ownerHash });
     }
-    if (additions.length) await store.append(additions);
+    // Existing claims were all revalidated against the fresh durable snapshot.
+    // Polls do not write anything, so another identical confirmation read adds
+    // latency without confirming a mutation. New claims still require append
+    // followed by an independent durable read before capabilities leave host.
+    if (!additions.length) return;
+    await store.append(additions);
     const confirmed = await store.read();
     if (claims.some(claim => !has(claim, confirmed))) throw new OwnershipUnavailable();
   };
