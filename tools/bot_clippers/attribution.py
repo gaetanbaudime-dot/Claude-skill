@@ -498,6 +498,28 @@ async def _filet_roster(membre, via: str) -> None:
                        + ("" if envoye else " (repli non envoyé : salon et MP fermés)"))
 
 
+# 21/10 (Gaëtan : « une petite notification pour les clippers qui arrivent, par mail ou sur Telegram ») : une ligne sur le Telegram
+# de l'agence (le chat du rapport GAML) à chaque nouveau clipper attribué, avec sa créatrice. TELEGRAM_ARRIVEES=0 la coupe.
+TELEGRAM_ARRIVEES = os.environ.get("TELEGRAM_ARRIVEES", "1").strip() != "0"
+
+
+def texte_arrivee(prenom: str, creatrice: str, via: str) -> str:
+    """La ligne Telegram d'une arrivée : qui, chez quelle créatrice, par quel chemin."""
+    chemin = str(via or "").replace("acceptation (", "").rstrip(")").strip()
+    return f"🆕 Nouveau clipper : {prenom} → {creatrice}" + (f" ({chemin})" if chemin else "")
+
+
+async def notifier_arrivee(prenom: str, creatrice: str, via: str):
+    """Jamais bloquant : un Telegram en panne ne casse pas l'attribution."""
+    if not TELEGRAM_ARRIVEES:
+        return
+    try:
+        import telegram
+        await telegram.envoyer_telegram(texte_arrivee(prenom, creatrice, via))
+    except Exception as erreur:                                             # noqa: BLE001
+        journal.warning("Notification d'arrivée : %s", erreur)
+
+
 async def attribuer(membre, via: str) -> str:
     """Attribue la créatrice suivante à un membre signé sans créatrice ; renvoie son prénom, ou "" si rien à faire.
     09/10 : une seule attribution à la fois ; aucune créatrice avec un compte livrable → repli une fois, « attente_attribution ».
@@ -589,6 +611,7 @@ async def attribuer(membre, via: str) -> str:
             # demande un geste (onboarding en échec, rôle ou pseudo refusé, comptes non livrés, créatrice sans catégorie ni rôle) part
             # encore tout de suite.
             await signaler_blocage(membre, creatrice, bilan, note)
+            await notifier_arrivee(_deps["prenom_de"](membre), creatrice, via)
             return "" if creatrice_en_attente(membre.id) else creatrice
 
 
