@@ -33,7 +33,8 @@ class FunnelTests(unittest.TestCase):
         lignes = f.serie([J, date(2026, 10, 16)], lambda j: 10, lambda j: 3, lambda j: 2)
         self.assertIn("M1 **10** · M2 **3** · M3 **2**", f.texte(lignes))
         self.assertIn("M2/M1 30 %", f.texte(lignes))
-        self.assertIn("10 lead(s) · 3 qualifié(s) · 2 actif(s)", f.ligne_digest(lignes))
+        self.assertIn("2 clipper(s) actif(s) hier", f.ligne_digest(lignes))          # 21/10 : leads et qualifiés sont au-dessus
+        self.assertIn("moyenne 7 j : 10,0 lead(s), 3,0 qualifié(s), 2,0 actif(s) par jour", f.ligne_digest(lignes))
         self.assertEqual(f.lignes_feuille(lignes)[1][0], "16/10/2026")
 
 

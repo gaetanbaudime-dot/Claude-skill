@@ -888,13 +888,9 @@ async def traiter_reglages() -> str:
             e["historique_reglages"] = e["historique_reglages"][-30:]
             _ecrire(e)
             fait = f"✅ appliqué : {ordre_texte()}"
-            try:
-                canal = await _deps["canal_admin"]() if _deps.get("canal_admin") else None
-                if canal is not None:
-                    await canal.send(f"🎛️ **Coefficients d'attribution changés depuis le Cockpit** : {ordre_texte()} "
-                                     f"(avant : {ancien}). Le compteur repart au début.")
-            except Exception as erreur:                                 # noqa: BLE001
-                journal.warning("Réglages attribution, salon admin : %s", erreur)
+            # 21/10 (Gaëtan : « simplifie, supprime ») : plus de ligne au salon admin à chaque changement ; le Cockpit affiche
+            # « Dernier changement : … · ✅ appliqué » (case A7), le journal garde l'ancien et le nouvel ordre
+            journal.info("Réglages attribution (Cockpit) : %s (avant : %s)", ordre_texte(), ancien)
         else:
             fait = f"❌ refusé : {motif}"
         try:                                                            # la case n'est vidée que si elle n'a pas changé entre-temps

@@ -453,7 +453,7 @@ async def executer(client, appliquer: bool = True) -> list:
         try:
             await salon.send(texte_avertissement_compte1(prenom, nb_jours))
             d = _etat(); d.setdefault("avertis_compte1", {})[uid] = ref; _deps["ecrire_json"](_deps["FICHIER"], d)
-            bilan.append(f"⚠️ {prenom} : averti (compte 1 pas créé depuis {nb_jours} j, sortie demain)")
+            bilan.append(f"⚠️ {prenom} : averti, sort demain s'il n'a toujours pas créé son compte 1 ({nb_jours} j)")
         except Exception as erreur:                                         # noqa: BLE001
             journal.warning("Avertissement compte 1 de %s : %s", prenom, erreur)
     for uid, prenom, nb_jours, ref in a_sortir_compte1(parcours, deja=avertis_avant, **kw):
@@ -467,8 +467,8 @@ async def executer(client, appliquer: bool = True) -> list:
             if not deja_signale:
                 d_revue.setdefault("signalements_compte1", {})[uid] = ref
                 _deps["ecrire_json"](_deps["FICHIER"], d_revue)
-                bilan.append(f"⚠️ {prenom} : compte 1 à vérifier ({nb_jours} j) ; "
-                             "validation manager requise, AUCUNE sortie ni libération de compte.")
+                bilan.append(f"👀 {prenom} : compte 1 pas créé depuis {nb_jours} j, validation manager requise (le bot ne sort "
+                             "personne seul)")
             continue
         m = _deps["membre_par_id"](uid)
         if m is None:
@@ -578,13 +578,13 @@ def bilan_pour_digest() -> tuple:
         return [], []
     a_dire = [x for x in (_etat().get("a_dire") or []) if isinstance(x, dict) and x.get("lignes")]
     dormants = inactifs()
-    bloc_inactifs = ([f"😴 **{INACTIF_JOURS} jours sans visite payée** (règle L7 : sortie, revue humaine) : "
-                      + ", ".join(f"{nom} (<@{uid}>)" for uid, nom in dormants[:25])
+    bloc_inactifs = ([f"😴 **0 visite payée depuis {INACTIF_JOURS} j** : "
+                      + ", ".join(f"<@{uid}>" for uid, nom in dormants[:25])
                       + ("…" if len(dormants) > 25 else "")
-                      + "\n-# `!sortie @x raison` pour appliquer, `!note @x garde` pour protéger."] if dormants else [])
+                      + "\n-# `!sortie @x raison` pour le sortir, `!note @x garde` pour le garder."] if dormants else [])
     if not a_dire:
         return bloc_inactifs, []
-    out = [f"🚪 **Sortie automatique** ({JOURS_COMPTE1 * 24} h sans compte 1)"]
+    out = [f"🚪 **Sorties** ({JOURS_COMPTE1 * 24} h sans compte 1)"]
     for x in a_dire:
         jour = str(x.get("jour") or "")
         if len(a_dire) > 1 and len(jour) == 10:

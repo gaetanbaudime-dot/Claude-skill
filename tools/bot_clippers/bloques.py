@@ -22,6 +22,7 @@ encore « à créer ») n'est jamais « 0 Reel » : « · scan pas passé sur ce
 publies bien sur ton compte n ? »). BLOQUES=0 éteint aussi le bloc du digest."""
 
 import asyncio
+import re
 import logging
 import os
 from datetime import datetime, timedelta, timezone
@@ -238,13 +239,39 @@ def liste(parcours: dict, groupes: dict, uid_de, tel_de, sans_reel: dict, mainte
     return out[:MAX_JOUR]
 
 
+def _rubrique(ou: str) -> tuple:
+    """21/10 : (rubrique, détail court) d'une ligne de bloqué, pour les ranger par geste à faire."""
+    m = re.match(r"compte (\d+) à créer depuis (\d+) j", ou)
+    if m:
+        return f"Compte {m.group(1)} pas créé", f"{m.group(2)} j"
+    m = re.match(r"aucun Reel depuis (\d+) j", ou)
+    if m:
+        return "Plus de Reel", f"{m.group(1)} j"
+    m = re.match(r"compte 1 créé depuis (\d+) j, pas de WhatsApp", ou)
+    if m:
+        return "Pas encore dans le groupe WhatsApp", f"{m.group(1)} j"
+    return "À vérifier", ou
+
+
 def lignes(bloques: list) -> list:
-    """10/10 (lot L9b) : [] quand personne n'est bloqué — plus jamais « personne 🎉 » : un message sans action est du bruit."""
+    """10/10 (lot L9b) : [] quand personne n'est bloqué — plus jamais « personne 🎉 » : un message sans action est du bruit.
+    21/10 (Gaëtan : « c'est compliqué en termes de lisibilité, simplifie ») : rangés par geste à faire (compte 1 pas créé, plus de
+    Reel…), le prénom est le lien WhatsApp ; une personne par ligne (une ligne n'est jamais coupée au milieu d'un lien)."""
     if not bloques:
         return []
-    out = [f"🚧 **Bloqués ce matin ({len(bloques)})** : appuie sur WhatsApp, relis, envoie."]
+    ordre = ["Compte 1 pas créé", "Compte 2 pas créé", "Compte 3 pas créé", "Plus de Reel", "Pas encore dans le groupe WhatsApp",
+             "À vérifier"]
+    par = {}
     for _, prenom, creatrice, ou, lien in bloques:
-        out.append(f"· **{prenom}** ({creatrice}) · {ou} · " + (f"[WhatsApp]({lien})" if lien else "pas de numéro"))
+        rubrique, detail = _rubrique(ou)
+        nom = f"[{prenom}]({lien})" if lien else f"{prenom} (pas de numéro)"
+        par.setdefault(rubrique, []).append(f"· {nom} {creatrice} · {detail}" if rubrique != "À vérifier"
+                                            else f"· {nom} ({creatrice}) : {detail}")
+    out = [f"🚧 **{len(bloques)} à relancer** · touche un prénom pour ouvrir son WhatsApp, relis, envoie."]
+    for rubrique in sorted(par, key=lambda r: ordre.index(r) if r in ordre else len(ordre)):
+        out += ["", f"**{rubrique}**", *par[rubrique]]
+        if rubrique == "Pas encore dans le groupe WhatsApp":
+            out.append("-# Quand c'est fait : `!wa @Prénom`.")
     return out
 
 

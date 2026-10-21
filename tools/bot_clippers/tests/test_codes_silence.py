@@ -31,7 +31,8 @@ class SilenceTests(unittest.TestCase):
             return True
         with patch.object(c, "_etat", lambda: etat), patch.object(c, "_sauver", lambda: None), \
                 patch.object(c, "_admin", admin), patch.object(c, "_maintenant", lambda: MAINTENANT), \
-                patch.object(c, "SILENCE_MIN", 180), patch.object(c, "SILENCE_HEURES", (0, 24)):
+                patch.object(c, "SILENCE_MIN", 180), patch.object(c, "SILENCE_HEURES", (0, 24)), \
+                patch.object(c, "SILENCE_ALERTE", True):
             asyncio.run(c.surveiller_silence())
             asyncio.run(c.surveiller_silence())                         # pas deux fois
             etat["dernier_code"] = MAINTENANT.isoformat()                # un code arrive
@@ -39,6 +40,31 @@ class SilenceTests(unittest.TestCase):
         self.assertEqual(len(dits), 2)
         self.assertIn("Aucun code Instagram reçu depuis 4 h 00", dits[0])
         self.assertIn("arrivent de nouveau", dits[1])
+
+    def test_coupee_par_defaut(self):
+        """21/10 : l'alerte globale ne part plus (l'alerte « Code Instagram pas reçu » par clipper suffit)."""
+        etat = {"dernier_code": (MAINTENANT - timedelta(hours=4)).isoformat()}
+        dits = []
+
+        async def admin(t):
+            dits.append(t)
+            return True
+        with patch.object(c, "_etat", lambda: etat), patch.object(c, "_sauver", lambda: None), \
+                patch.object(c, "_admin", admin), patch.object(c, "_maintenant", lambda: MAINTENANT), \
+                patch.object(c, "SILENCE_MIN", 180), patch.object(c, "SILENCE_HEURES", (0, 24)), \
+                patch.object(c, "SILENCE_ALERTE", False):
+            asyncio.run(c.surveiller_silence())
+        self.assertEqual(dits, [])
+
+    def test_creation_de_compte_meta_n_est_pas_une_alerte(self):
+        self.assertTrue(c.creation_compte_meta({"libelle": "compte relié à un Espace Comptes",
+                                                "sujet": "Nous vous avons créé un Compte Meta sur Instagram"}))
+        self.assertTrue(c.creation_compte_meta({"libelle": "compte relié à un Espace Comptes",
+                                                "sujet": "We created a Meta account for you on Facebook and Instagram"}))
+        self.assertFalse(c.creation_compte_meta({"libelle": "compte relié à un Espace Comptes",
+                                                 "sujet": "Votre compte a été ajouté à un Espace Comptes"}))
+        self.assertFalse(c.creation_compte_meta({"libelle": "mot de passe changé ou réinitialisé",
+                                                 "sujet": "Nous vous avons créé un Compte Meta"}))
 
 
 if __name__ == "__main__":
