@@ -5,9 +5,9 @@ function load(name){const module={exports:{}};const file=path.join(__dirname,'..
   const source=ts.transpileModule(fs.readFileSync(file,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;
   vm.runInNewContext(source,{module,exports:module.exports,require:n=>n.startsWith('.')?load(n.slice(2)):require(n),Request,Response,Headers,URL,URLSearchParams,AbortController,AbortSignal,Uint8Array,TextDecoder,fetch:(...args)=>backend(...args)});return module.exports;}
 const proxy=load('proxy').forwardReelsRequest,{fingerprint,resource}=load('ownership');
-let checks=0,requests=0,serial=0,failRead=false,failWrite=false,corruptReply=false,failUpstream=false;
+let checks=0,requests=0,serial=0,reads=0,writes=0,failRead=false,failWrite=false,dropWrite=false,corruptReply=false,failUpstream=false,beforeReply;
 const ledger=[];
-const store=()=>({read:async()=>{if(failRead)throw Error('private ledger diagnostic');return ledger.map(r=>({...r}))},append:async rows=>{if(failWrite)throw Error('private write diagnostic');ledger.push(...rows.map(r=>({...r})))}});
+const store=()=>({read:async()=>{reads++;if(failRead)throw Error('private ledger diagnostic');return ledger.map(r=>({...r}))},append:async rows=>{writes++;if(failWrite)throw Error('private write diagnostic');if(!dropWrite)ledger.push(...rows.map(r=>({...r})))}});
 const clips=(projectId)=>Array.from({length:6},(_,i)=>({projectId,clipId:'clip-'+i,pending:false,exportUrl:`https://media.example.test/${projectId}/clip-${i}.mp4?sig=fixture`}));
 backend=async(target,init)=>{
   requests++;if(failUpstream)throw Error('private provider diagnostic');
@@ -20,6 +20,7 @@ backend=async(target,init)=>{
   else if(b.action==='export-pack')data={collectionId:b.collectionId||'collection-'+(++serial),clips:b.clipIds.map(id=>({id:b.projectId+'.'+id,exportUrl:`https://media.example.test/${b.projectId}/${id}.mp4?sig=fixture`}))};
   else if(op==='finish'&&!b.action)data={url:'https://final.example.test/'+(++serial)+'.mp4',downloadUrl:'https://final.example.test/'+serial+'.mp4?download=1',size:1024};
   if(corruptReply&&b.action==='clips')data.clips[0].projectId='another-project';
+  beforeReply?.();
   return Response.json(data);
 };
 const ownerA={app:'clippers',id:'stable-person-a'},ownerB={app:'clippers',id:'stable-person-b'};
@@ -30,6 +31,30 @@ async function setup(owner){const source=await ok(owner,'source',{action:'create
 (async()=>{
  const ownerC={app:'creatrices',id:ownerA.id};
  const a=await setup(ownerA),b=await setup(ownerB),c=await setup(ownerC);
+ // A repeated poll validates its existing claims against a fresh durable read,
+ // but never writes or performs a third read solely to confirm no mutation.
+ let priorReads=reads,priorWrites=writes,priorRows=ledger.length;
+ await ok(ownerA,'opus',{action:'clips',projectId:a.projectId},true);
+ assert.equal(reads-priorReads,2,'Registered poll uses authorization + fresh reply validation');
+ assert.equal(writes-priorWrites,0,'Registered poll never appends duplicate claims');
+ assert.equal(ledger.length,priorRows);
+ // A new capability is not released until its append has been independently
+ // read back, including when the storage layer reports success but loses it.
+ priorReads=reads;priorWrites=writes;
+ const newCopy=await ok(ownerA,'opus',{action:'duplicate',projectId:a.projectId,clipId:a.clipIds[0]});
+ assert.equal(reads-priorReads,3,'New claims retain independent write confirmation');
+ assert.equal(writes-priorWrites,1);
+ assert(ledger.some(row=>row.kind==='clip'&&row.resource===resource('clip',a.projectId,newCopy.clipId)));
+ dropWrite=true;priorReads=reads;priorWrites=writes;
+ let lost=await call(ownerA,'source',{action:'create',size:1024,extension:'mp4'});
+ assert.equal(lost.status,502);assert.equal((await lost.json()).sourceToken,undefined);
+ assert.equal(reads-priorReads,3);assert.equal(writes-priorWrites,1);dropWrite=false;
+ // A conflict introduced while the backend works must still fail, even for
+ // a claim which was valid in the initial authorization snapshot.
+ priorWrites=writes;
+ beforeReply=()=>ledger.push({kind:'export',resource:resource('export',a.exportUrl),parent:resource('clip',a.projectId,a.clipIds[0]),owner:fingerprint([ownerB.app,ownerB.id])});
+ const conflicted=await call(ownerA,'opus',{action:'clips',projectId:a.projectId},true);
+ assert.equal(conflicted.status,502);assert.equal(writes,priorWrites);beforeReply=undefined;ledger.pop();
  // A single durable ledger may serve both apps. Even identical canonical IDs
  // remain distinct; exercise both directions for every read/mutation below.
  for(const [owner,foreign,own]of [[ownerA,b,a],[ownerB,a,b],[ownerA,c,a],[ownerC,a,c]]){

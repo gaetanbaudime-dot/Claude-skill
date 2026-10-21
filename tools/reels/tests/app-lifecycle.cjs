@@ -29,7 +29,7 @@ function harness(app,width){
       if(name==='@/lib/signal')return {modeApp:()=>"fixture",signaler:()=>{}};
       if(name.endsWith('.module.css'))return {__esModule:true,default:new Proxy({},{get:(_,k)=>String(k)})};
       if(name.endsWith('/opus-native'))return engine;
-      if(name.endsWith('/downloads'))return {MAX_SHARE_BYTES:134217728,createVideoFileCache:()=>({get:()=>null,prepare:async()=>[]}),downloadPreparedFiles:()=>{},canShareFiles:()=>false,downloadVideos:async()=>{},prepareShareFiles:async()=>[],sharePreparedFiles:async()=>"unavailable"};
+      if(name.endsWith('/downloads'))return {shouldPrefetchVideos:()=>false,createVideoFileCache:()=>({get:()=>null,prepare:async()=>[],progress:()=>({loadedBytes:0,totalBytes:0}),subscribe:()=>()=>{}}),downloadPreparedFiles:()=>{},canShareFiles:()=>false,downloadVideos:async()=>{},prepareShareFiles:async()=>[],sharePreparedFiles:async()=>"unavailable"};
       if(filename.includes('/'+app+'/')&&/^\.\//.test(name)&&!['./ReelsTab','./Logo'].includes(name))return {__esModule:true,default:()=>React.createElement('div',{'data-fixture':name})};
       if(name.startsWith('.')){const base=path.resolve(path.dirname(filename),name);return load(fs.existsSync(base+'.tsx')?base+'.tsx':base+'.ts');}
       throw new Error('Unexpected fixture import '+name);
@@ -67,13 +67,13 @@ async function flush(){await new Promise(resolve=>setImmediate(resolve));}
     await chooseTab(app==='app_clippers'?'Versements':'Stats');await chooseTab('Reels');
     assert.equal(view.root.findByProps({'aria-label':'Duplicateur de Réel'}),section,'Same native section remains mounted');
     assert.equal(h.tasks.length,1);assert(text(view.toJSON()).includes('2/6 prêts'));assert(text(view.toJSON()).includes('1 min 10 s'));
-    assert.equal(view.root.findAllByType('li').length,2,'Results emitted while hidden are retained');
+    assert.equal(view.root.findAllByProps({className:'resultCard'}).length,2,'Results emitted while hidden are retained');
     await act(async()=>{task.reject(new Error('Fixture interruption'));await flush();});
-    assert(button('Reprendre ce montage'));assert.equal(view.root.findAllByType('li').length,2);
+    assert(button('Reprendre ce montage'));assert.equal(view.root.findAllByProps({className:'resultCard'}).length,2);
     await act(async()=>{button('Reprendre ce montage').props.onClick();await flush();});
-    assert.equal(h.tasks.length,2);assert.equal(view.root.findAllByType('li').length,2,'Retry does not clear verified downloads');
+    assert.equal(h.tasks.length,2);assert.equal(view.root.findAllByProps({className:'resultCard'}).length,2,'Retry does not clear verified downloads');
     await act(async()=>{h.tasks[1].resolve({variants:Array.from({length:6},(_,i)=>output(i))});await flush();});
-    assert.equal(view.root.findAllByType('li').length,6);assert.equal(view.root.findByProps({role:'progressbar'}).props['aria-valuenow'],100);
+    assert.equal(view.root.findAllByProps({className:'resultCard'}).length,6);assert.equal(view.root.findByProps({role:'progressbar'}).props['aria-valuenow'],100);
     await act(async()=>{button('Choisir une nouvelle vidéo').props.onClick();});assert(button('Choisir une vidéo'));
     // Switching the existing app identity cannot expose the prior account's job.
     await act(async()=>view.root.findByType('input').props.onChange({target:{files:[file]}}));

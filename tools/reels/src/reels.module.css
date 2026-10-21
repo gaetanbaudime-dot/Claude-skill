@@ -2,6 +2,10 @@
 .panel[hidden] { display:none; }
 .panel * { box-sizing:border-box; }
 .hiddenInput { display:none; }
+.brand { display:flex; align-items:center; gap:10px; margin:2px 0 16px; color:#a6b9d5; font-size:10px; font-weight:700; letter-spacing:.12em; }
+.brandMark { display:grid; place-items:center; flex:none; width:40px; height:40px; border-radius:13px; border:1px solid #a7c7ff55; background:linear-gradient(145deg,#d0e2ff,#7aa7ff); color:#0b1830; font-size:12px; letter-spacing:-.04em; box-shadow:0 4px 20px #7aa7ff18; }
+.brandSeparator { padding:0 5px; color:#557099; }
+.connectionHint { margin:12px 0 0; padding-top:12px; border-top:1px solid #a7c7ff18; color:#9aafd0; font-size:11px; line-height:1.6; }
 .heading,.progressHeading,.resultHeading { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px 12px; }
 .heading { margin-bottom:18px; }
 .heading h2 { margin:0; font-size:22px; font-weight:700; line-height:1.25; letter-spacing:-.025em; color:#f4f7fb; }
@@ -25,6 +29,15 @@
 .currentFile { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:12px; color:#9aa6b8; margin:0 0 10px; }
 .progressHeading strong { font-size:14px; line-height:1.4; color:#f1f5fb; overflow-wrap:anywhere; }
 .count { font-size:12px; color:#b8d0ff; font-variant-numeric:tabular-nums; white-space:nowrap; }
+.steps { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:5px; padding:0; margin:18px 0 10px; list-style:none; }
+.steps li { display:flex; flex-direction:column; align-items:center; gap:6px; color:#708099; font-size:10px; font-weight:600; line-height:1.4; }
+.steps li>span { display:grid; place-items:center; width:24px; height:24px; border:1px solid #70809944; border-radius:8px; font-size:11px; }
+.steps li[data-state="current"] { color:#b8d0ff; }
+.steps li[data-state="current"]>span { border-color:#8bb1ff; background:#7aa7ff20; box-shadow:0 0 0 3px #7aa7ff0a; }
+.steps li[data-state="done"] { color:#b6d4ce; }
+.steps li[data-state="done"]>span { border-color:#98c5ba55; background:#98c5ba14; }
+.uploadProgress { display:flex; justify-content:space-between; flex-wrap:wrap; gap:4px 8px; margin-top:10px; font-size:11px; color:#b7c6dc; font-variant-numeric:tabular-nums; }
+.uploadProgress strong { color:#cee0ff; font-weight:600; }
 .track { height:6px; overflow:hidden; background:rgba(122,167,255,.14); border-radius:10px; margin-top:14px; }
 .fill,.indeterminate { height:100%; border-radius:inherit; background:#7aa7ff; }
 .fill { transition:width .4s; }

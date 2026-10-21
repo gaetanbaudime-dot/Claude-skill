@@ -1,29 +1,41 @@
 "use client";
-import { useEffect, useRef, useState, type MouseEvent } from "react";
+import { memo, useEffect, useRef, useState, type MouseEvent } from "react";
 import type { RemoteVariant } from "../lib/server-video";
-import { MAX_SHARE_BYTES, canShareFiles, createVideoFileCache, downloadPreparedFiles, sharePreparedFiles } from "../lib/downloads";
+import { canShareFiles, createVideoFileCache, downloadPreparedFiles, sharePreparedFiles, shouldPrefetchVideos } from "../lib/downloads";
 import { variantFileName, variantLabel } from "../lib/variant-labels";
 import styles from "../reels.module.css";
 
-export default function Downloads({ variants }: { variants: RemoteVariant[] }) {
+function Downloads({ variants }: { variants: RemoteVariant[] }) {
   const [sharingAvailable, setSharingAvailable] = useState(false);
   const [device, setDevice] = useState<"apple" | "android" | "other">("other");
   const [selection, setSelection] = useState<RemoteVariant[]>([]), [files, setFiles] = useState<File[]>([]);
   const [busy, setBusy] = useState(false), [message, setMessage] = useState("");
+  const [, refreshCache] = useState(0);
   const cache = useRef<ReturnType<typeof createVideoFileCache> | null>(null);
   const dialog = useRef<HTMLDialogElement>(null);
   const request = useRef(0), sharing = useRef(false);
+  const playing = useRef<HTMLVideoElement | null>(null);
   useEffect(() => {
     const operation = new AbortController();
     cache.current = createVideoFileCache(operation.signal);
+    let lastProgress = 0;
+    const unsubscribe = cache.current.subscribe(complete => {
+      // A stream can emit hundreds of chunks per second on Wi-Fi. Render
+      // progress at most ten times a second, plus every completed file.
+      const now = Date.now();
+      if (complete || now - lastProgress >= 100) { lastProgress = now; refreshCache(value => value + 1); }
+    });
     setSharingAvailable(canShareFiles());
     setDevice(/iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1)
       ? "apple" : /Android/.test(navigator.userAgent) ? "android" : "other");
-    return () => { ++request.current; operation.abort(); cache.current = null; };
+    return () => { ++request.current; unsubscribe(); operation.abort(); cache.current = null; };
   }, []);
   useEffect(() => {
-    // Prepare existing MP4s while the user reviews the completed pack.
-    if (sharingAvailable && variants.length === 6 && variants.reduce((sum, video) => sum + video.size, 0) <= MAX_SHARE_BYTES) {
+    const connection = (navigator as Navigator & { connection?: { saveData?: boolean; effectiveType?: string; type?: string; downlink?: number } }).connection;
+    const mobile = /iPhone|iPad|iPod|Android/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+    // Never compete with preview playback by pulling six complete HD files
+    // over cellular, Data Saver, or an unknown mobile connection.
+    if (sharingAvailable && shouldPrefetchVideos(variants, mobile, connection)) {
       void cache.current?.prepare(variants).catch(() => undefined);
     }
   }, [variants, sharingAvailable]);
@@ -59,7 +71,7 @@ export default function Downloads({ variants }: { variants: RemoteVariant[] }) {
     try {
       const ready = prepared || await cache.current.prepare(videos, done => {
         if (current === request.current) setMessage(`Préparation : ${done}/${videos.length}`);
-      });
+      }, () => current === request.current);
       if (current !== request.current) return;
       setFiles(ready);
       setMessage(canShareFiles(ready) ? "Tes vidéos sont prêtes. Appuie sur le bouton ci-dessous."
@@ -79,6 +91,12 @@ export default function Downloads({ variants }: { variants: RemoteVariant[] }) {
   }
   const saveLabel = device === "apple" ? "Enregistrer dans Photos" : sharingAvailable ? "Enregistrer / partager" : "Enregistrer la vidéo";
   const canShareSelection = files.length > 0 && canShareFiles(files);
+  const transfer = cache.current?.progress(selection);
+  const transferPercent = transfer?.totalBytes ? Math.min(100, Math.floor(transfer.loadedBytes / transfer.totalBytes * 100)) : 0;
+  const previewPlaying = (video: HTMLVideoElement) => {
+    if (playing.current && playing.current !== video) playing.current.pause();
+    playing.current = video;
+  };
   return <section className={styles.results} aria-label="Vidéos disponibles">
     <div className={styles.resultHeading}><h3>{variants.length === 6 ? "Tes 6 Reels" : `${variants.length} Reel${variants.length > 1 ? "s" : ""} disponible${variants.length > 1 ? "s" : ""}`}</h3><span>HD · 9:16</span></div>
     {sharingAvailable && variants.length > 1 && <button type="button" className={styles.primary} disabled={busy} onClick={() => void choose(variants)}><ShareIcon />{device === "apple" ? `Enregistrer les ${variants.length} dans Photos` : `Enregistrer les ${variants.length} vidéos`}</button>}
@@ -87,7 +105,7 @@ export default function Downloads({ variants }: { variants: RemoteVariant[] }) {
     {message && !selection.length && <p role="status" className={styles.transfer}>{message}</p>}
     <ol className={styles.resultList}>{variants.map(video => <li key={video.id} className={styles.resultCard}>
       <div className={styles.resultTop}><span className={styles.number}>{video.index + 1}</span><div className={styles.resultName}><strong>{variantLabel(video.index)}</strong><span>{(video.size / 1048576).toFixed(1)} Mo · MP4</span></div></div>
-      <video className={styles.resultPreview} src={video.url} controls playsInline preload="metadata" aria-label={`Aperçu — ${variantLabel(video.index)}`} />
+      <ResultPreview video={video} file={cache.current?.get([video])?.[0]} onPlay={previewPlaying} />
       <div className={styles.resultActions}>
         {sharingAvailable && <button type="button" className={styles.primary} disabled={busy} onClick={() => void choose([video])} aria-label={`${saveLabel} — ${variantLabel(video.index)}`}><ShareIcon />{saveLabel}</button>}
         <a className={sharingAvailable ? styles.fileLink : styles.primary} href={video.downloadUrl} download={variantFileName(video.index)} onClick={event => download(event, video)} referrerPolicy="no-referrer">Télécharger le MP4</a>
@@ -101,11 +119,55 @@ export default function Downloads({ variants }: { variants: RemoteVariant[] }) {
     {!!selection.length && <dialog ref={dialog} onCancel={close} aria-labelledby="gm-save-title" className={styles.saveDialog}>
       <div className={styles.saveDialogHeading}><h3 id="gm-save-title">{selection.length === 1 ? variantLabel(selection[0].index) : `Enregistrer les ${selection.length} vidéos`}</h3><button type="button" onClick={close} aria-label="Fermer" className={styles.closeDialog}>×</button></div>
       <p role="status" aria-live="polite" className={styles.transfer}>{message}</p>
-      {busy && <div className={styles.track} aria-label="Préparation des vidéos"><div className={styles.indeterminate} /></div>}
+      {busy && <><div className={styles.track} role="progressbar" aria-label="Préparation des vidéos" aria-valuemin={0} aria-valuemax={100} aria-valuenow={transferPercent}>
+        <div className={styles.fill} style={{ width: `${transferPercent}%` }} /></div>
+        <p className={styles.hint}>{transferPercent} % · {((transfer?.loadedBytes || 0) / 1048576).toFixed(1)} / {((transfer?.totalBytes || 0) / 1048576).toFixed(1)} Mo · qualité HD conservée</p></>}
       {canShareSelection && <><p className={styles.hint}>{instructions}</p><button type="button" className={styles.primary} disabled={busy} onClick={() => void share(files)}><ShareIcon />{device === "apple" ? "Enregistrer dans Photos" : "Ouvrir le partage"}</button></>}
       <div className={styles.downloadFallback}>{selection.map(video => <a key={video.id} className={styles.fileLink} href={video.downloadUrl} download={variantFileName(video.index)} onClick={event => download(event, video)} referrerPolicy="no-referrer">Télécharger le MP4{selection.length > 1 ? ` · Variante ${video.index + 1}` : ""}</a>)}</div>
     </dialog>}
   </section>;
+}
+
+// Generation updates its elapsed timer every second. An unchanged result set
+// must not redraw six native players just to refresh that separate timer.
+export default memo(Downloads);
+
+function ResultPreview({ video, file, onPlay }: { video: RemoteVariant; file?: File; onPlay: (video: HTMLVideoElement) => void }) {
+  const element = useRef<HTMLVideoElement>(null);
+  const [nearViewport, setNearViewport] = useState(false), [observing, setObserving] = useState(false);
+  const [localUrl, setLocalUrl] = useState<string>();
+  const [playing, setPlaying] = useState(false), [playbackFile, setPlaybackFile] = useState<File>();
+  const position = useRef(0);
+  useEffect(() => {
+    if (!element.current || typeof IntersectionObserver === "undefined") return;
+    setObserving(true);
+    const observer = new IntersectionObserver(entries => {
+      if (entries.some(entry => entry.isIntersecting)) { setNearViewport(true); observer.disconnect(); }
+    }, { rootMargin: "120px" });
+    observer.observe(element.current);
+    return () => observer.disconnect();
+  }, []);
+  useEffect(() => {
+    // A save can finish while this remote player is running. Keep its current
+    // source alive until pause; replacing src mid-play stops and rewinds it.
+    if (!playing) setPlaybackFile(file);
+  }, [file, playing]);
+  useEffect(() => {
+    position.current = element.current?.currentTime || 0;
+    if (!playbackFile || (observing && !nearViewport)) { setLocalUrl(undefined); return; }
+    // Saving and playback share the exact same HD bytes instead of issuing a
+    // second remote request. Revoke the view URL when that file is replaced.
+    const url = URL.createObjectURL(playbackFile); setLocalUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [playbackFile, observing, nearViewport]);
+  return <video ref={element} className={styles.resultPreview} src={localUrl || (!observing || nearViewport ? video.url : undefined)}
+    controls playsInline preload={nearViewport ? "metadata" : "none"} onPointerDown={() => setNearViewport(true)}
+    onPlay={event => { setPlaying(true); onPlay(event.currentTarget); }} onPause={() => setPlaying(false)} onEnded={() => setPlaying(false)}
+    onLoadedMetadata={event => {
+      const player = event.currentTarget;
+      if (position.current > 0 && position.current < player.duration) player.currentTime = position.current;
+      position.current = 0;
+    }} aria-label={`Aperçu — ${variantLabel(video.index)}`} />;
 }
 
 function ShareIcon() {

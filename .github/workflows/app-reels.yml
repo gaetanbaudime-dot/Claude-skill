@@ -36,6 +36,7 @@ jobs:
         working-directory: tools/reels
         run: |
           node tests/native-speed-orchestration.cjs
+          node tests/mobile-transport.cjs
           node tests/downloads.cjs
           node tests/mobile-save.cjs
           node tests/transport.cjs
