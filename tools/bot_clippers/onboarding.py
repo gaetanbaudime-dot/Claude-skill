@@ -1827,14 +1827,14 @@ async def clics_classeur(comptes: list, clics_de=None) -> dict:
         lignes.sort(key=lambda c: c["ligne"])
         blocs, courant = [], []
         for c in lignes:                                                 # blocs = lignes qui se suivent avec le même Gérant
-            g = _norm(c.get("gerant"))
-            if courant and (g != _norm(courant[-1].get("gerant")) or c["ligne"] != courant[-1]["ligne"] + 1):
+            g = cle_bloc(c)                                              # 21/10 : un BAN n'est plus dans le pod (cellules vidées)
+            if courant and (g != cle_bloc(courant[-1]) or c["ligne"] != courant[-1]["ligne"] + 1):
                 blocs.append(courant); courant = []
             courant.append(c)
         if courant:
             blocs.append(courant)
         for bloc in blocs:
-            g = _norm(bloc[0].get("gerant"))
+            g = cle_bloc(bloc[0])
             if g in GERANTS_LIBRES:                                      # 30/09 : ligne rendue au vivier (réservation expirée,
                 for c in bloc:                                           # !liberer) → son ancien chiffre part avec le Gérant
                     for ch in champs:
@@ -1925,11 +1925,87 @@ async def clics_classeur(comptes: list, clics_de=None) -> dict:
     return {"ecrits": len(ecritures), "gardes": gardes}
 
 
-def plan_regroupement(lignes: list) -> tuple:
+# 21/10 (Gaëtan : « par ordre d'importance : les GOOD, puis les appels à faire, puis les BAN, puis les à créer… sans casser les pods
+# par clipper ») : chaque matin, l'onglet se range en sections — pods avec un GOOD (compte de la créatrice en tête, puis l'ordre
+# actuel), pods avec un appel à faire, autres états, pods des nouveaux clippers (tout « à créer »), tous les BAN, le stock sans
+# Gérant, les lignes vides. Dans un pod : GOOD, appel, à créer. Un BAN est définitif : il n'est plus à personne, il quitte le pod
+# (son Gérant reste écrit, pour l'historique). TRI_COMPTES=0 remet le regroupement du 30/09.
+TRI_COMPTES = os.environ.get("TRI_COMPTES", "1").strip() != "0"
+VIVANTS_TRI = ("good", "prive", "warmup")
+
+
+def est_ban(c: dict) -> bool:
+    return _norm(c.get("etat")) == "ban"
+
+
+def cle_bloc(c: dict) -> str:
+    """Le Gérant qui fait le pod de la ligne ; vide pour une ligne libre et (21/10, TRI_COMPTES) pour un BAN, qui n'est plus à
+    personne : il sort des blocs de mise en forme et des Clics."""
+    g = _norm(c.get("gerant"))
+    if g in GERANTS_LIBRES or (TRI_COMPTES and est_ban(c)):
+        return ""
+    return g
+
+
+def rang_etat(etat) -> int:
+    """0 vivant (GOOD, PRIVE), 1 appel à faire, 2 autre état (BIZARRE…), 3 à créer ou vide."""
+    e = _norm(etat)
+    if e in VIVANTS_TRI:
+        return 0
+    if "appel" in e:
+        return 1
+    if not e or e in A_CREER:
+        return 3
+    return 2
+
+
+def _vide(c: dict) -> bool:
+    return not any(str(c.get(k) or "").strip() for k in ("handle", "etat", "mail", "mdp")) and _norm(c.get("gerant")) in GERANTS_LIBRES
+
+
+def ordre_cible(lignes: list, onglet: str = "", cle=None) -> list:
+    """21/10 : les numéros de ligne de l'onglet dans l'ordre voulu (voir TRI_COMPTES). `cle` : ligne → Gérant du pod ("" = libre).
+    Pur, testé. Tri stable : à rang égal, l'ordre actuel est gardé."""
+    lignes = sorted(lignes, key=lambda c: c["ligne"])
+    cle = cle or {c["ligne"]: cle_bloc(c) for c in lignes}
+    tete = (_norm(onglet).split() or [""])[0]
+    pods, sans_pod = {}, []
+    for c in lignes:
+        g = cle.get(c["ligne"]) or ""
+        if g and not est_ban(c):
+            pods.setdefault(g, []).append(c)
+        else:
+            sans_pod.append(c)
+    sections = {k: [] for k in range(7)}
+    for g, membres in pods.items():                                     # dict : ordre de la première ligne de chaque pod
+        rang = min(rang_etat(c.get("etat")) for c in membres)
+        section = {0: 0, 1: 1, 2: 2, 3: 3}[rang]
+        tri = sorted(membres, key=lambda c: rang_etat(c.get("etat")))
+        if section == 0 and tete and g.split()[0] == tete:
+            sections[0].insert(0, [c["ligne"] for c in tri])            # le compte de la créatrice en tête de l'onglet
+        else:
+            sections[section].append([c["ligne"] for c in tri])
+    orphelins = {0: [], 1: [], 2: []}
+    for c in sans_pod:
+        if est_ban(c):
+            sections[4].append([c["ligne"]])
+        elif _vide(c):
+            sections[6].append([c["ligne"]])
+        elif rang_etat(c.get("etat")) == 3:
+            sections[5].append([c["ligne"]])                            # le stock « à créer » sans Gérant, dans son ordre (POD)
+        else:
+            orphelins[rang_etat(c.get("etat"))].append([c["ligne"]])     # un GOOD sans Gérant : avec les GOOD, après les pods
+    for k, v in orphelins.items():
+        sections[k] += v
+    return [r for k in range(7) for bloc in sections[k] for r in bloc]
+
+
+def plan_regroupement(lignes: list, onglet: str = "") -> tuple:
     """30/09 (Gaëtan : « regroupe les comptes des clippeurs ») : pour un onglet, ([(ligne, gérant à écrire)], [(position source,
     position cible)]). 1) Une ligne sans Gérant dont le « Lien GAML associé » est celui d'UN seul Gérant de l'onglet reçoit son
-    nom (Ricado, Stéphane : des lignes de leur bloc restaient sans nom). 2) Toutes les lignes d'un Gérant se rangent ensemble, à la
-    place de sa première ligne ; les autres gardent leur ordre. Les positions sont comptées depuis la première ligne de données."""
+    nom (Ricado, Stéphane : des lignes de leur bloc restaient sans nom ; 21/10 : jamais un BAN). 2) 21/10 (TRI_COMPTES) : l'onglet
+    se range par sections (ordre_cible) ; sinon, toutes les lignes d'un Gérant se rangent ensemble, à la place de sa première
+    ligne, les autres gardent leur ordre. Les positions sont comptées depuis la première ligne de données."""
     lignes = sorted(lignes, key=lambda c: c["ligne"])
     cle = {}
     par_lien = {}
@@ -1940,6 +2016,9 @@ def plan_regroupement(lignes: list) -> tuple:
     noms = []
     for c in lignes:
         g = _norm(c.get("gerant"))
+        if TRI_COMPTES and est_ban(c):
+            cle[c["ligne"]] = ""
+            continue
         if g in GERANTS_LIBRES and str(c.get("lien_gaml") or "").strip():
             cands = par_lien.get(_url_cle(c["lien_gaml"]), set())
             if len({_norm(x) for x in cands}) == 1:
@@ -1948,21 +2027,24 @@ def plan_regroupement(lignes: list) -> tuple:
                 g = _norm(nom)
         cle[c["ligne"]] = None if g in GERANTS_LIBRES else g
     ordre = [c["ligne"] for c in lignes]
-    # 30/09 (Gaëtan : « mets toujours les comptes sans gérant à créer en bas de la feuille, pour voir combien j'ai de comptes d'avance
-    # en capacité d'onboarding ») : ceux-là passent en bas, dans leur ordre (les POD restent groupés)
-    etat_de = {c["ligne"]: _norm(c.get("etat")) for c in lignes}
-    libres = [r for r in ordre if cle[r] is None and etat_de[r] in A_CREER]
-    cible, vus = [], set(libres)
-    for r in ordre:
-        if r in vus:
-            continue
-        if cle[r] is None:
-            cible.append(r); vus.add(r)
-            continue
-        for r2 in ordre:
-            if r2 not in vus and cle[r2] == cle[r]:
-                cible.append(r2); vus.add(r2)
-    cible += libres
+    if TRI_COMPTES:
+        cible = ordre_cible(lignes, onglet, {r: (g or "") for r, g in cle.items()})
+    else:
+        # 30/09 (Gaëtan : « mets toujours les comptes sans gérant à créer en bas de la feuille, pour voir combien j'ai de comptes
+        # d'avance en capacité d'onboarding ») : ceux-là passent en bas, dans leur ordre (les POD restent groupés)
+        etat_de = {c["ligne"]: _norm(c.get("etat")) for c in lignes}
+        libres = [r for r in ordre if cle[r] is None and etat_de[r] in A_CREER]
+        cible, vus = [], set(libres)
+        for r in ordre:
+            if r in vus:
+                continue
+            if cle[r] is None:
+                cible.append(r); vus.add(r)
+                continue
+            for r2 in ordre:
+                if r2 not in vus and cle[r2] == cle[r]:
+                    cible.append(r2); vus.add(r2)
+        cible += libres
     courant, deplacements = list(ordre), []
     for t, r in enumerate(cible):
         p = courant.index(r)
@@ -1995,7 +2077,7 @@ async def regrouper_comptes(comptes: list) -> int:
         sid = (props.get(onglet) or {}).get("id")
         if sid is None or not a_colonne("gerant", onglet):
             continue
-        noms, deplacements = plan_regroupement(lignes)
+        noms, deplacements = plan_regroupement(lignes, onglet)
         numeros = sorted(c["ligne"] for c in lignes)
         if deplacements and numeros[-1] - numeros[0] + 1 != len(numeros):
             journal.warning("Logins %s : lignes non continues (doublon écarté ?), regroupement laissé de côté", onglet)
