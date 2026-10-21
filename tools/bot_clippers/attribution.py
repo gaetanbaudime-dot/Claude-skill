@@ -770,3 +770,133 @@ async def rattraper(client) -> list:
     if faits:
         journal.info("Attribution automatique, rattrapage : %s", faits)
     return faits
+
+
+# ------------------------------------------------------------------ réglage depuis le Cockpit (20/10)
+# 20/10 (Gaëtan : « rajoute-moi un bouton pour régler le coefficient d'attribution » dans le Cockpit Clipping) : le Cockpit écrit la
+# demande (« Sophie:5,Sarah:3,… ») en B1 de l'onglet « Réglages attribution » du classeur des logins ; ce module la lit toutes les
+# REGLAGES_SEC secondes, l'applique exactement comme `!attribution` (ordre gardé aux redémarrages, compteur remis au début), vide
+# la case, le dit au salon admin, et publie l'état (ordre, position, séquence, clippers livrables) que le Cockpit lit pour sa
+# projection des prochains clippers. Une demande illisible est refusée et le motif écrit dans l'onglet ; rien d'autre ne change.
+ONGLET_REGLAGES = os.environ.get("ATTRIBUTION_ONGLET", "Réglages attribution").strip() or "Réglages attribution"
+REGLAGES_SEC = max(60, int(os.environ.get("ATTRIBUTION_REGLAGES_SEC", "180") or 180))
+POIDS_MAX = 50
+
+
+def lire_demande(texte: str, connues=()) -> tuple:
+    """Pur : « sophie : 5 ; Sarah:3, Clara:0 » → (« Sophie:5,Sarah:3,Clara:0 », "") ou (None, motif). Un nom qui ressemble (premier
+    mot, sans accent ni casse) à une créatrice connue prend son orthographe ; poids entier de 0 à POIDS_MAX ; au moins un poids > 0."""
+    import unicodedata
+
+    def cle(x):
+        mots = str(x or "").split()
+        return "".join(c for c in unicodedata.normalize("NFD", mots[0].lower()) if unicodedata.category(c) != "Mn") if mots else ""
+    canon = {cle(c): str(c).strip() for c in connues if cle(c)}
+    morceaux = [m for m in str(texte or "").replace(";", ",").split(",") if m.strip()]
+    if not morceaux:
+        return None, "demande vide"
+    vus, out = set(), []
+    for m in morceaux:
+        nom, sep, poids = m.partition(":")
+        nom = nom.strip()
+        if not nom or not sep:
+            return None, f"« {m.strip()} » : écrire Créatrice:poids"
+        try:
+            n = int(str(poids).strip())
+        except ValueError:
+            return None, f"« {m.strip()} » : le poids doit être un nombre entier"
+        if not 0 <= n <= POIDS_MAX:
+            return None, f"« {m.strip()} » : poids entre 0 et {POIDS_MAX}"
+        k = cle(nom)
+        if k in vus:
+            return None, f"{nom} apparaît deux fois"
+        vus.add(k)
+        out.append(f"{canon.get(k, nom)}:{n}")
+    if not any(not p.endswith(":0") for p in out):
+        return None, "toutes les créatrices à 0 : personne ne recevrait de clipper"
+    return ",".join(out), ""
+
+
+def etat_reglages(index: int, stock: dict = None) -> list:
+    """Pur : les lignes A2:C6 de l'onglet (état publié pour le Cockpit)."""
+    seq = list(SEQUENCE)
+    livr = ",".join(f"{c}:{_stock_de(stock, c)}" for c in ORDRE) if isinstance(stock, dict) else ""
+    return [["Ordre appliqué", ORDRE_TEXTE, ordre_texte()],
+            ["Position", str(index % len(seq) if seq else 0), "le prochain clipper reçoit la créatrice n° Position + 1 de la séquence"],
+            ["Séquence", ",".join(seq), f"{len(seq)} places, puis on recommence"],
+            ["Clippers livrables", livr, "comptes prêts ÷ 3 ; une créatrice à 0 est sautée"],
+            ["Mis à jour", datetime.now(timezone.utc).isoformat(timespec="seconds"), ""]]
+
+
+def _index_courant() -> int:
+    e = _etat()
+    return int(e.get("index", 0)) if e.get("ordre") == ORDRE_TEXTE else 0
+
+
+async def traiter_reglages() -> str:
+    """Un passage : applique la demande du Cockpit s'il y en a une, puis publie l'état. Renvoie ce qui a été fait (journal)."""
+    import google_api
+    import onboarding
+    cid = onboarding.CLASSEUR_LOGINS_ID
+    if not (cid and google_api.actif()):
+        return ""
+    o = onboarding.onglet_a1(ONGLET_REGLAGES)
+    try:
+        b1 = await google_api.sheets_lire(cid, f"{o}!B1")
+    except Exception:                                                   # noqa: BLE001 — onglet absent : on le crée
+        await google_api.sheets_creer_onglet(cid, ONGLET_REGLAGES)
+        await google_api.sheets_ecrire(cid, f"{o}!A1:C1", [["Demande du Cockpit ✏️", "",
+                                                           "Le Cockpit écrit ici Créatrice:poids ; le bot l'applique puis vide la case"]])
+        b1 = []
+    demande = str(b1[0][0]).strip() if b1 and b1[0] else ""
+    fait = ""
+    if demande:
+        texte, motif = lire_demande(demande, list(ORDRE) + ["Sophie", "Sarah", "Chloé", "Jade", "Clara", "Maddie"])
+        quand = datetime.now(timezone.utc).isoformat(timespec="seconds")
+        if texte:
+            ancien = ORDRE_TEXTE
+            definir_ordre(texte)
+            e = _etat()
+            e["ordre_force"] = ORDRE_TEXTE
+            e.setdefault("historique_reglages", []).append({"t": quand, "par": "Cockpit", "ancien": ancien, "nouveau": ORDRE_TEXTE})
+            e["historique_reglages"] = e["historique_reglages"][-30:]
+            _ecrire(e)
+            fait = f"✅ appliqué : {ordre_texte()}"
+            try:
+                canal = await _deps["canal_admin"]() if _deps.get("canal_admin") else None
+                if canal is not None:
+                    await canal.send(f"🎛️ **Coefficients d'attribution changés depuis le Cockpit** : {ordre_texte()} "
+                                     f"(avant : {ancien}). Le compteur repart au début.")
+            except Exception as erreur:                                 # noqa: BLE001
+                journal.warning("Réglages attribution, salon admin : %s", erreur)
+        else:
+            fait = f"❌ refusé : {motif}"
+        try:                                                            # la case n'est vidée que si elle n'a pas changé entre-temps
+            relu = await google_api.sheets_lire(cid, f"{o}!B1")
+            if (str(relu[0][0]).strip() if relu and relu[0] else "") == demande:
+                await google_api.sheets_ecrire(cid, f"{o}!B1", [[""]])
+        except Exception as erreur:                                     # noqa: BLE001
+            journal.warning("Réglages attribution, case B1 : %s", erreur)
+        await google_api.sheets_ecrire(cid, f"{o}!A7:C7", [["Dernière demande", demande, f"{quand} · {fait}"]], brut=True)
+        if texte:
+            try:
+                import capacite
+                await capacite.ecrire()                                 # l'onglet « Build capacity » suit les coefficients
+            except Exception as erreur:                                 # noqa: BLE001
+                journal.warning("Réglages attribution, Build capacity : %s", erreur)
+    stock = await stock_livrable()
+    await google_api.sheets_ecrire(cid, f"{o}!A2:C6", etat_reglages(_index_courant(), stock), brut=True)
+    return fait
+
+
+async def boucle_reglages():
+    """Toutes les REGLAGES_SEC secondes ; jamais d'exception (une erreur est retentée au passage suivant)."""
+    await asyncio.sleep(60)
+    while True:
+        try:
+            fait = await traiter_reglages()
+            if fait:
+                journal.info("Réglages attribution : %s", fait)
+        except Exception as erreur:                                     # noqa: BLE001
+            journal.warning("Réglages attribution : %s", str(erreur)[:200])
+        await asyncio.sleep(REGLAGES_SEC)
