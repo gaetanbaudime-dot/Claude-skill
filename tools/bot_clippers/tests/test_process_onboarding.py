@@ -414,10 +414,14 @@ class RepriseAttributionTests(unittest.IsolatedAsyncioTestCase):
             'bilan_court':str,'a_signaler':lambda *a:False}
         ns['resoudre_blocage']=charger('resoudre_blocage',ns,'attribution.py')
         ns['signaler_blocage']=charger('signaler_blocage',ns,'attribution.py')
+        arrivees=[]
+        async def notifier_arrivee(prenom, creatrice, via, attente=False): arrivees.append(creatrice)
+        ns['notifier_arrivee']=notifier_arrivee                              # 21/10 : la ligne Telegram d'arrivée
         attribuer=charger('attribuer',ns,'attribution.py')
         await attribuer(membre,'test fictif')
         await attribuer(membre,'reprise fictive')
         self.assertEqual([choix,choix],[c.args[2] for c in onboarder.await_args_list])
+        self.assertEqual([choix],arrivees)                                   # la reprise ne renotifie pas
         prochain.assert_not_called();stock.assert_not_awaited()
         conserver.assert_not_called()
 

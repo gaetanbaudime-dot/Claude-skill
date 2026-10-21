@@ -6,6 +6,12 @@ l'ancien système). Tout vient de ce que le bot tient déjà : Data G&M (subs et
 envoyées à RAPPORT_HEURE_PARIS (13 h, après la saisie de Rianah) sur Telegram et dans le salon admin ; `!rapport` l'envoie
 tout de suite.
 
+21/10 (Gaëtan : « le GAML Report Bot est un peu compliqué », « avoir un visuel parallèle » au Cockpit Clipping) : par défaut,
+cinq lignes calquées sur le Cockpit, lues dans les mêmes onglets que lui (« Pilotage subs », « Pilotage clics », « Pilotage reels »
+du tableur d'usage, « Funnel quotidien » et « Parcours » du classeur des candidatures) : subs et CA, clics vertical / horizontal,
+Reels contre l'objectif, recrutement et clippers bloqués au compte 1, puis le lien du Cockpit. RAPPORT_FORMAT=ancien remet les huit
+lignes ; si les onglets du Cockpit sont illisibles, le rapport repart tout seul sur l'ancien format.
+
 Dépendances (`configurer`) : lire_json, ecrire_json, FICHIER (état : dernier envoi), FICHIER_ETATS (historique du scan),
 lire_comptes, clics_de(prénom, jours) -> int|None, groupes() -> {créatrice: [prénoms]}, exclus() -> [prénoms], canal_admin,
 envoyer_telegram, heure_paris, normaliser, google_api, est_staff."""
@@ -29,6 +35,9 @@ ONGLETS_IGNORES = ("synth", "notice", "param", "config", "dashboard",
                    # 05/10 : les tableaux de bord du 03/10 ne sont pas des créatrices (« Non saisi hier : Pilotage, Profit… »)
                    "pilotage", "profit", "ca mensuel", "subs & ltv", "commission")
 JOURS_SILENCE = 3
+FORMAT = (os.environ.get("RAPPORT_FORMAT", "cockpit") or "cockpit").strip().lower()      # 21/10 : « cockpit » ou « ancien »
+OBJECTIF_REELS = int(os.environ.get("OBJECTIF_REELS", "150") or 150)                      # Reels publiés par jour, tous comptes
+LIEN_COCKPIT = os.environ.get("RAPPORT_LIEN_COCKPIT", "https://claude.ai/artifact/TdmkuiYLKdrrwtbsKDzDY4").strip()
 MOIS_FR = {"janvier": 1, "fevrier": 2, "février": 2, "mars": 3, "avril": 4, "mai": 5, "juin": 6, "juillet": 7, "aout": 8, "août": 8,
            "septembre": 9, "octobre": 10, "novembre": 11, "decembre": 12, "décembre": 12}
 JOURS = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"]
@@ -277,6 +286,144 @@ def composer(hier: date, subs: dict, vis: dict, rl: dict, mc: dict, effectif: in
     return "\n".join(lignes)
 
 
+# ------------------------------------------------------------------ format Cockpit (21/10)
+def _table(valeurs: list) -> list:
+    """En-tête + lignes → [{colonne: valeur}] (cellules manquantes = '')."""
+    if not valeurs:
+        return []
+    tete = [str(x).strip() for x in valeurs[0]]
+    return [{c: (str(l[i]).strip() if i < len(l) else "") for i, c in enumerate(tete)} for l in valeurs[1:]]
+
+
+def _jour(texte) -> date | None:
+    t = str(texte or "").strip()[:10]
+    for motif in ("%Y-%m-%d", "%d/%m/%Y"):
+        try:
+            return datetime.strptime(t, motif).date()
+        except ValueError:
+            continue
+    m = re.fullmatch(r"(\d{1,2})/(\d{1,2})/(\d{4})", t)
+    return date(int(m.group(3)), int(m.group(2)), int(m.group(1))) if m else None
+
+
+def _sans_accent(t) -> str:
+    import unicodedata
+    return "".join(c for c in unicodedata.normalize("NFD", str(t or "")) if unicodedata.category(c) != "Mn").lower().strip()
+
+
+def _cat_reel(creatrice: str, gerant: str) -> str:
+    """Comme le Cockpit : le compte de la créatrice, un compte Metricool de l'agence, ou un clipper."""
+    g = _sans_accent(gerant)
+    if not g or g == _sans_accent(creatrice):
+        return "creatrice"
+    return "metricool" if "metricool" in g else "clippers"
+
+
+async def lire_pilotage() -> dict:
+    """Les onglets que lit le Cockpit Clipping : {subs, clics, reels, funnel, parcours} (listes de lignes, en-tête comprise)."""
+    g = _deps.get("google_api")
+    if not (g and g.actif()):
+        return {}
+    import pilotage
+    usage = await pilotage._classeur()
+    if not usage:
+        return {}
+    blocs = await g.sheets_lire_plusieurs(usage, ["'Pilotage subs'!A1:G", "'Pilotage clics'!A1:I", "'Pilotage reels'!A1:F"])
+    out = dict(zip(("subs", "clics", "reels"), blocs))
+    candidatures = os.environ.get("SHEET_CANDIDATURES_ID", "").strip()
+    if candidatures:
+        try:
+            funnel, parcours = await g.sheets_lire_plusieurs(candidatures, ["'Funnel quotidien'!A1:D", "'Parcours'!A1:P"])
+            out.update(funnel=funnel, parcours=parcours)
+        except Exception as erreur:                                         # noqa: BLE001 — la ligne recrutement saute, pas le rapport
+            journal.warning("Rapport : funnel et parcours illisibles (%s)", erreur)
+    return out
+
+
+def composer_cockpit(hier: date, onglets: dict, effectif: int = 0) -> str:
+    """Cinq lignes, la veille, avec les mêmes chiffres que le Cockpit Clipping."""
+    debut7, debut7a, fin7a = hier - timedelta(days=6), hier - timedelta(days=13), hier - timedelta(days=7)
+    lignes = [f"📊 **{JOURS[hier.weekday()]} {hier.strftime('%d/%m')}**, la veille"]
+
+    # Subs et CA (saisis par Rianah dans Data G&M, recopiés par le bot dans « Pilotage subs »)
+    subs = [dict(r, _j=_jour(r.get("Jour"))) for r in _table(onglets.get("subs") or [])]
+    subs = [r for r in subs if r["_j"]]
+    du_jour = [r for r in subs if r["_j"] == hier]
+    non_saisis = [r.get("Créatrice", "") for r in du_jour if _sans_accent(r.get("Saisi")) != "oui"]
+
+    def somme(rows, a, b, col):
+        return sum(_nombre(r.get(col)) for r in rows if a <= r["_j"] <= b)
+    s7 = somme(subs, debut7, hier, "Subs OF") + somme(subs, debut7, hier, "Subs MYM")
+    s7a = somme(subs, debut7a, fin7a, "Subs OF") + somme(subs, debut7a, fin7a, "Subs MYM")
+    eur7 = somme(subs, debut7, hier, "CA OF ($)") * TAUX_USD_EUR + somme(subs, debut7, hier, "CA MYM (€)")
+    sept = f"7 j : {_nb(s7)} subs{_delta(_pct(s7, s7a)) if s7a else ''}, {_nb(eur7)} €"
+    if subs and du_jour and len(non_saisis) < len(du_jour):
+        n = somme(subs, hier, hier, "Subs OF") + somme(subs, hier, hier, "Subs MYM")
+        of_usd, mym_eur = somme(subs, hier, hier, "CA OF ($)"), somme(subs, hier, hier, "CA MYM (€)")
+        lignes.append(f"💰 **{_nb(n)} subs · {_nb(of_usd * TAUX_USD_EUR + mym_eur)} €** (OF {_nb(of_usd)} $ · MYM {_nb(mym_eur)} €) · {sept}")
+    elif subs:
+        lignes.append(f"💰 **Subs d'hier pas encore saisis** · {sept}")
+
+    # Clics payés : vertical (liens des créatrices) et horizontal (clippers, Metricool, liens libérés)
+    clics = [dict(r, _j=_jour(r.get("Jour"))) for r in _table(onglets.get("clics") or [])]
+    clics = [r for r in clics if r["_j"]]
+
+    def visites(a, b, axe=None):
+        return sum(_nombre(r.get("Visites payables")) for r in clics if a <= r["_j"] <= b and (axe is None or r.get("Axe") == axe))
+    tot = visites(hier, hier)
+    if clics:
+        v = visites(hier, hier, "Vertical")
+        part_v = round(v / tot * 100) if tot else 0
+        c7, c7a = visites(debut7, hier), visites(debut7a, fin7a)
+        lignes.append(f"🔗 **{_nb(tot)} clics payés** · créatrices {part_v} % · clippers {100 - part_v if tot else 0} %"
+                      f" · 7 j : {_nb(c7)}{_delta(_pct(c7, c7a)) if c7a else ''}")
+
+    # Reels publiés, tous comptes, contre l'objectif
+    reels = [dict(r, _j=_jour(r.get("Jour"))) for r in _table(onglets.get("reels") or [])]
+    hier_r = [r for r in reels if r["_j"] == hier and _nombre(r.get("Reels")) > 0]
+    if reels:
+        par = {"creatrice": 0, "metricool": 0, "clippers": 0}
+        publient = set()
+        for r in hier_r:
+            cat = _cat_reel(r.get("Créatrice"), r.get("Gérant"))
+            par[cat] += int(_nombre(r.get("Reels")))
+            if cat == "clippers":
+                publient.add(_sans_accent(str(r.get("Gérant")).split()[0]))
+        n = sum(par.values())
+        qui = f"{len(publient)} clipper{'s' if len(publient) > 1 else ''}" + (f" sur {effectif}" if effectif else "") + " ont publié"
+        lignes.append(f"🎬 **{_nb(n)} Reels sur {OBJECTIF_REELS}** · créatrices {par['creatrice']} · Metricool {par['metricool']}"
+                      f" · clippers {par['clippers']} ({qui})")
+
+    # Recrutement : le funnel d'hier et les clippers bloqués au compte 1
+    funnel = sorted((r for r in ({**r, "_j": _jour(r.get("Date"))} for r in _table(onglets.get("funnel") or [])) if r["_j"] and r["_j"] <= hier),
+                    key=lambda r: r["_j"])
+    morceaux = []
+    if funnel:
+        f = funnel[-1]
+        quand = "" if f["_j"] == hier else f" le {f['_j'].strftime('%d/%m')}"
+        morceaux.append(f"{_nb(_nombre(f.get('Leads (M1)')))} leads · {_nb(_nombre(f.get('Qualifiés (M2)')))} qualifié(s){quand}")
+    etapes = ("Quiz réussi", "Arrivée Discord", "Compte 1 remis", "Compte 1 créé", "Premier jour tenu", "Compte 2 créé", "Compte 3 créé", "App remise")
+    bloques = []
+    for r in _table(onglets.get("parcours") or []):
+        if _sans_accent(r.get("Statut")) != "compte 1 a creer":
+            continue
+        dates = [d for d in (_jour(r.get(e)) for e in etapes) if d]
+        nom = str(r.get("Clipper") or "").split(" - ")[0].strip()
+        if nom:
+            bloques.append((nom, (hier + timedelta(days=1) - max(dates)).days if dates else 0))
+    if bloques:
+        nom, jours = max(bloques, key=lambda x: x[1])
+        morceaux.append(f"{len(bloques)} bloqué(s) au compte 1 (le plus ancien : {nom}, {jours} j)")
+    if morceaux:
+        lignes.append("🧲 " + " · ".join(morceaux))
+
+    if non_saisis and len(non_saisis) < len(du_jour):
+        lignes.append("⚠️ Non saisi hier : " + ", ".join(non_saisis) + " (Rianah)")
+    if LIEN_COCKPIT:
+        lignes.append(f"👉 Le détail : {LIEN_COCKPIT}")
+    return "\n".join(lignes)
+
+
 async def executer(maintenant=None) -> str:
     """Compose le rapport de la veille ; les sources qui manquent ne bloquent pas les autres."""
     maintenant = maintenant or _deps["heure_paris"]()
@@ -286,6 +433,14 @@ async def executer(maintenant=None) -> str:
     creatrices = list(groupes)
     ex = {_n(x) for x in exclus}
     effectif = sum(1 for noms in groupes.values() for p in noms if _n(p) not in ex)
+    if FORMAT != "ancien":
+        try:
+            onglets = await lire_pilotage()
+            if onglets.get("clics"):
+                return composer_cockpit(hier, onglets, effectif)
+            journal.warning("Rapport : onglets du Cockpit vides, ancien format")
+        except Exception as erreur:                                         # noqa: BLE001 — l'ancien format prend le relais
+            journal.warning("Rapport : format Cockpit impossible (%s), ancien format", erreur)
     try:
         subs = bloc_subs(await data_gm(hier + timedelta(days=1)), hier)
     except Exception as erreur:                                             # noqa: BLE001
