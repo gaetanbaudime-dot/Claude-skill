@@ -11,6 +11,7 @@ import attribution  # noqa: E402
 def test_texte_arrivee():
     assert attribution.texte_arrivee("Oumar", "Sophie", "acceptation (bouton)") == "🆕 Nouveau clipper : Oumar → Sophie (bouton)"
     assert attribution.texte_arrivee("Benn", "Sarah", "") == "🆕 Nouveau clipper : Benn → Sarah"
+    assert attribution.texte_arrivee("Benn", "Sarah", "quiz", True) == "🆕 Nouveau clipper : Benn → Sarah (quiz) · en attente de comptes prêts"
 
 
 def test_notifier_ne_casse_jamais(monkeypatch):

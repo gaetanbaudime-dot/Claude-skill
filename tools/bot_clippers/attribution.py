@@ -503,19 +503,20 @@ async def _filet_roster(membre, via: str) -> None:
 TELEGRAM_ARRIVEES = os.environ.get("TELEGRAM_ARRIVEES", "1").strip() != "0"
 
 
-def texte_arrivee(prenom: str, creatrice: str, via: str) -> str:
-    """La ligne Telegram d'une arrivée : qui, chez quelle créatrice, par quel chemin."""
+def texte_arrivee(prenom: str, creatrice: str, via: str, attente: bool = False) -> str:
+    """La ligne Telegram d'une arrivée : qui, chez quelle créatrice, par quel chemin, et s'il attend ses comptes."""
     chemin = str(via or "").replace("acceptation (", "").rstrip(")").strip()
-    return f"🆕 Nouveau clipper : {prenom} → {creatrice}" + (f" ({chemin})" if chemin else "")
+    return (f"🆕 Nouveau clipper : {prenom} → {creatrice}" + (f" ({chemin})" if chemin else "")
+            + (" · en attente de comptes prêts" if attente else ""))
 
 
-async def notifier_arrivee(prenom: str, creatrice: str, via: str):
-    """Jamais bloquant : un Telegram en panne ne casse pas l'attribution."""
+async def notifier_arrivee(prenom: str, creatrice: str, via: str, attente: bool = False):
+    """Une fois par clipper (l'appelant saute les reprises). Jamais bloquant : un Telegram en panne ne casse pas l'attribution."""
     if not TELEGRAM_ARRIVEES:
         return
     try:
         import telegram
-        await telegram.envoyer_telegram(texte_arrivee(prenom, creatrice, via))
+        await telegram.envoyer_telegram(texte_arrivee(prenom, creatrice, via, attente))
     except Exception as erreur:                                             # noqa: BLE001
         journal.warning("Notification d'arrivée : %s", erreur)
 
@@ -601,6 +602,7 @@ async def attribuer(membre, via: str) -> str:
             except Exception as erreur:                                         # noqa: BLE001
                 bilan = f"❌ {type(erreur).__name__} {str(erreur)[:120]}"
             e = _etat()
+            deja_note = any(str(h.get("uid")) == str(membre.id) for h in e.get("historique") or [])   # une reprise ne renotifie pas
             e.setdefault("historique", []).append({"uid": str(membre.id), "prenom": _deps["prenom_de"](membre), "creatrice": creatrice,
                                                    "via": via, "date": datetime.now(timezone.utc).isoformat(timespec="seconds")})
             e["historique"] = e["historique"][-300:]
@@ -611,7 +613,8 @@ async def attribuer(membre, via: str) -> str:
             # demande un geste (onboarding en échec, rôle ou pseudo refusé, comptes non livrés, créatrice sans catégorie ni rôle) part
             # encore tout de suite.
             await signaler_blocage(membre, creatrice, bilan, note)
-            await notifier_arrivee(_deps["prenom_de"](membre), creatrice, via)
+            if not deja_note:
+                await notifier_arrivee(_deps["prenom_de"](membre), creatrice, via, creatrice_en_attente(membre.id))
             return "" if creatrice_en_attente(membre.id) else creatrice
 
 
