@@ -600,6 +600,10 @@ class _Ctx:
         # 11/10 (lot L8) : parcours.json (étape de chaque clipper) et la période de paie en cours (Clics paie, dû)
         self.parcours = {str(k): v for k, v in (e.get("parcours") or {}).items() if isinstance(v, dict)} \
             if isinstance(e.get("parcours"), dict) else {}
+        # 21/10 (Gaëtan : « voir ma vitesse de création de comptes ») : tout le classeur et les fiches clippers, pour dater chaque
+        # création (lignes_creations)
+        self.comptes_classeur = [c for c in (e.get("comptes") or []) if isinstance(c, dict)]
+        self.onb = e.get("onboarding") if isinstance(e.get("onboarding"), dict) else {}
         self.paie_debut, self.paie_fin, self.jour_paie = periode_paie(self.j0)
         self._regimes = {}                                               # 11/10 (lot L8, reprise) : régime et début au clic par uid
 
@@ -1387,6 +1391,64 @@ def lignes_reels(comptes: list, aujourdhui: date, jours: int = REELS_JOURS) -> l
     return [[j, cr, g, str(a[0]), str(a[1]), str(a[2])] for (j, cr, g), a in sorted(agg.items())]
 
 
+def _jour_paris(ts) -> str:
+    """Un horodatage ISO (parcours._maintenant) → le jour à Paris « AAAA-MM-JJ » ; "" si illisible."""
+    try:
+        d = datetime.fromisoformat(str(ts).replace("Z", "+00:00"))
+    except (TypeError, ValueError):
+        return ""
+    if d.tzinfo is None:
+        d = d.replace(tzinfo=timezone.utc)
+    return _paris(d).date().isoformat()
+
+
+def lignes_creations(ctx: _Ctx, jours: int = None) -> list:
+    """21/10 (Gaëtan : « combien de comptes est-ce que je crée par jour ») : une ligne par compte créé, [Jour, Créatrice, Gérant, @,
+    Source], du plus ancien au plus récent, sur `jours` jours (PILOTAGE_JOURS). Deux sources :
+      - « parcours » : l'appui du clipper sur « ✅ Compte n créé » (profils[n], sinon dates[n_fait]), l'heure exacte, pour ses
+        comptes 1, 2 et 3 ;
+      - « scan » : le premier passage du matin qui a vu la ligne créée ou GOOD (etats_comptes, `cree_vu`), au jour près : les
+        autres comptes (remplacements, Metricool, comptes faits à la main). Le premier jour de `cree_vu` est écarté : c'est
+        l'amorçage du 09/10, où tous les comptes déjà là ont été notés d'un coup.
+    Créatrice et Gérant viennent du classeur (la ligne du @), sinon du parcours. Pur."""
+    jours = jours or PILOTAGE_JOURS
+    debut = (ctx.j0 - timedelta(days=jours - 1)).isoformat()
+    ligne_de = {}
+    for c in ctx.comptes_classeur:
+        k = _cle(c.get("handle"))
+        if k and k not in ligne_de:
+            ligne_de[k] = c
+    vus = {}                                                           # clé du @ → (jour, source, @, créatrice, gérant)
+    P = _module("parcours") if ctx.parcours else None
+    clippers = ctx.onb.get("clippers") if isinstance(ctx.onb.get("clippers"), dict) else {}
+    for uid, pf in ctx.parcours.items():
+        fiche = clippers.get(uid) if isinstance(clippers.get(uid), dict) else {}
+        try:
+            handles = list(P._comptes_ordonnes(uid, onb=fiche, fiche_p=pf)) if P is not None else []
+        except Exception:                                               # noqa: BLE001 — fiche illisible : le scan prend le relais
+            handles = []
+        for n, h in enumerate(handles[:3], start=1):
+            j = _jour_paris((pf.get("profils") or {}).get(str(n)) or (pf.get("dates") or {}).get(f"{n}_fait"))
+            k = _cle(h)
+            if j and k:
+                vus[k] = (j, "parcours", h, str(pf.get("creatrice") or ""), "")
+    cree_vu = ctx.etats.get("cree_vu") if isinstance(ctx.etats.get("cree_vu"), dict) else {}
+    amorce = min((str(j) for j in cree_vu.values() if j), default="")
+    for h, j in cree_vu.items():
+        k, j = _cle(h), str(j or "")[:10]
+        if k and j and j != amorce and k not in vus:
+            vus[k] = (j, "scan", h, "", "")
+    out = []
+    for k, (j, src, h, cr, g) in vus.items():
+        if j < debut or j > ctx.j0.isoformat():
+            continue
+        c = ligne_de.get(k) or {}
+        cr = str(c.get("creatrice") or c.get("onglet") or cr or "").strip()
+        g = str(c.get("gerant") or g or "").strip()
+        out.append([j, cr, g, str(c.get("handle") or h or "").strip().lstrip("@"), src])
+    return sorted(out)
+
+
 def _pilotage(ctx: _Ctx, comptes_l: list, creatrices: set) -> dict:
     """Les tables du pilotage, en texte (écrites telles quelles) : `comptes` (une ligne par compte montré, l'état du moment) et
     `clics` (une ligne par jour × créatrice × axe × source × personne, sur PILOTAGE_JOURS jours dont aujourd'hui jusqu'au dernier
@@ -1459,7 +1521,13 @@ def _pilotage(ctx: _Ctx, comptes_l: list, creatrices: set) -> dict:
     boutons_l = [[ji, cr, axe, src, q, str(b[0]), str(b[1]), str(b[2])] for (ji, cr, axe, src, q), b in sorted(agg_b.items())]
     actifs = sorted(lid for lid in ctx.liens if ctx.cat(lid) not in INACTIFS)
     reels = lignes_reels([(nom_cr(L["cr"]), (L["c"] or {}).get("gerant"), L.get("serie")) for L in comptes_l], ctx.j0)
-    return {"comptes": comptes, "clics": clics, "boutons": boutons_l, "lids_boutons": actifs, "reels": reels}
+    try:
+        creations = lignes_creations(ctx)                               # 21/10 : la vitesse de création de comptes (Cockpit)
+    except Exception as erreur:                                         # noqa: BLE001 — jamais au prix des autres tables
+        journal.warning("Pilotage : créations de comptes non calculées (%s)", type(erreur).__name__)
+        creations = None
+    return {"comptes": comptes, "clics": clics, "boutons": boutons_l, "lids_boutons": actifs, "reels": reels,
+            "creations": creations}
 
 
 def construire(e: dict, maintenant: datetime = None) -> dict:

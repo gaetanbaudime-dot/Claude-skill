@@ -43,6 +43,9 @@ ENTETE_CLICS = ["Jour", "Créatrice", "Axe", "Source", "Qui", "Visites payables"
 ONGLET_REELS = "Pilotage reels"
 ENTETE_REELS = ["Jour", "Créatrice", "Gérant", "Reels", "Vues (dernier relevé)", "Reels mesurés"]
 ENTETE_SUBS = ["Jour", "Créatrice", "Subs OF", "CA OF ($)", "Subs MYM", "CA MYM (€)", "Saisi"]
+# 21/10 (Gaëtan, Cockpit Clipping : « voir ma vitesse de création de comptes ») : une ligne par compte créé (dashboard.lignes_creations)
+ONGLET_CREATIONS = "Pilotage créations"
+ENTETE_CREATIONS = ["Jour", "Créatrice", "Gérant", "@", "Source"]
 # 13/10 : les clics sur les boutons OnlyFans et MYM des pages (boutons.py), jour × créatrice × axe × source × personne
 ONGLET_BOUTONS = "Pilotage boutons"
 ENTETE_BOUTONS = ["Jour", "Créatrice", "Axe", "Source", "Qui", "Clics OF", "Clics MYM", "Autres boutons"]
@@ -302,7 +305,8 @@ async def publier(pil: dict, maintenant: datetime = None) -> int:
             for titre, entete, lignes in ((ONGLET_COMPTES, ENTETE_COMPTES, pil.get("comptes")),
                                           (ONGLET_CLICS, ENTETE_CLICS, pil.get("clics")),
                                           (ONGLET_BOUTONS, ENTETE_BOUTONS, pil.get("boutons")),
-                                          (ONGLET_REELS, ENTETE_REELS, pil.get("reels"))):
+                                          (ONGLET_REELS, ENTETE_REELS, pil.get("reels")),
+                                          (ONGLET_CREATIONS, ENTETE_CREATIONS, pil.get("creations"))):
                 if isinstance(lignes, list) and await _ecrire(classeur, titre, entete, lignes):
                     ecrits += 1
             # 13/10 (Gaëtan : « si le clippeur met à jour ses @, mets à jour le sheet et l'application de son team leader ») : les @
