@@ -3089,6 +3089,38 @@ def lignes_reels(comptes: list, historique: dict, jour: str) -> dict:
             for prenom, p in par.items()}
 
 
+# 21/10 (Gaëtan : « simplifie, supprime ») : le message du matin ne dit plus que les états qui ont changé (BAN, GOOD…) et les
+# écritures perdues. Les statistiques du passage, le stock « à créer », les restreints et les comptes non lus restent sur `!etats`
+# (texte_bilan). ETATS_BILAN_DETAILLE=1 remet l'ancien message chaque matin.
+BILAN_DETAILLE = os.environ.get("ETATS_BILAN_DETAILLE", "0").strip() == "1"
+
+
+def texte_bilan_court(bilan: dict) -> str:
+    """Le message du matin : "" quand aucun état n'a changé et qu'aucune écriture n'est perdue (rien n'est posté)."""
+    if bilan.get("erreur"):
+        return f"⚠️ États du classeur : {bilan['erreur']}."
+    ch = bilan.get("changements") or []
+    perdues = bilan.get("perdues") or []
+    if not ch and not perdues:
+        return ""
+    par_etat = {}
+    for handle, gerant, avant, apres, ligne in ch:
+        par_etat.setdefault(apres, []).append(f"`{handle}`" + (f" ({str(gerant).split()[0]})" if str(gerant or "").strip() else ""))
+    resume = " · ".join(f"{len(v)} {k}" for k, v in par_etat.items())
+    lignes = [f"🗂️ **Comptes ce matin** : {resume}" if resume else "🗂️ **Comptes ce matin**"]
+    for apres in ("BAN", "GOOD", "PRIVE", "WARMUP"):
+        if apres in par_etat:
+            lignes.append(f"→ {apres} : " + ", ".join(par_etat[apres][:20]))
+    for apres, quoi in par_etat.items():
+        if apres not in ("WARMUP", "GOOD", "PRIVE", "BAN"):
+            lignes.append(f"🔎 {', '.join(quoi[:10])} → {apres}")
+    if "BAN" in par_etat:
+        lignes.append("-# Un BAN se vérifie sur le mail daté de désactivation ; s'il y a un appel possible, mets « Faire appel ».")
+    if perdues:
+        lignes.append(f"❌ {len(perdues)} cellule(s) non écrite(s) : " + " · ".join(perdues[:8]))
+    return "\n".join(lignes)
+
+
 def texte_bilan(bilan: dict, test: bool = False) -> str:
     if bilan.get("erreur"):
         return f"⚠️ États du classeur : {bilan['erreur']}."
@@ -3165,11 +3197,13 @@ async def boucle(client) -> None:
                     d = _lire(); d.setdefault("essais", {})[jour] = int(d.get("essais", {}).get(jour, 0)) + 1; _ecrire(d)
                     journal.warning("États du classeur : %s", bilan["erreur"])
                 else:
-                    if (bilan["changements"] or bilan.get("followers") or bilan.get("clics") or bilan.get("non_lus")
-                            or bilan.get("suspects") or bilan.get("perdues")) and _deps.get("canal_admin"):
+                    texte_m = texte_bilan(bilan) if BILAN_DETAILLE and (
+                        bilan["changements"] or bilan.get("followers") or bilan.get("clics") or bilan.get("non_lus")
+                        or bilan.get("suspects") or bilan.get("perdues")) else texte_bilan_court(bilan)
+                    if texte_m and _deps.get("canal_admin"):
                         canal = await _deps["canal_admin"]()
                         if canal is not None:
-                            await canal.send(texte_bilan(bilan)[:1990])
+                            await canal.send(texte_m[:1990])
                     bans = [f"`{h}` ({g})" for h, g, _, a, _ in bilan["changements"] if a == "BAN"]
                     if bans and _deps.get("notifier"):
                         await _deps["notifier"]("🚫 **Comptes marqués Ban — vérifier la preuve mail datée** : "

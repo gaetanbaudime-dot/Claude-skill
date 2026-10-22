@@ -330,6 +330,28 @@ def texte(det: dict) -> str:
                         *limites])
 
 
+def texte_court(det: dict) -> str:
+    """21/10 (Gaëtan : « simplifie, rends ça plus facile à lire ») : le bloc des places du point du matin en deux lignes — combien
+    peuvent entrer, ce qui limite — puis les places par créatrice en petit. `texte` (détaillé) reste pour `!annonce`."""
+    stock = " · ".join(f"{nom} {n}" for nom, n in det["par_creatrice"].items()) or "aucune créatrice"
+    g = det.get("gaml")
+    limite = ""
+    if g is not None and g["capacite"] < det["places_lignes"]:
+        limite = (f"Limite : les liens GAML ({g['actifs']}/{g['forfait']} actifs"
+                  + (f", {g['promis']} promis aux clippers en route" if g.get("promis") else "")
+                  + ") → libère un lien (`!liens`) ou monte le forfait.")
+    elif det["places_lignes"] <= 0:
+        limite = "Limite : plus de comptes prêts → crée des comptes (Build capacity)."
+    attente_c = det.get("attente_creatrice", det["attente"] - det.get("transit", 0))
+    if attente_c:
+        limite += (" " if limite else "") + f"{_pluriel(attente_c, 'membre attend', 'membres attendent')} déjà une créatrice."
+    if det["places"] <= 0:
+        tete = "⛔ **0 place : n'annonce pas encore.**"
+    else:
+        tete = f"📦 **{det['places']} {'nouveau peut' if det['places'] == 1 else 'nouveaux peuvent'} entrer.**"
+    return "\n".join(x for x in (tete, limite, f"-# Places par créatrice : {stock}") if x)
+
+
 async def texte_annonce() -> str:
     """La ligne sous la réponse de `!annonce` (dépendance `places_texte` de web_candidature, lot W). Classeur illisible : une
     ligne qui le dit, jamais un faux 0."""

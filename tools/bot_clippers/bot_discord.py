@@ -295,6 +295,9 @@ class _CollecteurAvertissements(logging.Handler):
 journal.addHandler(_CollecteurAvertissements(level=logging.WARNING))
 
 
+AVERT_PASSAGER = re.compile(r"\((?:1|2) de suite\)")
+
+
 def avertissements_recents(heures=24) -> list:
     """Messages d'avertissement uniques des dernières heures, du plus récent au plus ancien."""
     limite = datetime.now(timezone.utc) - timedelta(hours=heures)
@@ -1508,12 +1511,17 @@ async def envoyer_notification_support(ticket, uid, sujet, source):
     canal = await canal_admin()
     if canal is None:
         return None
-    envoye = await canal.send(
-        f"⚠️ Support #{ticket} — {sujet}\n"
-        f"Conséquence : parcours à vérifier pour <@{uid}>.\n"
-        f"Action : consulter la preuve puis prendre en charge.\n{source}\n"
-        f"Dossier : `!support {uid}`")
+    envoye = await canal.send(texte_notification_support(ticket, uid, sujet, source))
     return envoye.id
+
+
+def texte_notification_support(ticket, uid, sujet, source) -> str:
+    """21/10 (Gaëtan : « simplifie ») : qui demande de l'aide, pourquoi, où lui répondre ; plus de hachage de question."""
+    s = str(sujet or "")
+    quoi = "l'assistant n'a pas su lui répondre" if s.startswith("assistance IA") else \
+        "il demande l'équipe" if s.startswith("demande de prise en charge") else s
+    ou = f"→ {source}" if str(source or "").startswith("http") else "→ Demande en message privé : réponds-lui dans son salon."
+    return f"🆘 **Support #{ticket}** · <@{uid}> : {quoi}.\n{ou}\n-# Dossier : `!support {uid}`"
 
 
 async def signaler_support(message, sujet):
@@ -4885,7 +4893,8 @@ async def bloc_places_digest() -> tuple:
             journal.warning("Digest : places livrables illisibles (%s)", erreur)
             texte_p, agir = f"⚠️ Places inconnues : classeur des logins illisible ({type(erreur).__name__}).", True
         else:
-            texte_p, agir = _places.texte(det), int(det.get("places", 0) or 0) <= 0
+            court = getattr(_places, "texte_court", None)               # 21/10 : deux lignes au lieu de six
+            texte_p, agir = (court(det) if court else _places.texte(det)), int(det.get("places", 0) or 0) <= 0
         try:
             sans_lien = _places.ligne_sans_lien() if hasattr(_places, "ligne_sans_lien") else ""
         except Exception as erreur:                                     # noqa: BLE001
@@ -5033,11 +5042,12 @@ async def boucle_rappels():
                 cand_24h = candidatures_du_jour(hier, lignes_c, pipe)
                 flux = compteurs_funnel(pipe, hier, equipes_r)
                 sources = sources_candidatures(cand_24h, lignes_c, pipe)
-                blocs_d.append(("hier", f"📋 **Hier** : {len(cand_24h)} candidature(s) · {flux['quiz_ok']} quizz réussi(s)"
+                # 21/10 (Gaëtan : « simplifie, rends ça agréable à lire ») : l'entonnoir d'hier en une chaîne ; les sources seulement
+                # quand il y en a plusieurs (« web 6 » seul n'apprend rien)
+                blocs_d.append(("hier", f"📋 **Recrutement hier** : {len(cand_24h)} candidature(s) → {flux['quiz_ok']} quiz réussi(s)"
                                 + (f" ({flux['quiz_ko']} raté(s))" if flux["quiz_ko"] else "")
-                                + f" · {flux['arrives']} arrivé(s) sur Discord · {flux['valides']} validé(s)"
-                                + f" · {attribues_du_jour(equipes_r, hier)} attribué(s) à une créatrice"
-                                + ("\nSources : " + " · ".join(f"{s} {n}" for s, n in sources) if sources else "")))
+                                + f" → {flux['arrives']} arrivé(s) sur Discord → {attribues_du_jour(equipes_r, hier)} avec une créatrice"
+                                + ("\n-# Sources : " + " · ".join(f"{s} {n}" for s, n in sources) if len(sources) > 1 else "")))
                 # 1 bis. 18/10 (actions 16-17) : M1 · M2 · M3 d'hier et leur moyenne 7 jours ; l'onglet « Funnel quotidien » (30 j)
                 try:
                     serie_f = await serie_funnel(30, fin=hier)
@@ -5107,7 +5117,9 @@ async def boucle_rappels():
                                     + " · ".join(f"<@{u}> (J+{j})" for u, j in sans_creatrice[:6])
                                     + (f" · {anciens_sans} plus ancien(s), listés le lundi" if anciens_sans and not lundi else "")
                                     + "\n→ `!creatrice @membre Prénom` : un signé sans créatrice ne produit rien."))
-                avert = avertissements_recents(24)
+                # 21/10 (Gaëtan : « simplifie ») : une panne passagère (« Lecteur des codes (1 de suite) : abort ») s'est réparée
+                # toute seule ; seules les pannes répétées (3 de suite ou plus) restent dans le point du matin
+                avert = [a for a in avertissements_recents(24) if not AVERT_PASSAGER.search(a)]
                 vus = etat.get("avert_vus", [])
                 nouveaux_avert = [a for a in avert if a[:90] not in vus]
                 if nouveaux_avert:                              # un avertissement ne se répète pas chaque matin
@@ -8932,6 +8944,7 @@ def brancher_codes():
 
 async def lire_fiche_suivi(membre):
     """Même prochaine action que !etape ; sources sélectionnées pour le seul UID."""
+    controle = globals().get("controle") or __import__("controle")      # 21/10 : n'était importé nulle part ici (NameError)
     import diagnostic_dossier
     import recrutement
     uid = str(membre.id)
@@ -10693,6 +10706,11 @@ async def on_message(message):
     if texte.startswith(("!acquisition-webhook", "!acquisition-subs")):     # 30/09 : subs de la veille au serveur chatting
         if await acquisition_subs.commande(message, texte):
             return
+    if texte.split()[:1] in (["!controle"], ["!contrôle"]) and est_staff(message.author):   # 21/10 : le détail, à la demande
+        import controle                                                     # controle importe onboarding : import tardif
+        if not await controle.passage(force=True, detail=True):
+            await message.reply("Contrôle : rien à afficher pour l'instant (classeur illisible ?).")
+        return
     if texte.startswith(("!bloques", "!bloqués")):                          # 30/09 : bloqués du matin, tout de suite
         if await bloques.commande(message, texte):
             return

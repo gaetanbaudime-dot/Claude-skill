@@ -82,8 +82,10 @@ def ligne_digest(lignes: list) -> str:
     ordre = sorted(lignes)
     _, a, b, c = ordre[-1]
     sept = ordre[-7:]
-    return (f"📈 **M1 · M2 · M3 hier** : {a} lead(s) · {b} qualifié(s) · {c} actif(s)"
-            f" (moyenne 7 j : {_moy(x[1] for x in sept)} · {_moy(x[2] for x in sept)} · {_moy(x[3] for x in sept)})")
+    # 21/10 (Gaëtan : « simplifie ») : leads et qualifiés d'hier sont déjà dans « Recrutement hier » ; restent les actifs et la
+    # tendance de la semaine, en mots
+    return (f"📈 **{c} clipper(s) actif(s) hier** · moyenne 7 j : {_moy(x[1] for x in sept)} lead(s), "
+            f"{_moy(x[2] for x in sept)} qualifié(s), {_moy(x[3] for x in sept)} actif(s) par jour")
 
 
 def lignes_feuille(lignes: list) -> list:

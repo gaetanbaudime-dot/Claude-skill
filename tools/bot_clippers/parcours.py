@@ -1046,8 +1046,9 @@ async def compte_introuvable(client, handle: str) -> bool:
     try:
         canal = await _deps["canal_admin"]() if _deps.get("canal_admin") else None
         if canal is not None:
-            await canal.send(f"🔎 {(f or {}).get('prenom') or uid} (<@{uid}>) : compte {n} `{handle}` introuvable, ni sous un @ proche "
-                             f"({'prévenu' if ok else 'pas prévenu'}) ; BAN après {_introuvable_jours()} passages sans le voir depuis sa création.")
+            # 21/10 (Gaëtan : « simplifie ») : qui, quel compte, ce qui va se passer
+            await canal.send(f"🔎 <@{uid}> : compte {n} `{handle}` introuvable sur Instagram ({'prévenu' if ok else 'pas prévenu'}). "
+                             f"Passe BAN s'il reste introuvable {_introuvable_jours()} passages.")
     except Exception:                                                   # noqa: BLE001
         pass
     return ok
@@ -2138,8 +2139,7 @@ class BoutonGroupeTL(discord.ui.DynamicItem[discord.ui.Button], template=r"watl:
                 canal = await _deps["canal_admin"]() if _deps.get("canal_admin") else None
                 if canal is not None:
                     f_wa = _lire().get(self.uid) or {}
-                    await canal.send(f"👥 Groupe WhatsApp de {f_wa.get('prenom') or self.uid} (<@{self.uid}>, "
-                                     f"{f_wa.get('creatrice') or '?'}) créé par <@{qui}>.")
+                    await canal.send(f"👥 <@{self.uid}> ajouté au groupe WhatsApp {f_wa.get('creatrice') or ''} par <@{qui}>.".replace("  ", " "))
             except Exception:                                           # noqa: BLE001
                 pass
 

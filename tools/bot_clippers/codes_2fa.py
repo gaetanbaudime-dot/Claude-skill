@@ -684,6 +684,13 @@ ALERTES = (
                                               r"\bexclu\w*|losch\w*|deaktiv\w*|disattiv\w*"),
 )
 ALERTES_RE = tuple((libelle, re.compile(motif)) for libelle, motif in ALERTES)
+# 21/10 (Gaëtan : « simplifie ») : « Nous vous avons créé un Compte Meta sur Instagram » arrive à CHAQUE création de compte (le
+# compte rejoint l'Espace Comptes) : ce n'est pas un changement suspect, plus de ligne admin.
+CREATION_META = re.compile(r"cree un compte meta|created (?:a|your) meta account|new meta account|nouveau compte meta")
+
+
+def creation_compte_meta(info: dict) -> bool:
+    return info.get("libelle") == "compte relié à un Espace Comptes" and bool(CREATION_META.search(plat(str(info.get("sujet") or ""))))
 MOTIF_COMPTE = re.compile(r"\b(?:Hi|Hello|Hey|Bonjour|Salut|Hola|Olá|Ola|Ciao|Hallo|Merhaba|Hai|Hoi)\b\W{0,3}"
                           r"([A-Za-z0-9][A-Za-z0-9._]{1,40})\s*[,:!.]")
 
@@ -2821,9 +2828,8 @@ async def _traiter_un(client, lu: dict, e: dict, connus: set, commun: str, bilan
         if not proprio.get("canal_id"):
             if alias and recent and _une_fois(f"orphelin|{alias}", minutes=60):
                 bilan["orphelins"] += 1
-                await _admin(f"🔐 Code de {QUOI.get(info['type'], 'connexion')} reçu sur `{alias}`, une adresse rattachée "
-                             "à personne : je ne le donne à personne.\n\n"
-                             f"Si c'est l'adresse d'un clipper : `!alias ajouter {alias}` dans son salon perso.")
+                await _admin(f"🔐 Code reçu sur `{alias}`, une adresse à personne : pas donné.\n"
+                             f"-# Si c'est un clipper : `!alias ajouter {alias}` dans son salon.")
         # Les réponses privées déjà ouvertes sont réveillées par _traiter_lus.
         # Ne publier aucun code ou notification dans un autre salon/DM.
     elif info["decision"] == "garder":
@@ -2841,7 +2847,9 @@ async def _traiter_un(client, lu: dict, e: dict, connus: set, commun: str, bilan
                          f"{compte}adresse `{_masquer(alias)}`{salon} · e-mail « {_sans_code(info['sujet'])} ».\n\n"
                          "Le code n'est pas recopié ici : lis-le dans la boîte si tu en as besoin." + appel)
     elif info["decision"] == "alerte":
-        if recent and _une_fois(f"alerte|{mid}"):
+        if creation_compte_meta(info):                                  # 21/10 : un compte qui vient d'être créé, rien à faire
+            journal.info("Codes : e-mail de création de compte Meta (%s), pas d'alerte", _masquer(alias))
+        elif recent and _une_fois(f"alerte|{mid}"):
             bilan["alertes"] += 1
             qui = f"@{info['compte']}" if info["compte"] else _masquer(alias)
             proprio = _proprietaire(alias)
@@ -2935,6 +2943,10 @@ async def _sante_ok():
 # silence ; une seconde quand les codes reviennent. CODES_SILENCE_MIN=0 coupe la surveillance. 18/10 : 60 min par défaut (Gaëtan : « je dois voir hyper vite si le clippeur n'a pas reçu son 2FA »).
 SILENCE_MIN = int(os.environ.get("CODES_SILENCE_MIN", "60") or 0)   # 18/10 (Gaëtan : « fais à 1 h ») 
 SILENCE_HEURES = tuple(int(x) for x in (os.environ.get("CODES_SILENCE_HEURES", "9-23") or "9-23").split("-")[:2])
+# 21/10 (Gaëtan : « simplifie, supprime ») : l'alerte « aucun code depuis 1 h » et son « ✅ ça revient » faisaient le yo-yo dans le
+# salon admin (un silence est normal quand personne ne crée de compte). Le signal utile existe déjà, par clipper : « 🚨 Code
+# Instagram pas reçu » à la fin d'un guet de 5 minutes sans code (_signaler_code_absent). CODES_SILENCE_ALERTE=1 la remet.
+SILENCE_ALERTE = os.environ.get("CODES_SILENCE_ALERTE", "0").strip() == "1"
 
 
 def silence_a_signaler(dernier_iso: str, maintenant: datetime, heure_paris: int, seuil_min: int = None,
@@ -2966,6 +2978,8 @@ async def surveiller_silence():
         heure = maintenant.astimezone(ZoneInfo("Europe/Paris")).hour
     except Exception:                                                   # noqa: BLE001 — base de fuseaux absente
         heure = (maintenant + timedelta(hours=2)).hour
+    if not SILENCE_ALERTE:                                              # 21/10 : coupée par défaut (voir SILENCE_ALERTE)
+        return
     minutes = silence_a_signaler(e["dernier_code"], maintenant, heure)
     if minutes and not e.get("silence_signale"):
         h, m = divmod(minutes, 60)

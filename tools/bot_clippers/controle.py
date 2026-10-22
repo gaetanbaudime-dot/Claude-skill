@@ -2755,6 +2755,27 @@ def texte_admin(anomalies_: list) -> str:
     return texte[:LIMITE_TEXTE]
 
 
+def texte_admin_court(anomalies_: list) -> str:
+    """21/10 (Gaëtan : « c'est compliqué en termes de lisibilité, simplifie, supprime ») : le message du salon admin en trois
+    lignes — combien, le plus urgent, où voir le reste. Le détail complet (texte_admin) part sur `!controle`."""
+    toutes = [a for a in anomalies_ or [] if isinstance(a, dict)]
+    an = [a for a in toutes if not a.get("non_mesure")]
+    if not an:
+        return "🧭 **Contrôle du classeur** : rien à corriger." if not any(a.get("non_mesure") for a in toutes) else \
+            "🧭 **Contrôle du classeur** : rien trouvé, mais une partie n'a pas pu être vérifiée (`!controle`)."
+    n = {g: sum(1 for a in an if a["gravite"] == g) for g in GRAVITES}
+    tete = "🧭 **Contrôle du classeur** : " + " · ".join(
+        x for x in (f"{n['bloquant']} bloquant(s)" if n["bloquant"] else "", f"{n['important']} important(s)" if n["important"] else "",
+                    f"{n['info']} info" if n["info"] else "") if x)
+    urgents = [a for a in an if a["gravite"] == "bloquant"][:2] or [a for a in an if a["gravite"] == "important"][:2]
+    lignes = [_couper_ligne(f"· {a['famille']} {a['texte']}") for a in urgents]
+    return "\n".join([tete, *lignes, "-# Le détail : `!controle`."])[:LIMITE_TEXTE]
+
+
+# 21/10 : CONTROLE_DETAIL=1 remet le message complet chaque jour
+DETAIL_AUTO = os.environ.get("CONTROLE_DETAIL", "0").strip() == "1"
+
+
 # ------------------------------------------------------------------ le tour de 15 min
 def _lire_etat() -> dict:
     v = _lire_fichier("FICHIER_CONTROLE", "controle.json", {})
@@ -2801,7 +2822,7 @@ def _memo_notes(clics: dict, details: list, ancien: dict, t_iso: str) -> dict:
     return out
 
 
-async def passage(deps: dict = None, force: bool = False, comptes: list = None):
+async def passage(deps: dict = None, force: bool = False, comptes: list = None, detail: bool = False):
     """09/10 (dashboard) : appelé par la boucle de l'onboarding toutes les 15 min, après la colonne « Lien GAML associé ». Relit
     le classeur et les fichiers du bot, calcule les anomalies, garde la date du premier signalement de chacune (controle.json),
     et poste le texte au salon admin seulement si l'empreinte a changé (ou `force`). Renvoie le texte posté, sinon None.
@@ -2838,7 +2859,7 @@ async def passage(deps: dict = None, force: bool = False, comptes: list = None):
     nb_bloq = sum(1 for a in reelles if a.get("gravite") == "bloquant")
     deja_jour = etat.get("poste_jour") == jour and nb_bloq <= int(etat.get("bloquants_postes") or 0)
     a_poster = force or (emp != avant and (avant is not None or any(a["gravite"] != "info" for a in an)) and not deja_jour)
-    texte = texte_admin(an) if a_poster else None
+    texte = (texte_admin(an) if (detail or DETAIL_AUTO) else texte_admin_court(an)) if a_poster else None
     envoye = False
     if texte and _dep("canal_admin"):
         try:

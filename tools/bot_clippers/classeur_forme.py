@@ -15,8 +15,10 @@ comptes sont éparpillés dans l'onglet (deux blocs ou plus) voit ses petits blo
 le premier reste en place) : le moins de lignes possible bougent, la ligne entière est déplacée (moveDimension), rien n'est effacé,
 tout le reste de l'onglet garde son ordre. Rejoué après chaque scan, sur `!dashboard` et quand la structure change."""
 import logging
+import os
 
 journal = logging.getLogger("bot.classeur_forme")
+TRI_COMPTES = os.environ.get("TRI_COMPTES", "1").strip() != "0"         # 21/10 : même réglage que onboarding.TRI_COMPTES
 # 30/09 (Gaëtan : « regroupe ces clics last 7d par clippeur, même mise en forme que les gérants avec leurs liens ») : Clics dans le bloc
 # 05/10 : « Clics hier » suit la même règle que Clics (un chiffre par bloc, au milieu, les répétitions fondues)
 COLONNES_BLOC = ("gerant", "clics", "clics_hier", "pod", "lien_infloww", "lien_mym", "lien_gaml")
@@ -50,6 +52,8 @@ def blocs(comptes_onglet: list) -> list:
     out, courant = [], None
     for c in sorted(comptes_onglet, key=lambda x: int(x.get("ligne") or 0)):
         g = _n(str(c.get("gerant") or "").strip())
+        if TRI_COMPTES and _n(str(c.get("etat") or "")) == "ban":
+            g = ""                                                      # 21/10 : un BAN n'est plus dans le pod de son ancien Gérant
         if not g or g in GERANTS_LIBRES:
             courant = None
             continue

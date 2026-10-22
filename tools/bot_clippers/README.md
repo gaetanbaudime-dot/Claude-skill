@@ -10,6 +10,22 @@
 >
 > 11/10 : la vague 1 du recrutement est branchée au démarrage, testée, pas encore en production. Lis d'abord « 10/10 et 11/10 : ce qui change pour toi », juste en dessous.
 
+## 21/10 : onglets créatrices triés, comptes créés par jour, salon admin allégé
+
+**Tri des onglets créatrices** (chaque matin, dans le passage du scan, sous son verrou : `onboarding.plan_regroupement`). L'onglet se range en sections : les pods qui ont un GOOD (le compte de la créatrice en tête, puis les pods dans leur ordre actuel), les pods en appel à faire, les autres états, les pods des nouveaux clippers (tout « à créer »), tous les BAN, le stock « à créer » sans Gérant, les lignes vides. Dans un pod : GOOD, appel, à créer. Un BAN est définitif : il quitte le pod de son ancien Gérant (le nom reste écrit), il sort des blocs de mise en forme et des Clics. `TRI_COMPTES=0` remet le regroupement du 30/09. Ne trie pas l'onglet à la main entre 9 h et 10 h 30 (Paris) : le passage du matin écrit par numéro de ligne.
+
+**Comptes créés par jour** : onglet « Pilotage créations » du tableur de l'app (Jour, Créatrice, Gérant, @, Source), lu par le Cockpit (rubrique Comptes). Source « parcours » : l'appui du clipper sur « Compte créé » ; source « scan » : le premier passage qui a vu la ligne créée (`cree_vu`), sans le jour d'amorçage.
+
+**Salon admin, ce qui change** :
+
+- Plus d'alerte « aucun code Instagram depuis 1 h » ni de « ✅ ça revient » : l'alerte par clipper « 🚨 Code Instagram pas reçu » reste. `CODES_SILENCE_ALERTE=1` la remet.
+- Plus de ligne « compte relié à un Espace Comptes » pour l'e-mail « Nous vous avons créé un Compte Meta » (il arrive à chaque création).
+- Plus d'écho « Coefficients d'attribution changés » : le Cockpit l'affiche.
+- États du classeur : seulement les états changés (BAN, GOOD…) et les cellules perdues ; rien quand rien n'a changé. `!etats` garde le détail ; `ETATS_BILAN_DETAILLE=1` remet l'ancien message.
+- Contrôle d'attribution : trois lignes (combien, le plus urgent, `!controle`). Nouvelle commande staff `!controle` : le détail complet. `CONTROLE_DETAIL=1` remet le détail chaque jour.
+- Point du matin : l'entonnoir d'hier en une chaîne, les actifs et la moyenne 7 j en une ligne, les bloqués rangés par geste (le prénom est le lien WhatsApp), les sorties et les 10 jours sans visite plus courts, les places en deux lignes, plus d'avertissement technique pour une panne passagère (« 1 de suite »).
+- Support, introuvable, groupe WhatsApp, code sur une adresse à personne : une ou deux lignes.
+
 ## 14/10 : attribution des nouveaux clippers, Sophie d'abord
 
 Ordre pondéré « Sophie 5, Sarah 3, Clara 1, Jade 1, Maddie 1, Chloé 1 » (12 nouveaux par tour), appliqué une fois au déploiement par-dessus l'ordre posé avant (`!attribution` ou `ATTRIBUTION_ORDRE`) ; ensuite `!attribution …` reprend la main. Une créatrice sans compte livrable est sautée : `!attribution` montre les comptes prêts par créatrice. `ATTRIBUTION_DECISION=0` empêche l'application automatique.
