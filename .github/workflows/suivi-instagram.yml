@@ -1,11 +1,17 @@
 name: Suivi Instagram (RapidAPI)
 
 # 22/10 : followers, Reels et vues de tous les comptes du LOG DASHBOARD IG, 3 fois par jour, indépendamment de Railway.
-# Écrit les onglets « IG · Comptes », « IG · Reels », « IG · Top Reels » du tableur App clippers · usage.
+# Écrit les onglets « IG · Comptes », « IG · Reels », « IG · Top Reels », « IG · Archive Reels » et « IG · Passages » du tableur
+# App clippers · usage. Un passage dure au plus 320 min (SUIVI_BUDGET_MIN) : un rattrapage plus long reprend au passage suivant.
 on:
   schedule:
     - cron: "0 5,12,19 * * *"          # 7 h, 14 h, 21 h à Paris (heure d'été ; 6 h, 13 h, 20 h en hiver)
   workflow_dispatch:
+    inputs:
+      rattrapage_jours:
+        description: "Gros rattrapage : relire chaque compte sur N jours (180 = archive complète ; 0 = suivi normal). Repris tout seul aux passages suivants jusqu'à la fin."
+        required: false
+        default: "0"
 
 concurrency:
   group: suivi-instagram
@@ -14,7 +20,7 @@ concurrency:
 jobs:
   suivi:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 350
     defaults:
       run:
         working-directory: tools/bot_clippers
@@ -40,6 +46,9 @@ jobs:
           CLASSEUR_LOGINS_ID: 1z7LxKU70PdXfU0HWCtPltWqT84GwFQJTnOAFZdBnyDY
           ADRESSES_CLASSEUR_ID: 1-zZipXCmi1esYo8QsWDYk8DSDpKMxjQzfRt3uNuXPqI
           SUIVI_FICHIER: donnees_ci/instagram.json
+          RAPIDAPI_RATTRAPAGE_J: ${{ github.event.inputs.rattrapage_jours || '0' }}
+          SUIVI_BUDGET_MIN: "320"
+          RAPIDAPI_QUOTA_JOUR: "8000"
       - name: Garder l'historique pour le prochain passage
         if: always()
         uses: actions/cache/save@v4

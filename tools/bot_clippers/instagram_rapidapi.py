@@ -57,10 +57,19 @@ HISTORIQUE_CREATRICE_J = int(os.environ.get("RAPIDAPI_HISTORIQUE_J", "365") or 3
 PAGES_HISTORIQUE = int(os.environ.get("RAPIDAPI_PAGES_HISTORIQUE", "25") or 25)
 FENETRE_RELUE_J = int(os.environ.get("RAPIDAPI_FENETRE_J", "15") or 15)   # chaque passage relit les Reels de 15 j (vues à jour)
 PAGES_FENETRE = int(os.environ.get("RAPIDAPI_PAGES_FENETRE", "4") or 4)    # 12 Reels par page : 4 pages = 48 Reels au plus
-GARDE_REELS_J = 90                                                      # Reels des clippers gardés en mémoire
+GARDE_REELS_J = int(os.environ.get("RAPIDAPI_GARDE_J", "180") or 180)   # Reels des clippers gardés en mémoire (archive 180 j)
+# 22/10 (Gaëtan : « un gros backup des 90, 180 derniers jours ») : rattrapage lancé une fois (workflow, champ « rattrapage_jours »),
+# repris de passage en passage jusqu'à ce que chaque compte ait été relu sur RATTRAPAGE_J jours, puis le suivi léger reprend.
+RATTRAPAGE_J = int(os.environ.get("RAPIDAPI_RATTRAPAGE_J", "0") or 0)
+PAGES_RATTRAPAGE = int(os.environ.get("RAPIDAPI_PAGES_RATTRAPAGE", "60") or 60)   # 12 Reels par page : 720 Reels au plus
+BUDGET_MIN = float(os.environ.get("SUIVI_BUDGET_MIN", "0") or 0)       # durée max d'un passage (0 : sans limite)
+ESSAIS = 2                                                              # 1 nouvel essai sur 429, 5xx ou délai dépassé
 PAUSE = float(os.environ.get("RAPIDAPI_PAUSE", "0.4") or 0.4)
 ACTIF = os.environ.get("RAPIDAPI_SUIVI", "1").strip() != "0"
 ONGLET_COMPTES, ONGLET_REELS, ONGLET_TOP = "IG · Comptes", "IG · Reels", "IG · Top Reels"
+ONGLET_ARCHIVE, ONGLET_PASSAGES = "IG · Archive Reels", "IG · Passages"
+ENTETE_PASSAGES = ["Début (UTC)", "Durée (min)", "Comptes", "Profils relus", "Reels relus", "Pages lues", "Pages en échec",
+                   "Requêtes", "Quota restant", "Rattrapage", "Arrêt"]
 ENTETE_COMPTES = ["Créatrice", "Gérant", "Type", "@", "ID Instagram", "Statut", "Followers", "Δ 24 h", "Δ 7 j", "Publications",
                   "Reels 24 h", "Reels 7 j", "Reels 15 j", "Reels 30 j", "Reels 60 j", "Vues 7 j", "Vues 15 j", "Vues 30 j",
                   "Vues 60 j", "Dernier Reel", "Profil relu le", "Reels relus le"]
@@ -70,6 +79,7 @@ ETATS_VIVANTS = ("good", "prive", "privé", "private")
 
 _deps = {}
 _jour = {"jour": "", "n": 0, "restant": None}
+_diag = {"pages": 0, "echecs": {}}                                      # pages de Reels lues et refusées (code → nombre) par passage
 _echantillons_faits = set()
 _verrou = None
 
@@ -364,23 +374,32 @@ def _quota_ok(reserve: int = 0) -> bool:
 
 
 async def appeler(session, chemin: str, params: dict) -> tuple:
-    """(code HTTP, corps JSON ou texte). Compte la requête et retient le quota restant annoncé par RapidAPI."""
-    _jour["n"] += 1
-    try:
-        async with session.get(f"https://{HOTE}{chemin}", params=params,
-                               headers={"X-RapidAPI-Key": CLE, "X-RapidAPI-Host": HOTE}) as r:
-            texte = await r.text()
-            restant = r.headers.get("x-ratelimit-requests-remaining")
-            if restant and str(restant).isdigit():
-                _jour["restant"] = int(restant)
-            try:
-                corps = json.loads(texte)
-            except ValueError:
-                corps = texte
-            await _echantillon(chemin, params, r.status, texte)
-            return r.status, corps
-    finally:
-        await asyncio.sleep(PAUSE)
+    """(code HTTP, corps JSON ou texte). Compte la requête et retient le quota restant annoncé par RapidAPI.
+    Un 429, un 5xx ou un délai dépassé est retenté une fois ; une erreur réseau rend (0, message), jamais d'exception."""
+    code, corps = 0, None
+    for essai in range(ESSAIS):
+        _jour["n"] += 1
+        try:
+            async with session.get(f"https://{HOTE}{chemin}", params=params,
+                                   headers={"X-RapidAPI-Key": CLE, "X-RapidAPI-Host": HOTE}) as r:
+                texte = await r.text()
+                restant = r.headers.get("x-ratelimit-requests-remaining")
+                if restant and str(restant).isdigit():
+                    _jour["restant"] = int(restant)
+                try:
+                    corps = json.loads(texte)
+                except ValueError:
+                    corps = texte
+                code = r.status
+                await _echantillon(chemin, params, r.status, texte)
+        except Exception as erreur:                                     # noqa: BLE001 — délai, coupure réseau
+            code, corps = 0, f"{type(erreur).__name__}: {str(erreur)[:200]}"
+        finally:
+            await asyncio.sleep(PAUSE)
+        if code not in (0, 429, 500, 502, 503, 504):
+            break
+        await asyncio.sleep(3 * (essai + 1))
+    return code, corps
 
 
 def _debut_et_fin(texte: str, taille: int = 45000) -> str:
@@ -468,8 +487,12 @@ async def relire_reels(session, store: dict, handle: str, maintenant: datetime, 
         chemin, fabrique = API["reels"]
         code, corps = await appeler(session, chemin, fabrique(i, curseur, 12 if pages == 1 else 50))
         if code != 200:
+            cle = str(code or "réseau")
+            _diag["echecs"][cle] = _diag["echecs"].get(cle, 0) + 1
+            journal.info("Reels de %s : page refusée (%s) %s", handle, cle, str(corps)[:160])
             break
         lu = True
+        _diag["pages"] += 1
         reels, curseur = lire_reels(corps)
         tous += reels
         if not curseur or not reels or (jusqu_a and plus_ancien(reels) < jusqu_a) or not _quota_ok(RESERVE):
@@ -536,16 +559,45 @@ async def passage_parcours(session) -> list:
 
 
 # ------------------------------------------------------------------ 2 et 3. suivi complet et top Reels
+def a_rattraper(e: dict, jours: int) -> bool:
+    """Pur : le compte n'a pas encore été relu sur `jours` jours (rattrapage en cours)."""
+    return bool(jours) and int(e.get("rattrapage_j") or 0) < jours
+
+
+def lignes_passages(passages: list) -> list:
+    """Pur : historique des passages (le plus récent en haut)."""
+    out = []
+    for b in reversed(passages or []):
+        ech = b.get("echecs") or {}
+        out.append([b.get("debut", ""), str(b.get("duree_min", "")), str(b.get("comptes", "")), str(b.get("profils", "")),
+                    str(b.get("reels", "")), str(b.get("pages", "")), " · ".join(f"{k} : {v}" for k, v in sorted(ech.items())) or "0",
+                    str(b.get("requetes", "")), "" if b.get("quota_restant") is None else str(b["quota_restant"]),
+                    b.get("rattrapage", ""), b.get("arret", "")])
+    return out
+
+
 async def passage_complet(session) -> dict:
     import onboarding
     import pilotage
+    t0 = time.monotonic()
     comptes = comptes_a_suivre(await onboarding.lire_comptes())
     store = _store()
     maintenant = datetime.now(timezone.utc)
-    bilan = {"comptes": len(comptes), "profils": 0, "reels": 0, "arret_quota": False}
-    for k, s in enumerate(comptes, start=1):
+    etat = store.setdefault("etat", {})
+    if RATTRAPAGE_J and int((etat.get("rattrapage") or {}).get("jours") or 0) != RATTRAPAGE_J:
+        etat["rattrapage"] = {"jours": RATTRAPAGE_J, "depuis": maintenant.isoformat(timespec="seconds")}
+    jours_r = int((etat.get("rattrapage") or {}).get("jours") or 0)
+    _diag.update({"pages": 0, "echecs": {}})
+    n0 = _jour["n"]
+    # comptes déjà rattrapés d'abord (suivi léger garanti), le rattrapage remplit le temps qui reste
+    comptes_ordre = sorted(comptes, key=lambda c: a_rattraper((store.get("comptes") or {}).get(c["handle"]) or {}, jours_r))
+    bilan = {"comptes": len(comptes), "profils": 0, "reels": 0, "arret_quota": False, "arret_temps": False}
+    for k, s in enumerate(comptes_ordre, start=1):
         if not _quota_ok(RESERVE):
             bilan["arret_quota"] = True
+            break
+        if BUDGET_MIN and time.monotonic() - t0 > BUDGET_MIN * 60:
+            bilan["arret_temps"] = True
             break
         h = s["handle"]
         if await relire_profil(session, store, h, maintenant):
@@ -553,19 +605,41 @@ async def passage_complet(session) -> dict:
         e = store["comptes"].get(h) or {}
         if e.get("statut") == "introuvable":
             continue
+        rattrapage = a_rattraper(e, jours_r)
         # historique_v2 : le 1er passage (22/10) s'arrêtait page 1 sur les Reels épinglés ; la reprise est refaite une fois.
         historique = s["type"] == "Créatrice" and not e.get("historique_v2")
-        jours, pages = (HISTORIQUE_CREATRICE_J, PAGES_HISTORIQUE) if historique else (FENETRE_RELUE_J, PAGES_FENETRE)
+        if historique or rattrapage:
+            jours = max(HISTORIQUE_CREATRICE_J if historique else 0, jours_r if rattrapage else 0)
+            pages = max(PAGES_HISTORIQUE if historique else 0, PAGES_RATTRAPAGE if rattrapage else 0)
+        else:
+            jours, pages = FENETRE_RELUE_J, PAGES_FENETRE
         reels = await relire_reels(session, store, h, maintenant, jusqu_a=maintenant - timedelta(days=jours), pages=pages)
         if reels:
             bilan["reels"] += 1
             if historique:
                 e["historique_v2"] = maintenant.isoformat(timespec="seconds")
+            if rattrapage and _quota_ok(RESERVE):
+                e["rattrapage_j"] = jours_r
+        elif rattrapage and e.get("reels_le") == maintenant.isoformat(timespec="seconds"):
+            e["rattrapage_j"] = jours_r                                    # compte lu mais sans aucun Reel : rien à rattraper
         if s["type"] != "Créatrice":                                     # mémoire bornée pour les clippers
-            limite = maintenant - timedelta(days=GARDE_REELS_J)
+            limite = maintenant - timedelta(days=max(GARDE_REELS_J, jours_r))
             store["reels"][h] = {c: r for c, r in (store["reels"].get(h) or {}).items() if (_instant(r.get("publie")) or maintenant) >= limite}
-        if k % 25 == 0:
+        if k % 10 == 0:
             _sauver(store)
+    restants = sum(1 for c in comptes if a_rattraper((store.get("comptes") or {}).get(c["handle"]) or {}, jours_r)
+                   and ((store.get("comptes") or {}).get(c["handle"]) or {}).get("statut") != "introuvable")
+    if jours_r and not restants:
+        etat["dernier_rattrapage"] = {**etat.pop("rattrapage", {}), "fini": maintenant.isoformat(timespec="seconds")}
+    bilan.update({"pages": _diag["pages"], "echecs": dict(_diag["echecs"]), "requetes": _jour["n"] - n0, "quota_restant": _jour["restant"],
+                  "rattrapage_restants": restants if jours_r else 0})
+    etat.setdefault("passages", []).append({
+        "debut": maintenant.isoformat(timespec="minutes"), "duree_min": round((time.monotonic() - t0) / 60, 1), "comptes": len(comptes),
+        "profils": bilan["profils"], "reels": bilan["reels"], "pages": _diag["pages"], "echecs": dict(_diag["echecs"]),
+        "requetes": bilan["requetes"], "quota_restant": _jour["restant"],
+        "rattrapage": (f"{jours_r} j : {restants} compte(s) restant(s)" if restants else f"{jours_r} j : fini") if jours_r else "",
+        "arret": "quota" if bilan["arret_quota"] else "temps" if bilan["arret_temps"] else ""})
+    etat["passages"] = etat["passages"][-90:]
     _sauver(store)
     try:
         import paie_clics
@@ -574,6 +648,8 @@ async def passage_complet(session) -> dict:
             await pilotage._ecrire(classeur, ONGLET_COMPTES, ENTETE_COMPTES, lignes_comptes(comptes, store, maintenant))
             await pilotage._ecrire(classeur, ONGLET_REELS, ENTETE_REELS, lignes_reels(comptes, store, maintenant))
             await pilotage._ecrire(classeur, ONGLET_TOP, ENTETE_TOP, lignes_top(comptes, store, maintenant=maintenant))
+            await pilotage._ecrire(classeur, ONGLET_ARCHIVE, ENTETE_REELS, lignes_reels(comptes, store, maintenant, jours=max(GARDE_REELS_J, jours_r)))
+            await pilotage._ecrire(classeur, ONGLET_PASSAGES, ENTETE_PASSAGES, lignes_passages(etat["passages"]))
     except Exception as erreur:                                         # noqa: BLE001
         journal.warning("Suivi Instagram : onglets non écrits (%s)", str(erreur)[:200])
     return bilan
