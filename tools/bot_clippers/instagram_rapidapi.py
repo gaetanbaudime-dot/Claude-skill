@@ -55,6 +55,8 @@ PRIORITE_MIN = max(20, int(os.environ.get("RAPIDAPI_PRIORITE_MIN", "60") or 60))
 PASSAGES_HEURES = [int(x) for x in os.environ.get("RAPIDAPI_PASSAGES", "7,14,21").split(",") if x.strip().isdigit()]
 HISTORIQUE_CREATRICE_J = int(os.environ.get("RAPIDAPI_HISTORIQUE_J", "365") or 365)
 PAGES_HISTORIQUE = int(os.environ.get("RAPIDAPI_PAGES_HISTORIQUE", "25") or 25)
+FENETRE_RELUE_J = int(os.environ.get("RAPIDAPI_FENETRE_J", "15") or 15)   # chaque passage relit les Reels de 15 j (vues à jour)
+PAGES_FENETRE = int(os.environ.get("RAPIDAPI_PAGES_FENETRE", "4") or 4)    # 12 Reels par page : 4 pages = 48 Reels au plus
 GARDE_REELS_J = 90                                                      # Reels des clippers gardés en mémoire
 PAUSE = float(os.environ.get("RAPIDAPI_PAUSE", "0.4") or 0.4)
 ACTIF = os.environ.get("RAPIDAPI_SUIVI", "1").strip() != "0"
@@ -551,13 +553,14 @@ async def passage_complet(session) -> dict:
         e = store["comptes"].get(h) or {}
         if e.get("statut") == "introuvable":
             continue
-        historique = s["type"] == "Créatrice" and not e.get("historique_fait")
-        jusqu_a = maintenant - timedelta(days=HISTORIQUE_CREATRICE_J) if historique else None
-        reels = await relire_reels(session, store, h, maintenant, jusqu_a=jusqu_a, pages=PAGES_HISTORIQUE if historique else 1)
+        # historique_v2 : le 1er passage (22/10) s'arrêtait page 1 sur les Reels épinglés ; la reprise est refaite une fois.
+        historique = s["type"] == "Créatrice" and not e.get("historique_v2")
+        jours, pages = (HISTORIQUE_CREATRICE_J, PAGES_HISTORIQUE) if historique else (FENETRE_RELUE_J, PAGES_FENETRE)
+        reels = await relire_reels(session, store, h, maintenant, jusqu_a=maintenant - timedelta(days=jours), pages=pages)
         if reels:
             bilan["reels"] += 1
             if historique:
-                e["historique_fait"] = maintenant.isoformat(timespec="seconds")
+                e["historique_v2"] = maintenant.isoformat(timespec="seconds")
         if s["type"] != "Créatrice":                                     # mémoire bornée pour les clippers
             limite = maintenant - timedelta(days=GARDE_REELS_J)
             store["reels"][h] = {c: r for c, r in (store["reels"].get(h) or {}).items() if (_instant(r.get("publie")) or maintenant) >= limite}

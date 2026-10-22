@@ -192,3 +192,28 @@ def test_echantillon_garde_la_fin_de_reponse():
     t = I._debut_et_fin(long)
     assert len(t) < 46000 and '"max_id":"FIN"' in t and "milieu coupé" in t
     assert I._debut_et_fin('{"a":1}') == '{"a":1}'
+
+
+def test_clipper_relu_sur_15_jours_en_plusieurs_pages(monkeypatch):
+    """Page 1 = 12 Reels récents (dont un épinglé ancien) : on tourne la page jusqu'à dépasser 15 jours, 4 pages au plus."""
+    import asyncio
+    maintenant = datetime.now(timezone.utc)
+    store, appels = {"comptes": {"k1": {"id": "77"}}}, []
+
+    def page(debut, n):
+        return [{"media": {"code": f"R{debut + k}", "taken_at": int((maintenant - timedelta(days=debut + k)).timestamp()),
+                           "ig_play_count": 10}} for k in range(n)]
+
+    async def appeler(session, chemin, params):
+        appels.append(params.get("max_id"))
+        if not params.get("max_id"):
+            vieux = {"media": {"code": "EPI", "taken_at": 1701680179, "ig_play_count": 9, "clips_tab_pinned_user_ids": [77]}}
+            return 200, {"items": [vieux] + page(0, 11), "paging_info": {"max_id": "P2", "more_available": True}}
+        if params["max_id"] == "P2":
+            return 200, {"items": page(11, 12), "paging_info": {"max_id": "P3", "more_available": True}}
+        return 200, {"items": page(23, 12), "paging_info": {"max_id": "P4", "more_available": True}}
+    monkeypatch.setattr(I, "appeler", appeler)
+    I._jour.update({"jour": "", "n": 0, "restant": None})
+    asyncio.run(I.relire_reels(None, store, "k1", maintenant, jusqu_a=maintenant - timedelta(days=15), pages=4))
+    assert appels == [None, "P2"]                                        # page 2 atteint 22 jours : arrêt, l'épinglé n'a pas compté
+    assert I.fenetres(store["reels"]["k1"], maintenant)["reels15"] == 15   # jours 0 à 14 (le 15e tombe juste au-delà)
