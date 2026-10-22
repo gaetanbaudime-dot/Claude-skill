@@ -377,3 +377,79 @@ def test_page_pleine_sans_suite_notee(monkeypatch):
     assert I._diag["sans_suite"]["k1"]["paging"] == {"more_available": False}
     l = I.lignes_passages([{"debut": "a", "sans_suite": dict(I._diag["sans_suite"])}])
     assert l[0][12].startswith("k1 ") and "more_available" in l[0][12]
+
+
+def test_sous_compte_signes():
+    T0 = datetime(2026, 10, 22, 12, 0, tzinfo=timezone.utc)
+    recents = {f"R{k}": {"publie": (T0 - timedelta(days=k)).isoformat()} for k in range(14)}
+    anciens = {f"A{k}": {"publie": (T0 - timedelta(days=5 * k)).isoformat()} for k in range(14)}
+    assert I.sous_compte({"fin_api": True, "suivi": [["t", 1665, 112]]}, anciens, T0)              # 14 Reels pour 112 publications
+    assert I.sous_compte({"fin_api": True, "suivi": [["t", 142, 1]]}, recents, T0)                 # nombre de publications faux
+    assert I.sous_compte({"fin_api": True, "fin_pleine": True, "suivi": [["t", 9, 3]]}, {}, T0)
+    assert not I.sous_compte({"fin_api": True, "suivi": [["t", 10, 16]]}, anciens, T0)             # 14 sur 16 : complet
+    assert not I.sous_compte({"fin_api": False, "suivi": [["t", 1665, 112]]}, {}, T0)
+    assert not I.sous_compte({"fin_api": True, "statut": "privé", "suivi": [["t", 1, 300]]}, {}, T0)
+
+
+def test_route_posts_decouverte_et_utilisee(monkeypatch):
+    """Compte sous-compté : la route des publications est découverte (2e candidat), son paramètre de page aussi, puis le compte
+    est relu par elle (vidéos seulement) et y reste aux passages suivants."""
+    import asyncio
+    import onboarding
+    import paie_clics
+    import pilotage
+    store = {}
+    I.configurer({"lire_json": lambda f, d: store.get("d", d), "ecrire_json": lambda f, d: store.__setitem__("d", d), "FICHIER": "x"})
+    maintenant = datetime.now(timezone.utc)
+    appels = []
+
+    def media(code, j, video=True):
+        m = {"code": code, "taken_at": int((maintenant - timedelta(days=j)).timestamp())}
+        if video:
+            m.update({"media_type": 2, "ig_play_count": 50})
+        else:
+            m["media_type"] = 1
+        return m
+
+    async def appeler(session, chemin, params):
+        I._jour["n"] += 1
+        appels.append((chemin, dict(params)))
+        if chemin == I.API["id"][0]:
+            return 200, {"id": 77, "status": "ok"}
+        if chemin == I.API["profil"][0]:
+            return 200, {"user": {"pk": 77, "username": "k1", "follower_count": 1600, "media_count": 112, "is_private": False}}
+        if chemin == I.API["reels"][0]:
+            return 200, {"items": [{"media": media(f"R{k}", k)} for k in range(5)], "paging_info": {"more_available": False}}
+        if chemin == "/ig/user_posts/":
+            if params.get("end_cursor") == "C2":
+                return 200, {"items": [media(f"P{k}", 30 + k) for k in range(10)] + [media("PH", 31, video=False)], "end_cursor": None}
+            if params.get("max_id"):
+                return 200, {"items": [media(f"P{k}", k) for k in range(12)], "end_cursor": "C2"}   # max_id ignoré : même page
+            return 200, {"items": [media(f"P{k}", k) for k in range(12)] + [media("PHOTO", 2, video=False)], "end_cursor": "C2"}
+        return 404, {"message": "Endpoint does not exist"}
+
+    async def lire_comptes():
+        return [{"onglet": "Chloé", "handle": "k1", "etat": "GOOD", "gerant": "Caroline"}]
+    ecrits = {}
+
+    async def ecrire(classeur, titre, entete, lignes):
+        ecrits[titre] = lignes
+        return True
+
+    async def classeur():
+        return "C"
+    monkeypatch.setattr(I, "appeler", appeler)
+    monkeypatch.setattr(I, "RATTRAPAGE_J", 0)
+    monkeypatch.setattr(onboarding, "lire_comptes", lire_comptes)
+    monkeypatch.setattr(pilotage, "_ecrire", ecrire)
+    monkeypatch.setattr(paie_clics, "_classeur_usage", classeur)
+    I._jour.update({"jour": "", "n": 0, "restant": None})
+    bilan = asyncio.run(I.passage_complet(None))
+    d = store["d"]
+    assert d["etat"]["route_posts"]["chemin"] == "/ig/user_posts/" and d["etat"]["route_posts"]["param"] == "end_cursor"
+    assert d["comptes"]["k1"]["route"] == "posts" and bilan["routes_posts"] == 1
+    codes = set(d["reels"]["k1"])
+    assert {"P0", "P11", "P9"} <= codes and "PHOTO" not in codes and "PH" not in codes      # vidéos seules, page 2 incluse
+    appels.clear()
+    asyncio.run(I.passage_complet(None))
+    assert not any(c == I.API["reels"][0] for c, _ in appels) and any(c == "/ig/user_posts/" for c, _ in appels)
