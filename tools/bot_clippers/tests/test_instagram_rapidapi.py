@@ -111,3 +111,49 @@ def test_verser_preuves_dans_la_fiche_parcours():
         assert I.verser_preuves("u1", "h1", reels[:2], maintenant - timedelta(days=3)) == 4   # cumul, jamais en baisse
     finally:
         parcours._deps.clear(); parcours._deps.update(ancien)
+
+
+def test_passage_complet_de_bout_en_bout(monkeypatch):
+    import asyncio
+    import onboarding
+    import paie_clics
+    import pilotage
+    store = {}
+    I.configurer({"lire_json": lambda f, d: store.get("d", d), "ecrire_json": lambda f, d: store.__setitem__("d", d), "FICHIER": "x"})
+    maintenant = datetime.now(timezone.utc)
+
+    async def appeler(session, chemin, params):
+        I._jour["n"] += 1
+        if chemin == "/id":
+            return 200, {"status": True, "user_id": "77"}
+        if chemin == "/profile":
+            return (404, {"message": "User not found"}) if params.get("username") == "mort" else \
+                (200, {"pk": "77", "username": "thia1", "follower_count": 321, "media_count": 9, "is_private": False})
+        if chemin == "/reels":
+            t = int((maintenant - timedelta(days=1)).timestamp())
+            return 200, {"items": [{"media": {"code": "Z9", "taken_at": t, "play_count": 4000}}],
+                         "paging_info": {"more_available": False}}
+        return 404, None
+
+    async def lire_comptes():
+        return [{"onglet": "Sophie", "handle": "thia1", "etat": "GOOD", "gerant": "Thia"},
+                {"onglet": "Sophie", "handle": "mort", "etat": "GOOD", "gerant": "Benn"}]
+    ecrits = {}
+
+    async def ecrire(classeur, titre, entete, lignes):
+        ecrits[titre] = lignes
+        return True
+
+    async def classeur():
+        return "C"
+    monkeypatch.setattr(I, "appeler", appeler)
+    monkeypatch.setattr(onboarding, "lire_comptes", lire_comptes)
+    monkeypatch.setattr(pilotage, "_ecrire", ecrire)
+    monkeypatch.setattr(paie_clics, "_classeur_usage", classeur)
+    I._jour.update({"jour": "", "n": 0, "restant": None})
+    bilan = asyncio.run(I.passage_complet(None))
+    assert bilan["profils"] == 1 and bilan["reels"] == 1
+    lignes = {l[3]: l for l in ecrits[I.ONGLET_COMPTES]}
+    assert lignes["thia1"][6] == "321" and lignes["thia1"][12] == "1" and lignes["thia1"][17] == "4000"
+    assert lignes["mort"][5] == "introuvable"
+    assert ecrits[I.ONGLET_REELS][0][4] == "Z9"
