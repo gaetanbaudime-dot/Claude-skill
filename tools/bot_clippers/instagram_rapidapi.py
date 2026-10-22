@@ -57,6 +57,10 @@ HISTORIQUE_CREATRICE_J = int(os.environ.get("RAPIDAPI_HISTORIQUE_J", "365") or 3
 PAGES_HISTORIQUE = int(os.environ.get("RAPIDAPI_PAGES_HISTORIQUE", "25") or 25)
 FENETRE_RELUE_J = int(os.environ.get("RAPIDAPI_FENETRE_J", "15") or 15)   # chaque passage relit les Reels de 15 j (vues à jour)
 PAGES_FENETRE = int(os.environ.get("RAPIDAPI_PAGES_FENETRE", "4") or 4)    # 12 Reels par page : 4 pages = 48 Reels au plus
+# 22/10 (Gaëtan : « les vues d'un Reel montent pendant 45 jours ») : une fois par jour (1er passage, heure de Paris), la relecture
+# remonte à 45 jours pour mettre à jour les vues des Reels plus anciens ; les deux autres passages restent à 15 jours.
+FENETRE_LONGUE_J = int(os.environ.get("RAPIDAPI_FENETRE_LONGUE_J", "45") or 45)
+PAGES_LONGUE = int(os.environ.get("RAPIDAPI_PAGES_LONGUE", "12") or 12)
 GARDE_REELS_J = int(os.environ.get("RAPIDAPI_GARDE_J", "180") or 180)   # Reels des clippers gardés en mémoire (archive 180 j)
 # 22/10 (Gaëtan : « un gros backup des 90, 180 derniers jours ») : rattrapage lancé une fois (workflow, champ « rattrapage_jours »),
 # repris de passage en passage jusqu'à ce que chaque compte ait été relu sur RATTRAPAGE_J jours, puis le suivi léger reprend.
@@ -69,7 +73,7 @@ ACTIF = os.environ.get("RAPIDAPI_SUIVI", "1").strip() != "0"
 ONGLET_COMPTES, ONGLET_REELS, ONGLET_TOP = "IG · Comptes", "IG · Reels", "IG · Top Reels"
 ONGLET_ARCHIVE, ONGLET_PASSAGES = "IG · Archive Reels", "IG · Passages"
 ENTETE_PASSAGES = ["Début (UTC)", "Durée (min)", "Comptes", "Profils relus", "Reels relus", "Pages lues", "Pages en échec",
-                   "Requêtes", "Quota restant", "Rattrapage", "Arrêt"]
+                   "Requêtes", "Quota restant", "Rattrapage", "Arrêt", "Fenêtre relue"]
 ENTETE_COMPTES = ["Créatrice", "Gérant", "Type", "@", "ID Instagram", "Statut", "Followers", "Δ 24 h", "Δ 7 j", "Publications",
                   "Reels 24 h", "Reels 7 j", "Reels 15 j", "Reels 30 j", "Reels 60 j", "Vues 7 j", "Vues 15 j", "Vues 30 j",
                   "Vues 60 j", "Dernier Reel", "Profil relu le", "Reels relus le"]
@@ -572,7 +576,7 @@ def lignes_passages(passages: list) -> list:
         out.append([b.get("debut", ""), str(b.get("duree_min", "")), str(b.get("comptes", "")), str(b.get("profils", "")),
                     str(b.get("reels", "")), str(b.get("pages", "")), " · ".join(f"{k} : {v}" for k, v in sorted(ech.items())) or "0",
                     str(b.get("requetes", "")), "" if b.get("quota_restant") is None else str(b["quota_restant"]),
-                    b.get("rattrapage", ""), b.get("arret", "")])
+                    b.get("rattrapage", ""), b.get("arret", ""), b.get("fenetre", "")])
     return out
 
 
@@ -587,6 +591,9 @@ async def passage_complet(session) -> dict:
     if RATTRAPAGE_J and int((etat.get("rattrapage") or {}).get("jours") or 0) != RATTRAPAGE_J:
         etat["rattrapage"] = {"jours": RATTRAPAGE_J, "depuis": maintenant.isoformat(timespec="seconds")}
     jours_r = int((etat.get("rattrapage") or {}).get("jours") or 0)
+    jour_paris = _paris(maintenant).date().isoformat()
+    longue = bool(FENETRE_LONGUE_J) and etat.get("fenetre_longue_le") != jour_paris
+    fenetre_j, fenetre_p = (FENETRE_LONGUE_J, PAGES_LONGUE) if longue else (FENETRE_RELUE_J, PAGES_FENETRE)
     _diag.update({"pages": 0, "echecs": {}})
     n0 = _jour["n"]
     # comptes déjà rattrapés d'abord (suivi léger garanti), le rattrapage remplit le temps qui reste
@@ -612,7 +619,7 @@ async def passage_complet(session) -> dict:
             jours = max(HISTORIQUE_CREATRICE_J if historique else 0, jours_r if rattrapage else 0)
             pages = max(PAGES_HISTORIQUE if historique else 0, PAGES_RATTRAPAGE if rattrapage else 0)
         else:
-            jours, pages = FENETRE_RELUE_J, PAGES_FENETRE
+            jours, pages = fenetre_j, fenetre_p
         reels = await relire_reels(session, store, h, maintenant, jusqu_a=maintenant - timedelta(days=jours), pages=pages)
         if reels:
             bilan["reels"] += 1
@@ -629,6 +636,8 @@ async def passage_complet(session) -> dict:
             _sauver(store)
     restants = sum(1 for c in comptes if a_rattraper((store.get("comptes") or {}).get(c["handle"]) or {}, jours_r)
                    and ((store.get("comptes") or {}).get(c["handle"]) or {}).get("statut") != "introuvable")
+    if longue and not (bilan["arret_quota"] or bilan["arret_temps"]):
+        etat["fenetre_longue_le"] = jour_paris
     if jours_r and not restants:
         etat["dernier_rattrapage"] = {**etat.pop("rattrapage", {}), "fini": maintenant.isoformat(timespec="seconds")}
     bilan.update({"pages": _diag["pages"], "echecs": dict(_diag["echecs"]), "requetes": _jour["n"] - n0, "quota_restant": _jour["restant"],
@@ -638,7 +647,7 @@ async def passage_complet(session) -> dict:
         "profils": bilan["profils"], "reels": bilan["reels"], "pages": _diag["pages"], "echecs": dict(_diag["echecs"]),
         "requetes": bilan["requetes"], "quota_restant": _jour["restant"],
         "rattrapage": (f"{jours_r} j : {restants} compte(s) restant(s)" if restants else f"{jours_r} j : fini") if jours_r else "",
-        "arret": "quota" if bilan["arret_quota"] else "temps" if bilan["arret_temps"] else ""})
+        "arret": "quota" if bilan["arret_quota"] else "temps" if bilan["arret_temps"] else "", "fenetre": f"{fenetre_j} j"})
     etat["passages"] = etat["passages"][-90:]
     _sauver(store)
     try:

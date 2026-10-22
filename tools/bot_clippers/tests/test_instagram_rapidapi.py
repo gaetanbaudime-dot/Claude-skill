@@ -313,3 +313,51 @@ def test_a_rattraper_et_journal():
     assert I.a_rattraper({"rattrapage_j": 90}, 180)
     l = I.lignes_passages([{"debut": "a", "echecs": {}}, {"debut": "b", "echecs": {"429": 2, "réseau": 1}, "arret": "temps"}])
     assert l[0][0] == "b" and l[0][6] == "429 : 2 · réseau : 1" and l[0][10] == "temps" and l[1][6] == "0"
+
+
+def test_fenetre_45_jours_une_fois_par_jour(monkeypatch):
+    """1er passage du jour : relecture jusqu'à 45 jours (vues des Reels plus anciens à jour) ; les suivants : 15 jours."""
+    import asyncio
+    import onboarding
+    import paie_clics
+    import pilotage
+    store = {}
+    I.configurer({"lire_json": lambda f, d: store.get("d", d), "ecrire_json": lambda f, d: store.__setitem__("d", d), "FICHIER": "x"})
+    maintenant = datetime.now(timezone.utc)
+    pages = []
+
+    def media(code, j):
+        return {"media": {"code": code, "taken_at": int((maintenant - timedelta(days=j)).timestamp()), "ig_play_count": 10}}
+
+    async def appeler(session, chemin, params):
+        I._jour["n"] += 1
+        if chemin == I.API["id"][0]:
+            return 200, {"id": 77, "status": "ok"}
+        if chemin == I.API["profil"][0]:
+            return 200, {"user": {"pk": 77, "username": "k1", "follower_count": 5, "media_count": 30, "is_private": False}}
+        cur = params.get("max_id"); pages.append(cur)
+        suite = {None: ([media("A", 2), media("B", 20)], "P2"), "P2": ([media("C", 40)], "P3"), "P3": ([media("D", 70)], "P4")}
+        items, nxt = suite.get(cur, ([media("E", 90)], None))
+        return 200, {"items": items, "paging_info": {"max_id": nxt, "more_available": bool(nxt)}}
+
+    async def lire_comptes():
+        return [{"onglet": "Sophie", "handle": "k1", "etat": "GOOD", "gerant": "Thia"}]
+    ecrits = {}
+
+    async def ecrire(classeur, titre, entete, lignes):
+        ecrits[titre] = lignes
+        return True
+
+    async def classeur():
+        return "C"
+    monkeypatch.setattr(I, "appeler", appeler)
+    monkeypatch.setattr(I, "RATTRAPAGE_J", 0)
+    monkeypatch.setattr(onboarding, "lire_comptes", lire_comptes)
+    monkeypatch.setattr(pilotage, "_ecrire", ecrire)
+    monkeypatch.setattr(paie_clics, "_classeur_usage", classeur)
+    I._jour.update({"jour": "", "n": 0, "restant": None})
+    asyncio.run(I.passage_complet(None))
+    assert pages == [None, "P2", "P3"] and ecrits[I.ONGLET_PASSAGES][0][11] == "45 j"   # s'arrête après avoir dépassé 45 jours
+    pages.clear()
+    asyncio.run(I.passage_complet(None))
+    assert pages == [None] and ecrits[I.ONGLET_PASSAGES][0][11] == "15 j"               # même jour : 15 jours, page 1 suffit
