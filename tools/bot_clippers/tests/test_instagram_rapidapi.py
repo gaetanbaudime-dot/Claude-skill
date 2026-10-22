@@ -124,12 +124,12 @@ def test_passage_complet_de_bout_en_bout(monkeypatch):
 
     async def appeler(session, chemin, params):
         I._jour["n"] += 1
-        if chemin == "/id":
-            return 200, {"status": True, "user_id": "77"}
-        if chemin == "/profile":
-            return (404, {"message": "User not found"}) if params.get("username") == "mort" else \
-                (200, {"pk": "77", "username": "thia1", "follower_count": 321, "media_count": 9, "is_private": False})
-        if chemin == "/reels":
+        if chemin == I.API["id"][0]:
+            nom = params.get("user") or params.get("username")
+            return (404, {"message": "User not found"}) if nom == "mort" else (200, {"status": True, "user_id": "77"})
+        if chemin == I.API["profil"][0]:
+            return 200, {"pk": "77", "username": "thia1", "follower_count": 321, "media_count": 9, "is_private": False}
+        if chemin == I.API["reels"][0]:
             t = int((maintenant - timedelta(days=1)).timestamp())
             return 200, {"items": [{"media": {"code": "Z9", "taken_at": t, "play_count": 4000}}],
                          "paging_info": {"more_available": False}}

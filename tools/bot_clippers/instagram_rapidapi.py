@@ -34,7 +34,21 @@ from datetime import date, datetime, timedelta, timezone
 journal = logging.getLogger("instagram_rapidapi")
 
 CLE = os.environ.get("RAPIDAPI_KEY", "").strip()
-HOTE = os.environ.get("RAPIDAPI_INSTAGRAM_HOTE", "instagram-looter2.p.rapidapi.com").strip()
+# 22/10 (comparatif des API de Gaëtan) : FlashAPI d'abord (98 % de disponibilité, 2,8 s, tests RapidAPI à 100 %), Instagram Looter
+# en secours (75 k requêtes pour 27,90 $, mais 8 s et 85 % aux tests). Mêmes données : ID, profil par ID, Reels paginés.
+FOURNISSEURS = {
+    "flash": {"hote": "flashapi1.p.rapidapi.com",
+              "id": ("/ig/user_id/", lambda h: {"user": h}),
+              "profil": ("/ig/info/", lambda i: {"id_user": i}),
+              "reels": ("/ig/reels_posts/", lambda i, cur, n: {"id_user": i, **({"max_id": cur} if cur else {})})},
+    "looter": {"hote": "instagram-looter2.p.rapidapi.com",
+               "id": ("/id", lambda h: {"username": h}),
+               "profil": ("/profile", lambda i: {"id": i}),
+               "reels": ("/reels", lambda i, cur, n: {"id": i, "count": n, **({"max_id": cur} if cur else {})})},
+}
+FOURNISSEUR = os.environ.get("RAPIDAPI_INSTAGRAM_FOURNISSEUR", "flash").strip().lower()
+API = FOURNISSEURS.get(FOURNISSEUR, FOURNISSEURS["flash"])
+HOTE = os.environ.get("RAPIDAPI_INSTAGRAM_HOTE", API["hote"]).strip()
 QUOTA_JOUR = int(os.environ.get("RAPIDAPI_QUOTA_JOUR", "2400") or 2400)
 RESERVE = int(os.environ.get("RAPIDAPI_RESERVE", "150") or 150)
 PRIORITE_MIN = max(20, int(os.environ.get("RAPIDAPI_PRIORITE_MIN", "60") or 60))
@@ -374,7 +388,8 @@ async def identifiant(session, store: dict, handle: str):
     e = (store.setdefault("comptes", {})).setdefault(handle, {})
     if e.get("id"):
         return e["id"]
-    code, corps = await appeler(session, "/id", {"username": handle})
+    chemin, params = API["id"]
+    code, corps = await appeler(session, chemin, params(handle))
     i = lire_id(corps) if code == 200 else None
     if i:
         e["id"] = i
@@ -385,8 +400,13 @@ async def identifiant(session, store: dict, handle: str):
 
 async def relire_profil(session, store: dict, handle: str, maintenant: datetime) -> bool:
     e = store.setdefault("comptes", {}).setdefault(handle, {})
-    params = {"id": e["id"]} if e.get("id") else {"username": handle}
-    code, corps = await appeler(session, "/profile", params)
+    i = await identifiant(session, store, handle)
+    if not i:
+        if e.get("statut") == "introuvable":
+            e["profil_le"] = maintenant.isoformat(timespec="seconds")
+        return False
+    chemin, params = API["profil"]
+    code, corps = await appeler(session, chemin, params(i))
     if code != 200 or introuvable(code, corps):
         if introuvable(code, corps):
             e["statut"] = "introuvable"
@@ -412,10 +432,8 @@ async def relire_reels(session, store: dict, handle: str, maintenant: datetime, 
         return []
     tous, curseur, lu = [], None, False
     for _ in range(max(1, pages)):
-        params = {"id": i, "count": 12 if pages == 1 else 50}
-        if curseur:
-            params["max_id"] = curseur
-        code, corps = await appeler(session, "/reels", params)
+        chemin, fabrique = API["reels"]
+        code, corps = await appeler(session, chemin, fabrique(i, curseur, 12 if pages == 1 else 50))
         if code != 200:
             break
         lu = True
