@@ -76,7 +76,7 @@ ENTETE_PASSAGES = ["Début (UTC)", "Durée (min)", "Comptes", "Profils relus", "
                    "Requêtes", "Quota restant", "Rattrapage", "Arrêt", "Fenêtre relue"]
 ENTETE_COMPTES = ["Créatrice", "Gérant", "Type", "@", "ID Instagram", "Statut", "Followers", "Δ 24 h", "Δ 7 j", "Publications",
                   "Reels 24 h", "Reels 7 j", "Reels 15 j", "Reels 30 j", "Reels 60 j", "Vues 7 j", "Vues 15 j", "Vues 30 j",
-                  "Vues 60 j", "Dernier Reel", "Profil relu le", "Reels relus le"]
+                  "Vues 60 j", "Dernier Reel", "Profil relu le", "Reels relus le", "Renommé en"]
 ENTETE_REELS = ["Créatrice", "Gérant", "Type", "@", "Code", "Lien", "Publié le", "Vues", "Likes", "Commentaires", "Relu le"]
 ENTETE_TOP = ["Créatrice", "Rang", "@", "Lien", "Publié le", "Vues", "Likes", "Commentaires"]
 ETATS_VIVANTS = ("good", "prive", "privé", "private")
@@ -297,7 +297,7 @@ def lignes_comptes(suivis: list, store: dict, maintenant: datetime) -> list:
                     txt(dernier[1]), txt(ecart(suivi, 24, maintenant)), txt(ecart(suivi, 168, maintenant)), txt(dernier[2] if len(dernier) > 2 else None),
                     *[(str(f[f"reels{j}"]) if lu_reels else "") for j in (1, 7, 15, 30, 60)],
                     *[(str(f[f"vues{j}"]) if lu_reels else "") for j in (7, 15, 30, 60)],
-                    f["dernier"], e.get("profil_le") or "", e.get("reels_le") or ""])
+                    f["dernier"], e.get("profil_le") or "", e.get("reels_le") or "", e.get("renomme_en") or ""])
     return out
 
 
@@ -439,6 +439,29 @@ async def _echantillon(chemin, params, code, texte):
         journal.info("Échantillon RapidAPI non écrit : %s", type(erreur).__name__)
 
 
+def migrer_par_id(store: dict, handle: str, i: str) -> str:
+    """Pur (sur le store) : 22/10 (Gaëtan : « quand ils changent le @, on perd le suivi ») : le compte est suivi par son ID
+    Instagram. Quand le @ du LOG change et que le nouveau @ porte l'ID d'un compte déjà suivi, son historique (followers, Reels,
+    reprises faites) passe au nouveau @. Renvoie l'ancien @ repris, ou ''."""
+    comptes = store.setdefault("comptes", {})
+    for ancien, e in list(comptes.items()):
+        if ancien == handle or str(e.get("id") or "") != str(i):
+            continue
+        neuf = comptes.setdefault(handle, {})
+        for k, v in e.items():
+            if k == "suivi":
+                neuf["suivi"] = sorted((v or []) + (neuf.get("suivi") or []), key=lambda x: x[0])[-200:]
+            elif k not in neuf or k in ("historique_v2", "rattrapage_j"):
+                neuf.setdefault(k, v)
+        neuf.pop("renomme_en", None)
+        reels = store.setdefault("reels", {})
+        if ancien in reels:
+            reels[handle] = {**reels.pop(ancien), **(reels.get(handle) or {})}
+        comptes.pop(ancien, None)
+        return ancien
+    return ""
+
+
 async def identifiant(session, store: dict, handle: str):
     """L'ID Instagram du compte (mémorisé) ; None si introuvable ou si l'API ne répond pas."""
     e = (store.setdefault("comptes", {})).setdefault(handle, {})
@@ -449,6 +472,7 @@ async def identifiant(session, store: dict, handle: str):
     i = lire_id(corps) if code == 200 else None
     if i:
         e["id"] = i
+        migrer_par_id(store, handle, i)
     elif introuvable(code, corps) or (code == 200 and isinstance(corps, dict) and corps.get("status") is False):
         e["statut"] = "introuvable"
     return i

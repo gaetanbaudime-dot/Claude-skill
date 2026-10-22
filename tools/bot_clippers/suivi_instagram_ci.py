@@ -45,6 +45,17 @@ async def main() -> int:
     I.configurer({"lire_json": lire_json, "ecrire_json": ecrire_json, "FICHIER": FICHIER})
     async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=40)) as session:
         bilan = await I.passage_complet(session)
+        # 22/10 : les @ « à créer » pris sur Instagram sont remplacés dans le LOG par une variante libre (pseudos_uniques)
+        if not bilan.get("arret_temps") and not bilan.get("arret_quota"):
+            try:
+                import onboarding
+                import pseudos_uniques
+                store = lire_json(FICHIER, {})
+                bp = await pseudos_uniques.passage(session, store, await onboarding.lire_comptes())
+                ecrire_json(FICHIER, store)
+                print("Pseudos :", json.dumps(bp, ensure_ascii=False))
+            except Exception as erreur:                                 # noqa: BLE001 — le suivi est déjà écrit
+                print("Pseudos non vérifiés :", type(erreur).__name__, str(erreur)[:200])
     print("Bilan :", json.dumps(bilan, ensure_ascii=False), "· requêtes :", I._jour["n"], "· quota restant :", I._jour["restant"])
     if I.RATTRAPAGE_J:
         print(f"Rattrapage {I.RATTRAPAGE_J} j : {bilan.get('rattrapage_restants', 0)} compte(s) restant(s), repris au passage suivant.")
