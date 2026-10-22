@@ -9180,6 +9180,9 @@ async def on_ready():
         client.loop.create_task(attribution.boucle_reglages())       # 20/10 : coefficients réglés depuis le Cockpit Clipping
         import relais_rapidapi
         client.loop.create_task(relais_rapidapi.boucle())             # 21/10 : tests des API Instagram de RapidAPI (clé dans Railway)
+        import instagram_rapidapi                                     # 22/10 : suivi Instagram (parcours, followers, Reels, vues)
+        instagram_rapidapi.configurer({"lire_json": lire_json, "ecrire_json": ecrire_json, "FICHIER": DONNEES / "instagram.json"})
+        client.loop.create_task(instagram_rapidapi.boucle())
 
         async def _attribution_puis_migration():
             # 09/10 (lots L5 et L9, A2) : dans l'ordre, jamais en même temps. (1) les dépôts du roster (sortie de Tara, puis Andry
