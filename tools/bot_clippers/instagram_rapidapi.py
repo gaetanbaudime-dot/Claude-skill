@@ -40,7 +40,12 @@ FOURNISSEURS = {
     "flash": {"hote": "flashapi1.p.rapidapi.com",
               "id": ("/ig/user_id/", lambda h: {"user": h}),
               "profil": ("/ig/info/", lambda i: {"id_user": i}),
-              "reels": ("/ig/reels_posts/", lambda i, cur, n: {"id_user": i, **({"max_id": cur} if cur else {})})},
+              "reels": ("/ig/reels_posts/", lambda i, cur, n: {"id_user": i, **({"max_id": cur} if cur else {})}),
+              # 22/10 (Gaëtan : itschloe.douceur et itsvanlifesophie ont des dizaines de Reels, le relevé en voyait 12-16) : pour
+              # certains comptes, /ig/reels_posts/ s'arrête sans page suivante. Route de secours : les publications du compte
+              # (toutes, filtrées sur les vidéos). Le chemin exact est découvert une fois parmi ces candidats, puis mémorisé.
+              "posts_candidats": ["/ig/posts/", "/ig/user_posts/", "/ig/posts_reels/", "/ig/medias/", "/ig/user_medias/", "/ig/feed/",
+                                  "/ig/user_feed/", "/ig/clips/"]},
     "looter": {"hote": "instagram-looter2.p.rapidapi.com",
                "id": ("/id", lambda h: {"username": h}),
                "profil": ("/profile", lambda i: {"id": i}),
@@ -74,7 +79,7 @@ ONGLET_COMPTES, ONGLET_REELS, ONGLET_TOP = "IG · Comptes", "IG · Reels", "IG �
 ONGLET_ARCHIVE, ONGLET_PASSAGES = "IG · Archive Reels", "IG · Passages"
 ENTETE_PASSAGES = ["Début (UTC)", "Durée (min)", "Comptes", "Profils relus", "Reels relus", "Pages lues", "Pages en échec",
                    "Requêtes", "Quota restant", "Rattrapage", "Arrêt", "Fenêtre relue",
-                   "Page pleine sans suite (pagination)"]
+                   "Page pleine sans suite (pagination)", "Comptes relus par leurs publications"]
 ENTETE_COMPTES = ["Créatrice", "Gérant", "Type", "@", "ID Instagram", "Statut", "Followers", "Δ 24 h", "Δ 7 j", "Publications",
                   "Reels 24 h", "Reels 7 j", "Reels 15 j", "Reels 30 j", "Reels 60 j", "Vues 7 j", "Vues 15 j", "Vues 30 j",
                   "Vues 60 j", "Dernier Reel", "Profil relu le", "Reels relus le", "Renommé en"]
@@ -192,10 +197,18 @@ def _medias(obj, profondeur=0) -> list:
     return out
 
 
-def lire_reels(corps) -> tuple:
-    """Réponse de /reels → ([{code, publie (ISO), vues, likes, commentaires}], curseur suivant ou None)."""
+def est_video(m: dict) -> bool:
+    """Un média du fil est un Reel (vidéo) : media_type 2, product_type clips, ou un compteur de lectures."""
+    return (str(m.get("media_type")) == "2" or m.get("product_type") in ("clips", "igtv") or m.get("is_video") is True
+            or any(m.get(k) not in (None, "") for k in ("play_count", "ig_play_count", "video_view_count", "view_count")))
+
+
+def lire_reels(corps, videos_seules: bool = False) -> tuple:
+    """Réponse de /reels (ou des publications, `videos_seules`) → ([{code, publie (ISO), vues, likes, commentaires}], curseur)."""
     vus, reels = set(), []
     for m in _medias(corps):
+        if videos_seules and not est_video(m):
+            continue
         code = str(m.get("code") or m.get("shortcode"))
         quand = _instant(m.get("taken_at") or m.get("taken_at_timestamp") or m.get("device_timestamp"))
         if code in vus or quand is None:
@@ -506,15 +519,24 @@ async def relire_profil(session, store: dict, handle: str, maintenant: datetime)
     return True
 
 
-async def relire_reels(session, store: dict, handle: str, maintenant: datetime, jusqu_a=None, pages: int = 1) -> list:
-    """Reels du compte (pages successives jusqu'à la date `jusqu_a` ou `pages` pages) ; [] si rien n'a pu être lu."""
+async def relire_reels(session, store: dict, handle: str, maintenant: datetime, jusqu_a=None, pages: int = 1, route: str = "reels") -> list:
+    """Reels du compte (pages successives jusqu'à la date `jusqu_a` ou `pages` pages) ; [] si rien n'a pu être lu.
+    route « posts » : les publications du compte (route découverte, voir decouvrir_route_posts), vidéos seulement."""
     i = await identifiant(session, store, handle)
     if not i:
         return []
-    tous, curseur, lu = [], None, False
+    rp = (store.get("etat") or {}).get("route_posts") or {}
+    if route == "posts" and not rp.get("chemin"):
+        return []
+    tous, curseur, lu, fin_api = [], None, False, False
     for _ in range(max(1, pages)):
-        chemin, fabrique = API["reels"]
-        code, corps = await appeler(session, chemin, fabrique(i, curseur, 12 if pages == 1 else 50))
+        if route == "posts":
+            chemin = rp["chemin"]
+            params = {"id_user": i, **({rp.get("param") or "max_id": curseur} if curseur else {})}
+        else:
+            chemin, fabrique = API["reels"]
+            params = fabrique(i, curseur, 12 if pages == 1 else 50)
+        code, corps = await appeler(session, chemin, params)
         if code != 200:
             cle = str(code or "réseau")
             _diag["echecs"][cle] = _diag["echecs"].get(cle, 0) + 1
@@ -522,20 +544,82 @@ async def relire_reels(session, store: dict, handle: str, maintenant: datetime, 
             break
         lu = True
         _diag["pages"] += 1
-        reels, curseur = lire_reels(corps)
+        reels, curseur = lire_reels(corps, videos_seules=(route == "posts"))
         if not curseur and len(reels) >= 12 and isinstance(corps, dict):
             # 22/10 : des comptes très actifs s'arrêtaient à 12 Reels sans page refusée : l'API ne donne pas de page suivante.
-            # On garde ce qu'elle renvoie autour de la pagination pour comprendre (clés du haut, paging_info).
-            _diag["sans_suite"][handle] = {"cles": sorted(corps.keys())[:12], "paging": corps.get("paging_info"),
+            _diag["sans_suite"][handle] = {"route": route, "cles": sorted(corps.keys())[:12], "paging": corps.get("paging_info"),
                                            "plus": corps.get("more_available"), "suivant": corps.get("next_max_id")}
         tous += reels
-        if not curseur or not reels or (jusqu_a and plus_ancien(reels) < jusqu_a) or not _quota_ok(RESERVE):
+        if not curseur:
+            fin_api = True
+            store.setdefault("comptes", {}).setdefault(handle, {})["fin_pleine"] = len(reels) >= 12
+        if not curseur or (not reels and route == "reels") or (jusqu_a and reels and plus_ancien(reels) < jusqu_a) or not _quota_ok(RESERVE):
             break
+    store.setdefault("comptes", {}).setdefault(handle, {})["fin_api"] = fin_api
     e = store.setdefault("comptes", {}).setdefault(handle, {})
     if lu:
         store.setdefault("reels", {})[handle] = fusionner_reels(store.get("reels", {}).get(handle), tous, maintenant)
         e["reels_le"] = maintenant.isoformat(timespec="seconds")
     return tous
+
+
+def sous_compte(e: dict, reels_compte: dict, maintenant: datetime = None) -> bool:
+    """Pur : la route Reels s'est arrêtée d'elle-même (sans page suivante) et le relevé a l'air incomplet : on passe ce compte
+    sur la route des publications. Trois signes (un seul suffit) : nettement moins de Reels que de publications ; une page pleine
+    sans suite ; un compte très actif (10 Reels ou plus) dont aucun Reel n'a plus de 3 semaines (le nombre de publications
+    annoncé par l'API est parfois faux : 1 pour un compte qui a 14 Reels)."""
+    if not e.get("fin_api") or e.get("statut") == "privé":
+        return False
+    maintenant = maintenant or datetime.now(timezone.utc)
+    suivi = e.get("suivi") or []
+    pubs = suivi[-1][2] if suivi and len(suivi[-1]) > 2 and suivi[-1][2] is not None else None
+    n = len(reels_compte or {})
+    if pubs is not None and pubs >= 20 and n < pubs * 0.5:
+        return True
+    if e.get("fin_pleine"):
+        return True
+    dates = [d for d in (_instant(r.get("publie")) for r in (reels_compte or {}).values()) if d]
+    return n >= 10 and bool(dates) and min(dates) > maintenant - timedelta(days=21)
+
+
+async def decouvrir_route_posts(session, store: dict, i: str) -> dict:
+    """Une fois : essaie les chemins candidats des publications sur un compte (ID `i`) ; garde le premier qui renvoie des médias
+    et, s'il y a une page suivante, le nom du paramètre qui la donne (max_id ou end_cursor). Chaque réponse est échantillonnée
+    dans « Test API Instagram ». Mémorisé dans store['etat']['route_posts'] ; {'aucune': date} si rien ne marche (réessai à 7 j)."""
+    etat = store.setdefault("etat", {})
+    rp = etat.get("route_posts") or {}
+    if rp.get("chemin"):
+        return rp
+    if rp.get("aucune"):
+        try:
+            if datetime.now(timezone.utc) - datetime.fromisoformat(rp["aucune"]) < timedelta(days=7):
+                return rp
+        except (ValueError, TypeError):
+            pass
+    for chemin in API.get("posts_candidats") or []:
+        if not _quota_ok(RESERVE):
+            return rp
+        code, corps = await appeler(session, chemin, {"id_user": i})
+        if code != 200:
+            continue
+        p1, cur = lire_reels(corps)
+        if not p1 and not _medias(corps):
+            continue
+        trouve = {"chemin": chemin, "param": None, "trouve_le": datetime.now(timezone.utc).isoformat(timespec="seconds")}
+        if cur:
+            codes1 = {r["code"] for r in p1}
+            for param in ("max_id", "end_cursor", "next_max_id", "cursor"):
+                c2, corps2 = await appeler(session, chemin, {"id_user": i, param: cur})
+                p2, _ = lire_reels(corps2) if c2 == 200 else ([], None)
+                if p2 and not {r["code"] for r in p2} <= codes1:
+                    trouve["param"] = param
+                    break
+        etat["route_posts"] = trouve
+        journal.info("Route des publications trouvée : %s (page suivante : %s)", chemin, trouve["param"])
+        return trouve
+    etat["route_posts"] = {"aucune": datetime.now(timezone.utc).isoformat(timespec="seconds")}
+    journal.warning("Aucune route des publications ne répond parmi %s", API.get("posts_candidats"))
+    return etat["route_posts"]
 
 
 # ------------------------------------------------------------------ 1. parcours : ouvrir le compte suivant
@@ -598,6 +682,17 @@ def a_rattraper(e: dict, jours: int) -> bool:
     return bool(jours) and int(e.get("rattrapage_j") or 0) < jours
 
 
+def route_posts_texte(store: dict, comptes: list) -> str:
+    """Pur : l'état de la route de secours (publications) pour le journal des passages."""
+    rp = (store.get("etat") or {}).get("route_posts") or {}
+    if rp.get("aucune"):
+        return "aucune route des publications ne répond (réessai dans 7 jours)"
+    if not rp.get("chemin"):
+        return ""
+    hs = sorted(c["handle"] for c in comptes if ((store.get("comptes") or {}).get(c["handle"]) or {}).get("route") == "posts")
+    return f"{rp['chemin']} (page suivante : {rp.get('param') or 'aucune'}) : {len(hs)} compte(s) : " + ", ".join(hs)
+
+
 def lignes_passages(passages: list) -> list:
     """Pur : historique des passages (le plus récent en haut)."""
     out = []
@@ -607,7 +702,8 @@ def lignes_passages(passages: list) -> list:
                     str(b.get("reels", "")), str(b.get("pages", "")), " · ".join(f"{k} : {v}" for k, v in sorted(ech.items())) or "0",
                     str(b.get("requetes", "")), "" if b.get("quota_restant") is None else str(b["quota_restant"]),
                     b.get("rattrapage", ""), b.get("arret", ""), b.get("fenetre", ""),
-                    " ; ".join(f"{h} {json.dumps(v, ensure_ascii=False)[:160]}" for h, v in (b.get("sans_suite") or {}).items())[:4000]])
+                    " ; ".join(f"{h} {json.dumps(v, ensure_ascii=False)[:160]}" for h, v in (b.get("sans_suite") or {}).items())[:4000],
+                    b.get("route_posts", "")])
     return out
 
 
@@ -651,7 +747,17 @@ async def passage_complet(session) -> dict:
             pages = max(PAGES_HISTORIQUE if historique else 0, PAGES_RATTRAPAGE if rattrapage else 0)
         else:
             jours, pages = fenetre_j, fenetre_p
-        reels = await relire_reels(session, store, h, maintenant, jusqu_a=maintenant - timedelta(days=jours), pages=pages)
+        depuis = maintenant - timedelta(days=jours)
+        route = "posts" if e.get("route") == "posts" and ((etat.get("route_posts") or {}).get("chemin")) else "reels"
+        reels = await relire_reels(session, store, h, maintenant, jusqu_a=depuis, pages=pages, route=route)
+        if route == "reels" and sous_compte(e, (store.get("reels") or {}).get(h), maintenant) and _quota_ok(RESERVE):
+            rp = await decouvrir_route_posts(session, store, e.get("id"))
+            if rp.get("chemin"):
+                e["route"] = "posts"                                       # ce compte passe sur les publications, pour de bon
+                bilan["routes_posts"] = bilan.get("routes_posts", 0) + 1
+                plus = await relire_reels(session, store, h, maintenant, jusqu_a=maintenant - timedelta(days=max(jours, GARDE_REELS_J)),
+                                          pages=max(pages, PAGES_RATTRAPAGE), route="posts")
+                reels = reels + plus
         if reels:
             bilan["reels"] += 1
             if historique:
@@ -678,7 +784,8 @@ async def passage_complet(session) -> dict:
         "profils": bilan["profils"], "reels": bilan["reels"], "pages": _diag["pages"], "echecs": dict(_diag["echecs"]),
         "requetes": bilan["requetes"], "quota_restant": _jour["restant"],
         "rattrapage": (f"{jours_r} j : {restants} compte(s) restant(s)" if restants else f"{jours_r} j : fini") if jours_r else "",
-        "arret": "quota" if bilan["arret_quota"] else "temps" if bilan["arret_temps"] else "", "fenetre": f"{fenetre_j} j", "sans_suite": dict(_diag["sans_suite"])})
+        "arret": "quota" if bilan["arret_quota"] else "temps" if bilan["arret_temps"] else "", "fenetre": f"{fenetre_j} j", "sans_suite": dict(_diag["sans_suite"]),
+        "route_posts": route_posts_texte(store, comptes)})
     etat["passages"] = etat["passages"][-90:]
     _sauver(store)
     try:
