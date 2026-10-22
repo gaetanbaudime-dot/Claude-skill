@@ -108,7 +108,7 @@ def chercher(obj, cles, profondeur=0):
 
 def _entier(v):
     try:
-        return int(float(v)) if v not in (None, "", True, False) else None
+        return None if v is None or v == "" or isinstance(v, bool) else int(float(v))   # 0 reste 0 (0 == False en Python)
     except (TypeError, ValueError):
         return None
 
@@ -184,9 +184,13 @@ def lire_reels(corps) -> tuple:
         if code in vus or quand is None:
             continue
         vus.add(code)
-        reels.append({"code": code, "publie": quand.isoformat(timespec="seconds"),
-                      "vues": _entier(m.get("play_count") or m.get("ig_play_count") or m.get("view_count")
-                                      or m.get("video_view_count") or m.get("video_play_count")),
+        # ig_play_count d'abord : play_count additionne les lectures Facebook quand le Reel y est repartagé (relevé du 22/10 :
+        # 2 038 380 en play_count pour 96 062 lectures Instagram). Seules les vues Instagram amènent au lien en bio.
+        vues = m.get("ig_play_count")
+        if vues in (None, ""):
+            vues = m.get("play_count") or m.get("view_count") or m.get("video_view_count") or m.get("video_play_count")
+        reels.append({"code": code, "publie": quand.isoformat(timespec="seconds"), "vues": _entier(vues),
+                      "epingle": bool(m.get("clips_tab_pinned_user_ids") or m.get("timeline_pinned_user_ids")),
                       "likes": _entier(m.get("like_count") or (m.get("edge_liked_by") or {}).get("count")),
                       "commentaires": _entier(m.get("comment_count") or (m.get("edge_media_to_comment") or {}).get("count"))})
     plus = chercher(corps, ["paging_info.more_available", "more_available", "has_next_page", "page_info.has_next_page"])
@@ -195,6 +199,13 @@ def lire_reels(corps) -> tuple:
 
 
 # ------------------------------------------------------------------ calculs (pur, testé)
+def plus_ancien(reels: list):
+    """Date du Reel le plus ancien d'une page, Reels épinglés exclus (ils sont en tête, souvent vieux de plusieurs mois :
+    les compter arrêterait la reprise d'historique dès la première page). Page faite d'épinglés seulement : on continue."""
+    dates = [_instant(r["publie"]) for r in reels or [] if not r.get("epingle") and _instant(r.get("publie"))]
+    return min(dates) if dates else datetime.max.replace(tzinfo=timezone.utc)
+
+
 def fenetres(reels: dict, maintenant: datetime) -> dict:
     """{code: {publie, vues}} → Reels et vues sur 1, 7, 15, 30, 60 jours, et le dernier Reel (ISO)."""
     out = {"dernier": ""}
@@ -292,13 +303,17 @@ def lignes_reels(suivis: list, store: dict, maintenant: datetime, jours: int = 6
     return out
 
 
-def lignes_top(suivis: list, store: dict, n: int = 20) -> list:
-    """Les n meilleurs Reels (vues) des comptes de chaque créatrice, toutes dates gardées."""
+def lignes_top(suivis: list, store: dict, n: int = 20, maintenant: datetime = None, jours: int = 365) -> list:
+    """Les n meilleurs Reels (vues Instagram) des comptes de chaque créatrice publiés sur les `jours` derniers jours
+    (sans `maintenant` : toutes dates gardées). Un vieux Reel épinglé n'entre donc pas dans le top de l'année."""
     par_creatrice = {}
     for s in suivis:
         if s["type"] != "Créatrice":
             continue
         for code, r in ((store.get("reels") or {}).get(s["handle"]) or {}).items():
+            quand = _instant(r.get("publie"))
+            if maintenant is not None and (quand is None or maintenant - quand > timedelta(days=jours)):
+                continue
             if r.get("vues") is not None:
                 par_creatrice.setdefault(s["creatrice"], []).append((int(r["vues"]), s["handle"], code, r))
     out = []
@@ -319,6 +334,10 @@ def fusionner_reels(ancien: dict, nouveaux: list, maintenant: datetime) -> dict:
         for k in ("vues", "likes", "commentaires"):
             if r.get(k) is not None:
                 e[k] = r[k]
+        if r.get("epingle"):
+            e["epingle"] = True
+        else:
+            e.pop("epingle", None)
         e["maj"] = maintenant.isoformat(timespec="seconds")
         d[r["code"]] = e
     return d
@@ -362,6 +381,18 @@ async def appeler(session, chemin: str, params: dict) -> tuple:
         await asyncio.sleep(PAUSE)
 
 
+def _debut_et_fin(texte: str, taille: int = 45000) -> str:
+    """Pur : le corps compacté, tronqué au milieu (début + 6 000 derniers caractères) pour que le curseur de pagination,
+    en fin de réponse, reste visible dans la cellule."""
+    try:
+        texte = json.dumps(json.loads(texte), ensure_ascii=False, separators=(",", ":"))
+    except (TypeError, ValueError):
+        texte = str(texte or "")
+    if len(texte) <= taille:
+        return texte
+    return texte[:taille - 6100] + f" … [{len(texte)} caractères, milieu coupé] … " + texte[-6000:]
+
+
 async def _echantillon(chemin, params, code, texte):
     """Le premier exemple de chaque route dans l'onglet « Test API Instagram » (contrôle des champs), une fois par démarrage."""
     if chemin in _echantillons_faits:
@@ -378,7 +409,7 @@ async def _echantillon(chemin, params, code, texte):
         await google_api.sheets_ajouter(classeur, f"'{relais_rapidapi.ONGLET}'!A1",
                                         [["échantillon (suivi)", HOTE, chemin, "&".join(f"{k}={v}" for k, v in params.items()), "GET", "",
                                           str(code), "", "" if _jour["restant"] is None else str(_jour["restant"]),
-                                          relais_rapidapi.reponse_texte(texte), quand]])
+                                          _debut_et_fin(texte), quand]])
     except Exception as erreur:                                         # noqa: BLE001
         journal.info("Échantillon RapidAPI non écrit : %s", type(erreur).__name__)
 
@@ -439,7 +470,7 @@ async def relire_reels(session, store: dict, handle: str, maintenant: datetime, 
         lu = True
         reels, curseur = lire_reels(corps)
         tous += reels
-        if not curseur or not reels or (jusqu_a and min(_instant(r["publie"]) for r in reels) < jusqu_a) or not _quota_ok(RESERVE):
+        if not curseur or not reels or (jusqu_a and plus_ancien(reels) < jusqu_a) or not _quota_ok(RESERVE):
             break
     e = store.setdefault("comptes", {}).setdefault(handle, {})
     if lu:
@@ -539,7 +570,7 @@ async def passage_complet(session) -> dict:
         if classeur:
             await pilotage._ecrire(classeur, ONGLET_COMPTES, ENTETE_COMPTES, lignes_comptes(comptes, store, maintenant))
             await pilotage._ecrire(classeur, ONGLET_REELS, ENTETE_REELS, lignes_reels(comptes, store, maintenant))
-            await pilotage._ecrire(classeur, ONGLET_TOP, ENTETE_TOP, lignes_top(comptes, store))
+            await pilotage._ecrire(classeur, ONGLET_TOP, ENTETE_TOP, lignes_top(comptes, store, maintenant=maintenant))
     except Exception as erreur:                                         # noqa: BLE001
         journal.warning("Suivi Instagram : onglets non écrits (%s)", str(erreur)[:200])
     return bilan

@@ -157,3 +157,38 @@ def test_passage_complet_de_bout_en_bout(monkeypatch):
     assert lignes["thia1"][6] == "321" and lignes["thia1"][12] == "1" and lignes["thia1"][17] == "4000"
     assert lignes["mort"][5] == "introuvable"
     assert ecrits[I.ONGLET_REELS][0][4] == "Z9"
+
+
+def test_reponse_flashapi_reelle_vues_instagram_et_epingles():
+    """Forme relevée le 22/10 sur FlashAPI /ig/reels_posts/ : items[].media, deux Reels épinglés anciens en tête,
+    play_count = Instagram + Facebook, ig_play_count = Instagram seul."""
+    corps = {"items": [{"media": {"code": "EP1", "taken_at": 1701680179, "play_count": 2038380, "ig_play_count": 96062,
+                                  "fb_play_count": 1942318, "clips_tab_pinned_user_ids": [5950185985], "timeline_pinned_user_ids": []}},
+                       {"media": {"code": "NEUF", "taken_at": int((T - timedelta(days=3)).timestamp()), "play_count": 500,
+                                  "ig_play_count": 0, "clips_tab_pinned_user_ids": []}},
+                       {"media": {"code": "SANSIG", "taken_at": int((T - timedelta(days=5)).timestamp()), "play_count": 700}}],
+             "paging_info": {"max_id": "QVFD", "more_available": True}, "status": "ok"}
+    reels, cur = I.lire_reels(corps)
+    vues = {r["code"]: r["vues"] for r in reels}
+    assert vues == {"EP1": 96062, "NEUF": 0, "SANSIG": 700}              # 0 lecture Instagram reste 0, pas play_count
+    assert [r["code"] for r in reels if r["epingle"]] == ["EP1"] and cur == "QVFD"
+    # l'épinglé de 2023 n'arrête pas la reprise d'historique : le plus ancien compté est le Reel d'il y a 5 jours
+    assert I.plus_ancien(reels) == T - timedelta(days=5)
+    assert I.plus_ancien([r for r in reels if r["epingle"]]) > T      # page d'épinglés seulement : on continue
+
+
+def test_top_sur_365_jours_sans_vieil_epingle():
+    suivis = [{"handle": "c1", "creatrice": "Sophie", "gerant": "Sophie", "type": "Créatrice"}]
+    store = {"reels": {"c1": {"VIEUX": {"publie": (T - timedelta(days=700)).isoformat(), "vues": 9_000_000, "epingle": True},
+                              "AN": {"publie": (T - timedelta(days=300)).isoformat(), "vues": 40_000},
+                              "MOIS": {"publie": (T - timedelta(days=20)).isoformat(), "vues": 12_000}}}}
+    assert [t[3].split("/")[-2] for t in I.lignes_top(suivis, store, maintenant=T)] == ["AN", "MOIS"]
+    assert [t[3].split("/")[-2] for t in I.lignes_top(suivis, store, maintenant=T, jours=180)] == ["MOIS"]
+
+
+def test_echantillon_garde_la_fin_de_reponse():
+    import json as _j
+    long = _j.dumps({"items": ["x" * 100000], "paging_info": {"max_id": "FIN", "more_available": True}})
+    t = I._debut_et_fin(long)
+    assert len(t) < 46000 and '"max_id":"FIN"' in t and "milieu coupé" in t
+    assert I._debut_et_fin('{"a":1}') == '{"a":1}'
