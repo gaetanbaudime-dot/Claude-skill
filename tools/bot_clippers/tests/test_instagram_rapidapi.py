@@ -217,3 +217,99 @@ def test_clipper_relu_sur_15_jours_en_plusieurs_pages(monkeypatch):
     asyncio.run(I.relire_reels(None, store, "k1", maintenant, jusqu_a=maintenant - timedelta(days=15), pages=4))
     assert appels == [None, "P2"]                                        # page 2 atteint 22 jours : arrêt, l'épinglé n'a pas compté
     assert I.fenetres(store["reels"]["k1"], maintenant)["reels15"] == 15   # jours 0 à 14 (le 15e tombe juste au-delà)
+
+
+def test_rattrapage_180_jours_repris_puis_fini(monkeypatch):
+    """Rattrapage : chaque compte relu jusqu'à 180 jours (pages successives), marqué fait, puis le suivi léger reprend."""
+    import asyncio
+    import onboarding
+    import paie_clics
+    import pilotage
+    store = {}
+    I.configurer({"lire_json": lambda f, d: store.get("d", d), "ecrire_json": lambda f, d: store.__setitem__("d", d), "FICHIER": "x"})
+    maintenant = datetime.now(timezone.utc)
+    pages_lues = []
+
+    def media(code, j):
+        return {"media": {"code": code, "taken_at": int((maintenant - timedelta(days=j)).timestamp()), "ig_play_count": 100}}
+
+    async def appeler(session, chemin, params):
+        I._jour["n"] += 1
+        if chemin == I.API["id"][0]:
+            return 200, {"id": 77, "status": "ok"}
+        if chemin == I.API["profil"][0]:
+            return 200, {"user": {"pk": 77, "username": "k1", "follower_count": 0, "media_count": 30, "is_private": False}}
+        cur = params.get("max_id")
+        pages_lues.append(cur)
+        if not cur:
+            return 200, {"items": [media("A", 1), media("B", 20)], "paging_info": {"max_id": "P2", "more_available": True}}
+        if cur == "P2":
+            return 200, {"items": [media("C", 100)], "paging_info": {"max_id": "P3", "more_available": True}}
+        return 200, {"items": [media("D", 200)], "paging_info": {"max_id": "P4", "more_available": True}}
+
+    async def lire_comptes():
+        return [{"onglet": "Sophie", "handle": "k1", "etat": "GOOD", "gerant": "Thia"}]
+    ecrits = {}
+
+    async def ecrire(classeur, titre, entete, lignes):
+        ecrits[titre] = lignes
+        return True
+
+    async def classeur():
+        return "C"
+    monkeypatch.setattr(I, "appeler", appeler)
+    monkeypatch.setattr(I, "RATTRAPAGE_J", 180)
+    monkeypatch.setattr(onboarding, "lire_comptes", lire_comptes)
+    monkeypatch.setattr(pilotage, "_ecrire", ecrire)
+    monkeypatch.setattr(paie_clics, "_classeur_usage", classeur)
+    I._jour.update({"jour": "", "n": 0, "restant": None})
+    bilan = asyncio.run(I.passage_complet(None))
+    assert pages_lues == [None, "P2", "P3"] and bilan["rattrapage_restants"] == 0
+    d = store["d"]
+    assert d["comptes"]["k1"]["rattrapage_j"] == 180 and "rattrapage" not in d["etat"] and d["etat"]["dernier_rattrapage"]["fini"]
+    assert sorted(r[4] for r in ecrits[I.ONGLET_ARCHIVE]) == ["A", "B", "C"]     # 200 jours : hors archive 180 j
+    assert sorted(r[4] for r in ecrits[I.ONGLET_REELS]) == ["A", "B"]           # l'onglet du Cockpit garde 60 jours
+    assert ecrits[I.ONGLET_PASSAGES][0][5] == "3" and ecrits[I.ONGLET_PASSAGES][0][9] == "180 j : fini"
+    assert ecrits[I.ONGLET_COMPTES][0][6] == "0"                               # 0 follower affiché
+    # passage suivant, sans champ rattrapage : suivi léger (15 jours, s'arrête dès la page 1 qui dépasse 15 jours)
+    monkeypatch.setattr(I, "RATTRAPAGE_J", 0)
+    pages_lues.clear()
+    asyncio.run(I.passage_complet(None))
+    assert pages_lues == [None]
+
+
+def test_appeler_retente_une_fois_sur_429(monkeypatch):
+    import asyncio
+    codes = [429, 200]
+
+    class Rep:
+        def __init__(self, c):
+            self.status, self.headers = c, {"x-ratelimit-requests-remaining": "4000"}
+
+        async def text(self):
+            return '{"ok": true}'
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *a):
+            return False
+
+    class Session:
+        def get(self, *a, **k):
+            return Rep(codes.pop(0))
+
+    async def rien(*a, **k):
+        return None
+    monkeypatch.setattr(I, "_echantillon", rien)
+    monkeypatch.setattr(I, "PAUSE", 0)
+    monkeypatch.setattr(asyncio, "sleep", rien)
+    I._jour.update({"jour": "", "n": 0, "restant": None})
+    assert asyncio.run(I.appeler(Session(), "/x", {})) == (200, {"ok": True}) and I._jour["n"] == 2 and I._jour["restant"] == 4000
+
+
+def test_a_rattraper_et_journal():
+    assert I.a_rattraper({}, 180) and not I.a_rattraper({"rattrapage_j": 180}, 180) and not I.a_rattraper({}, 0)
+    assert I.a_rattraper({"rattrapage_j": 90}, 180)
+    l = I.lignes_passages([{"debut": "a", "echecs": {}}, {"debut": "b", "echecs": {"429": 2, "réseau": 1}, "arret": "temps"}])
+    assert l[0][0] == "b" and l[0][6] == "429 : 2 · réseau : 1" and l[0][10] == "temps" and l[1][6] == "0"

@@ -46,6 +46,8 @@ async def main() -> int:
     async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=40)) as session:
         bilan = await I.passage_complet(session)
     print("Bilan :", json.dumps(bilan, ensure_ascii=False), "· requêtes :", I._jour["n"], "· quota restant :", I._jour["restant"])
+    if I.RATTRAPAGE_J:
+        print(f"Rattrapage {I.RATTRAPAGE_J} j : {bilan.get('rattrapage_restants', 0)} compte(s) restant(s), repris au passage suivant.")
     return 0 if bilan.get("profils") or bilan.get("reels") else 1
 
 
