@@ -361,3 +361,19 @@ def test_fenetre_45_jours_une_fois_par_jour(monkeypatch):
     pages.clear()
     asyncio.run(I.passage_complet(None))
     assert pages == [None] and ecrits[I.ONGLET_PASSAGES][0][11] == "15 j"               # même jour : 15 jours, page 1 suffit
+
+
+def test_page_pleine_sans_suite_notee(monkeypatch):
+    import asyncio
+    maintenant = datetime.now(timezone.utc)
+    store = {"comptes": {"k1": {"id": "77"}}}
+
+    async def appeler(session, chemin, params):
+        items = [{"media": {"code": f"R{k}", "taken_at": int((maintenant - timedelta(hours=k)).timestamp())}} for k in range(12)]
+        return 200, {"items": items, "status": "ok", "paging_info": {"more_available": False}}
+    monkeypatch.setattr(I, "appeler", appeler)
+    I._diag.update({"pages": 0, "echecs": {}, "sans_suite": {}})
+    asyncio.run(I.relire_reels(None, store, "k1", maintenant, jusqu_a=maintenant - timedelta(days=15), pages=4))
+    assert I._diag["sans_suite"]["k1"]["paging"] == {"more_available": False}
+    l = I.lignes_passages([{"debut": "a", "sans_suite": dict(I._diag["sans_suite"])}])
+    assert l[0][12].startswith("k1 ") and "more_available" in l[0][12]

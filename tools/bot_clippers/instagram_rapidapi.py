@@ -73,7 +73,8 @@ ACTIF = os.environ.get("RAPIDAPI_SUIVI", "1").strip() != "0"
 ONGLET_COMPTES, ONGLET_REELS, ONGLET_TOP = "IG · Comptes", "IG · Reels", "IG · Top Reels"
 ONGLET_ARCHIVE, ONGLET_PASSAGES = "IG · Archive Reels", "IG · Passages"
 ENTETE_PASSAGES = ["Début (UTC)", "Durée (min)", "Comptes", "Profils relus", "Reels relus", "Pages lues", "Pages en échec",
-                   "Requêtes", "Quota restant", "Rattrapage", "Arrêt", "Fenêtre relue"]
+                   "Requêtes", "Quota restant", "Rattrapage", "Arrêt", "Fenêtre relue",
+                   "Page pleine sans suite (pagination)"]
 ENTETE_COMPTES = ["Créatrice", "Gérant", "Type", "@", "ID Instagram", "Statut", "Followers", "Δ 24 h", "Δ 7 j", "Publications",
                   "Reels 24 h", "Reels 7 j", "Reels 15 j", "Reels 30 j", "Reels 60 j", "Vues 7 j", "Vues 15 j", "Vues 30 j",
                   "Vues 60 j", "Dernier Reel", "Profil relu le", "Reels relus le", "Renommé en"]
@@ -83,7 +84,7 @@ ETATS_VIVANTS = ("good", "prive", "privé", "private")
 
 _deps = {}
 _jour = {"jour": "", "n": 0, "restant": None}
-_diag = {"pages": 0, "echecs": {}}                                      # pages de Reels lues et refusées (code → nombre) par passage
+_diag = {"pages": 0, "echecs": {}, "sans_suite": {}}                                      # pages de Reels lues et refusées (code → nombre) par passage
 _echantillons_faits = set()
 _verrou = None
 
@@ -522,6 +523,11 @@ async def relire_reels(session, store: dict, handle: str, maintenant: datetime, 
         lu = True
         _diag["pages"] += 1
         reels, curseur = lire_reels(corps)
+        if not curseur and len(reels) >= 12 and isinstance(corps, dict):
+            # 22/10 : des comptes très actifs s'arrêtaient à 12 Reels sans page refusée : l'API ne donne pas de page suivante.
+            # On garde ce qu'elle renvoie autour de la pagination pour comprendre (clés du haut, paging_info).
+            _diag["sans_suite"][handle] = {"cles": sorted(corps.keys())[:12], "paging": corps.get("paging_info"),
+                                           "plus": corps.get("more_available"), "suivant": corps.get("next_max_id")}
         tous += reels
         if not curseur or not reels or (jusqu_a and plus_ancien(reels) < jusqu_a) or not _quota_ok(RESERVE):
             break
@@ -600,7 +606,8 @@ def lignes_passages(passages: list) -> list:
         out.append([b.get("debut", ""), str(b.get("duree_min", "")), str(b.get("comptes", "")), str(b.get("profils", "")),
                     str(b.get("reels", "")), str(b.get("pages", "")), " · ".join(f"{k} : {v}" for k, v in sorted(ech.items())) or "0",
                     str(b.get("requetes", "")), "" if b.get("quota_restant") is None else str(b["quota_restant"]),
-                    b.get("rattrapage", ""), b.get("arret", ""), b.get("fenetre", "")])
+                    b.get("rattrapage", ""), b.get("arret", ""), b.get("fenetre", ""),
+                    " ; ".join(f"{h} {json.dumps(v, ensure_ascii=False)[:160]}" for h, v in (b.get("sans_suite") or {}).items())[:4000]])
     return out
 
 
@@ -618,7 +625,7 @@ async def passage_complet(session) -> dict:
     jour_paris = _paris(maintenant).date().isoformat()
     longue = bool(FENETRE_LONGUE_J) and etat.get("fenetre_longue_le") != jour_paris
     fenetre_j, fenetre_p = (FENETRE_LONGUE_J, PAGES_LONGUE) if longue else (FENETRE_RELUE_J, PAGES_FENETRE)
-    _diag.update({"pages": 0, "echecs": {}})
+    _diag.update({"pages": 0, "echecs": {}, "sans_suite": {}})
     n0 = _jour["n"]
     # comptes déjà rattrapés d'abord (suivi léger garanti), le rattrapage remplit le temps qui reste
     comptes_ordre = sorted(comptes, key=lambda c: a_rattraper((store.get("comptes") or {}).get(c["handle"]) or {}, jours_r))
@@ -671,7 +678,7 @@ async def passage_complet(session) -> dict:
         "profils": bilan["profils"], "reels": bilan["reels"], "pages": _diag["pages"], "echecs": dict(_diag["echecs"]),
         "requetes": bilan["requetes"], "quota_restant": _jour["restant"],
         "rattrapage": (f"{jours_r} j : {restants} compte(s) restant(s)" if restants else f"{jours_r} j : fini") if jours_r else "",
-        "arret": "quota" if bilan["arret_quota"] else "temps" if bilan["arret_temps"] else "", "fenetre": f"{fenetre_j} j"})
+        "arret": "quota" if bilan["arret_quota"] else "temps" if bilan["arret_temps"] else "", "fenetre": f"{fenetre_j} j", "sans_suite": dict(_diag["sans_suite"])})
     etat["passages"] = etat["passages"][-90:]
     _sauver(store)
     try:
