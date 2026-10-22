@@ -453,3 +453,29 @@ def test_route_posts_decouverte_et_utilisee(monkeypatch):
     appels.clear()
     asyncio.run(I.passage_complet(None))
     assert not any(c == I.API["reels"][0] for c, _ in appels) and any(c == "/ig/user_posts/" for c, _ in appels)
+
+
+def test_route_posts_temoin_et_erreur_passagere(monkeypatch):
+    import asyncio
+    store = {"etat": {"route_posts": {"aucune": "2026-10-22T09:55:00+00:00"}}}     # ancien « aucune » : ignoré
+    appels = []
+
+    async def appeler(session, chemin, params):
+        appels.append((chemin, dict(params)))
+        if chemin != "/ig/posts/":
+            return 404, {"message": f"Endpoint '{chemin}' does not exist"}
+        if params.get("id_user") == "1" or params.get("user") == "cassé":
+            return 503, {"status": "error", "message": "Temporary upstream error"}
+        return 200, {"items": [{"code": "V1", "taken_at": 1761134400, "media_type": 2}]}
+
+    async def rien(*a, **k):
+        return None
+    monkeypatch.setattr(I, "appeler", appeler)
+    monkeypatch.setattr(asyncio, "sleep", rien)
+    I._jour.update({"jour": "", "n": 0, "restant": None})
+    rp = asyncio.run(I.decouvrir_route_posts(None, store, "1", "cassé", ("2", "temoin")))
+    assert rp["chemin"] == "/ig/posts/" and rp["forme"] == "id_user"
+    assert sum(1 for c, p in appels if c == "/ig/posts/" and p.get("id_user") == "1") == 3      # 3 essais sur l'erreur passagère
+    store2 = {}
+    rp2 = asyncio.run(I.decouvrir_route_posts(None, store2, "1", "cassé", None))
+    assert "passager" in rp2 and "aucune2" not in rp2

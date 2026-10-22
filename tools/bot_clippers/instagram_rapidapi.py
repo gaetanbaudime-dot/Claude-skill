@@ -44,8 +44,8 @@ FOURNISSEURS = {
               # 22/10 (Gaëtan : itschloe.douceur et itsvanlifesophie ont des dizaines de Reels, le relevé en voyait 12-16) : pour
               # certains comptes, /ig/reels_posts/ s'arrête sans page suivante. Route de secours : les publications du compte
               # (toutes, filtrées sur les vidéos). Le chemin exact est découvert une fois parmi ces candidats, puis mémorisé.
-              "posts_candidats": ["/ig/posts/", "/ig/user_posts/", "/ig/posts_reels/", "/ig/medias/", "/ig/user_medias/", "/ig/feed/",
-                                  "/ig/user_feed/", "/ig/clips/"]},
+              # 22/10 : seul /ig/posts/ existe (les autres : « does not exist ») ; il a répondu « Temporary upstream error ».
+              "posts_candidats": ["/ig/posts/", "/ig/user_posts/", "/ig/medias/", "/ig/feed/", "/ig/clips/"]},
     "looter": {"hote": "instagram-looter2.p.rapidapi.com",
                "id": ("/id", lambda h: {"username": h}),
                "profil": ("/profile", lambda i: {"id": i}),
@@ -532,7 +532,8 @@ async def relire_reels(session, store: dict, handle: str, maintenant: datetime, 
     for _ in range(max(1, pages)):
         if route == "posts":
             chemin = rp["chemin"]
-            params = {"id_user": i, **({rp.get("param") or "max_id": curseur} if curseur else {})}
+            forme = rp.get("forme") or "id_user"
+            params = {forme: i if forme == "id_user" else handle, **({rp.get("param") or "max_id": curseur} if curseur else {})}
         else:
             chemin, fabrique = API["reels"]
             params = fabrique(i, curseur, 12 if pages == 1 else 50)
@@ -582,43 +583,72 @@ def sous_compte(e: dict, reels_compte: dict, maintenant: datetime = None) -> boo
     return n >= 10 and bool(dates) and min(dates) > maintenant - timedelta(days=21)
 
 
-async def decouvrir_route_posts(session, store: dict, i: str) -> dict:
-    """Une fois : essaie les chemins candidats des publications sur un compte (ID `i`) ; garde le premier qui renvoie des médias
-    et, s'il y a une page suivante, le nom du paramètre qui la donne (max_id ou end_cursor). Chaque réponse est échantillonnée
-    dans « Test API Instagram ». Mémorisé dans store['etat']['route_posts'] ; {'aucune': date} si rien ne marche (réessai à 7 j)."""
+async def _essai_route(session, chemin: str, params: dict, essais: int = 3) -> tuple:
+    """(code, corps) d'un chemin candidat ; une erreur passagère (5xx, « Temporary upstream error ») est réessayée."""
+    code, corps = 0, None
+    for k in range(essais):
+        code, corps = await appeler(session, chemin, params)
+        if code not in (0, 429, 500, 502, 503, 504):
+            break
+        await asyncio.sleep(5 * (k + 1))
+    return code, corps
+
+
+async def decouvrir_route_posts(session, store: dict, i: str, handle: str = "", temoin: tuple = None) -> dict:
+    """Trouve la route des publications : chemins candidats × formes de paramètre (ID ou @), sur le compte visé puis, s'il ne
+    répond pas, sur un compte témoin qui marche (`temoin` = (ID, @)). Garde le premier qui renvoie des médias et le nom du
+    paramètre de page suivante. Mémorisé dans store['etat']['route_posts'] ; {'aucune': date} seulement si tous les chemins
+    répondent « n'existe pas » (réessai à 7 jours) ; une erreur passagère est retentée au passage suivant."""
     etat = store.setdefault("etat", {})
     rp = etat.get("route_posts") or {}
     if rp.get("chemin"):
         return rp
-    if rp.get("aucune"):
+    if rp.get("aucune2"):
         try:
-            if datetime.now(timezone.utc) - datetime.fromisoformat(rp["aucune"]) < timedelta(days=7):
+            if datetime.now(timezone.utc) - datetime.fromisoformat(rp["aucune2"]) < timedelta(days=7):
                 return rp
         except (ValueError, TypeError):
             pass
+    cibles = [(i, handle)] + ([temoin] if temoin and temoin[0] and str(temoin[0]) != str(i) else [])
+    passager = False
     for chemin in API.get("posts_candidats") or []:
-        if not _quota_ok(RESERVE):
-            return rp
-        code, corps = await appeler(session, chemin, {"id_user": i})
-        if code != 200:
-            continue
-        p1, cur = lire_reels(corps)
-        if not p1 and not _medias(corps):
-            continue
-        trouve = {"chemin": chemin, "param": None, "trouve_le": datetime.now(timezone.utc).isoformat(timespec="seconds")}
-        if cur:
-            codes1 = {r["code"] for r in p1}
-            for param in ("max_id", "end_cursor", "next_max_id", "cursor"):
-                c2, corps2 = await appeler(session, chemin, {"id_user": i, param: cur})
-                p2, _ = lire_reels(corps2) if c2 == 200 else ([], None)
-                if p2 and not {r["code"] for r in p2} <= codes1:
-                    trouve["param"] = param
-                    break
-        etat["route_posts"] = trouve
-        journal.info("Route des publications trouvée : %s (page suivante : %s)", chemin, trouve["param"])
-        return trouve
-    etat["route_posts"] = {"aucune": datetime.now(timezone.utc).isoformat(timespec="seconds")}
-    journal.warning("Aucune route des publications ne répond parmi %s", API.get("posts_candidats"))
+        for (ci, ch) in cibles:
+            for forme in ("id_user", "user"):
+                if not _quota_ok(RESERVE):
+                    return rp
+                valeur = ci if forme == "id_user" else ch
+                if not valeur:
+                    continue
+                code, corps = await _essai_route(session, chemin, {forme: valeur})
+                if code == 404 and introuvable(code, corps) and "does not exist" in str(corps):
+                    break                                                    # le chemin n'existe pas : candidat suivant
+                if code != 200:
+                    passager = passager or code in (0, 429, 500, 502, 503, 504)
+                    continue
+                p1, cur = lire_reels(corps)
+                if not p1 and not _medias(corps):
+                    continue
+                trouve = {"chemin": chemin, "forme": forme, "param": None, "trouve_le": datetime.now(timezone.utc).isoformat(timespec="seconds")}
+                if cur:
+                    codes1 = {r["code"] for r in p1}
+                    for param in ("max_id", "end_cursor", "next_max_id", "cursor"):
+                        c2, corps2 = await _essai_route(session, chemin, {forme: valeur, param: cur})
+                        p2, _ = lire_reels(corps2) if c2 == 200 else ([], None)
+                        if p2 and not {r["code"] for r in p2} <= codes1:
+                            trouve["param"] = param
+                            break
+                etat["route_posts"] = trouve
+                journal.info("Route des publications trouvée : %s ?%s= (page suivante : %s)", chemin, forme, trouve["param"])
+                return trouve
+            else:
+                continue
+            break
+    if passager:
+        etat["route_posts"] = {"passager": datetime.now(timezone.utc).isoformat(timespec="seconds")}
+        journal.warning("Route des publications : erreurs passagères, réessai au passage suivant")
+    else:
+        etat["route_posts"] = {"aucune2": datetime.now(timezone.utc).isoformat(timespec="seconds")}
+        journal.warning("Aucune route des publications ne répond parmi %s", API.get("posts_candidats"))
     return etat["route_posts"]
 
 
@@ -685,8 +715,10 @@ def a_rattraper(e: dict, jours: int) -> bool:
 def route_posts_texte(store: dict, comptes: list) -> str:
     """Pur : l'état de la route de secours (publications) pour le journal des passages."""
     rp = (store.get("etat") or {}).get("route_posts") or {}
-    if rp.get("aucune"):
+    if rp.get("aucune2"):
         return "aucune route des publications ne répond (réessai dans 7 jours)"
+    if rp.get("passager"):
+        return "route des publications : erreur passagère de l'API, réessai au passage suivant"
     if not rp.get("chemin"):
         return ""
     hs = sorted(c["handle"] for c in comptes if ((store.get("comptes") or {}).get(c["handle"]) or {}).get("route") == "posts")
@@ -750,14 +782,20 @@ async def passage_complet(session) -> dict:
         depuis = maintenant - timedelta(days=jours)
         route = "posts" if e.get("route") == "posts" and ((etat.get("route_posts") or {}).get("chemin")) else "reels"
         reels = await relire_reels(session, store, h, maintenant, jusqu_a=depuis, pages=pages, route=route)
+        if route == "posts" and e.get("reels_le") != maintenant.isoformat(timespec="seconds"):
+            # la route des publications n'a pas répondu pour ce compte : la route Reels, même incomplète, garde les nouveautés
+            reels = await relire_reels(session, store, h, maintenant, jusqu_a=depuis, pages=pages, route="reels")
         if route == "reels" and sous_compte(e, (store.get("reels") or {}).get(h), maintenant) and _quota_ok(RESERVE):
-            rp = await decouvrir_route_posts(session, store, e.get("id"))
+            temoin = next(((x.get("id"), hx) for hx, x in (store.get("comptes") or {}).items()
+                           if x.get("id") and not x.get("fin_api") and x.get("statut") == "public" and hx != h), None)
+            rp = await decouvrir_route_posts(session, store, e.get("id"), h, temoin)
             if rp.get("chemin"):
-                e["route"] = "posts"                                       # ce compte passe sur les publications, pour de bon
-                bilan["routes_posts"] = bilan.get("routes_posts", 0) + 1
                 plus = await relire_reels(session, store, h, maintenant, jusqu_a=maintenant - timedelta(days=max(jours, GARDE_REELS_J)),
                                           pages=max(pages, PAGES_RATTRAPAGE), route="posts")
-                reels = reels + plus
+                if plus:
+                    e["route"] = "posts"                                   # ce compte passe sur les publications, pour de bon
+                    bilan["routes_posts"] = bilan.get("routes_posts", 0) + 1
+                    reels = reels + plus
         if reels:
             bilan["reels"] += 1
             if historique:
