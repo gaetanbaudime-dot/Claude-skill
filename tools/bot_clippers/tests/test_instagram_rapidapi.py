@@ -379,61 +379,85 @@ def test_page_pleine_sans_suite_notee(monkeypatch):
     assert l[0][12].startswith("k1 ") and "more_available" in l[0][12]
 
 
-def test_sous_compte_signes():
-    T0 = datetime(2026, 10, 22, 12, 0, tzinfo=timezone.utc)
-    recents = {f"R{k}": {"publie": (T0 - timedelta(days=k)).isoformat()} for k in range(14)}
-    anciens = {f"A{k}": {"publie": (T0 - timedelta(days=5 * k)).isoformat()} for k in range(14)}
-    assert I.sous_compte({"fin_api": True, "suivi": [["t", 1665, 112]]}, anciens, T0)              # 14 Reels pour 112 publications
-    assert I.sous_compte({"fin_api": True, "suivi": [["t", 142, 1]]}, recents, T0)                 # nombre de publications faux
-    assert I.sous_compte({"fin_api": True, "fin_pleine": True, "suivi": [["t", 9, 3]]}, {}, T0)
-    assert not I.sous_compte({"fin_api": True, "suivi": [["t", 10, 16]]}, anciens, T0)             # 14 sur 16 : complet
-    assert not I.sous_compte({"fin_api": False, "suivi": [["t", 1665, 112]]}, {}, T0)
-    assert not I.sous_compte({"fin_api": True, "statut": "privé", "suivi": [["t", 1, 300]]}, {}, T0)
+def test_page_suivante_avec_le_meme_compte_flashapi(monkeypatch):
+    """Diagnostic du 23/10 : le curseur n'est valable que sur le compte FlashAPI qui a servi la page (pagination.id_acc).
+    Sans id_acc, la page 2 revient vide avec un message ; avec, la liste continue jusqu'à la fenêtre demandée."""
+    import asyncio
+    maintenant = datetime.now(timezone.utc)
+    store, appels = {"comptes": {"k1": {"id": "77"}}}, []
+
+    def page(debut):
+        return [{"media": {"code": f"R{debut + k}", "taken_at": int((maintenant - timedelta(days=(debut + k) / 4)).timestamp()),
+                           "ig_play_count": 10}} for k in range(12)]
+
+    async def appeler(session, chemin, params):
+        appels.append((params.get("max_id"), params.get("id_acc")))
+        cur = params.get("max_id")
+        if cur and params.get("id_acc") != "355671":
+            return 200, {"message": "Not found", "pagination": {"id_acc": 1}, "status": "ok"}     # autre compte : curseur inconnu
+        n = 0 if not cur else int(cur[1:])
+        return 200, {"items": page(n), "paging_info": {"max_id": f"P{n + 12}", "more_available": True},
+                     "pagination": {"id_acc": 355671}, "status": "ok"}
+    monkeypatch.setattr(I, "appeler", appeler)
+    I._jour.update({"jour": "", "n": 0, "restant": None})
+    I._diag.update({"pages": 0, "echecs": {}, "sans_suite": {}, "curseur_perdu": {}})
+    reels = asyncio.run(I.relire_reels(None, store, "k1", maintenant, jusqu_a=maintenant - timedelta(days=15), pages=10))
+    assert appels[0] == (None, None) and all(a == "355671" for _, a in appels[1:])
+    assert len(reels) == 72 and not store["comptes"]["k1"]["fin_api"]       # 6 pages : la 6e dépasse 15 jours (4 Reels par jour)
+    assert I._diag["curseur_perdu"] == {}
 
 
-def test_route_posts_decouverte_et_utilisee(monkeypatch):
-    """Compte sous-compté : la route des publications est découverte (2e candidat), son paramètre de page aussi, puis le compte
-    est relu par elle (vidéos seulement) et y reste aux passages suivants."""
+def test_curseur_perdu_reessaye_puis_note(monkeypatch):
+    import asyncio
+    maintenant = datetime.now(timezone.utc)
+    store, appels = {"comptes": {"k1": {"id": "77"}}}, []
+
+    async def appeler(session, chemin, params):
+        appels.append(params.get("max_id"))
+        if params.get("max_id"):
+            return 200, {"message": "Not found", "pagination": {"id_acc": 9}, "status": "ok"}
+        items = [{"media": {"code": f"R{k}", "taken_at": int((maintenant - timedelta(hours=k)).timestamp())}} for k in range(12)]
+        return 200, {"items": items, "paging_info": {"max_id": "P2", "more_available": True}, "pagination": {"id_acc": 5}}
+
+    async def rien(*a, **k):
+        return None
+    monkeypatch.setattr(I, "appeler", appeler)
+    monkeypatch.setattr(asyncio, "sleep", rien)
+    I._jour.update({"jour": "", "n": 0, "restant": None})
+    I._diag.update({"pages": 0, "echecs": {}, "sans_suite": {}, "curseur_perdu": {}})
+    asyncio.run(I.relire_reels(None, store, "k1", maintenant, jusqu_a=maintenant - timedelta(days=15), pages=4))
+    assert appels == [None, "P2", "P2"] and I._diag["curseur_perdu"]["k1"]["page"] == 2
+    assert len(store["reels"]["k1"]) == 12 and I._diag["echecs"] == {}
+    assert I.curseur_texte(I._diag["curseur_perdu"]).startswith("k1 (page 2, Not found)")
+
+
+def test_premier_passage_de_la_correction_relit_tout(monkeypatch):
+    """Store d'avant la correction du curseur : chaque compte repart en rattrapage sur 180 jours, la route des publications
+    est oubliée ; un store neuf n'est pas touché."""
     import asyncio
     import onboarding
     import paie_clics
     import pilotage
-    store = {}
-    I.configurer({"lire_json": lambda f, d: store.get("d", d), "ecrire_json": lambda f, d: store.__setitem__("d", d), "FICHIER": "x"})
     maintenant = datetime.now(timezone.utc)
-    appels = []
-
-    def media(code, j, video=True):
-        m = {"code": code, "taken_at": int((maintenant - timedelta(days=j)).timestamp())}
-        if video:
-            m.update({"media_type": 2, "ig_play_count": 50})
-        else:
-            m["media_type"] = 1
-        return m
+    store = {"d": {"comptes": {"k1": {"id": "77", "rattrapage_j": 180, "route": "posts", "fin_pleine": True, "historique_v2": "x"}},
+                   "etat": {"route_posts": {"chemin": "/ig/posts/"}, "dernier_rattrapage": {"jours": 180}}}}
+    I.configurer({"lire_json": lambda f, d: store.get("d", d), "ecrire_json": lambda f, d: store.__setitem__("d", d), "FICHIER": "x"})
+    pages = []
 
     async def appeler(session, chemin, params):
         I._jour["n"] += 1
-        appels.append((chemin, dict(params)))
-        if chemin == I.API["id"][0]:
-            return 200, {"id": 77, "status": "ok"}
         if chemin == I.API["profil"][0]:
-            return 200, {"user": {"pk": 77, "username": "k1", "follower_count": 1600, "media_count": 112, "is_private": False}}
-        if chemin == I.API["reels"][0]:
-            return 200, {"items": [{"media": media(f"R{k}", k)} for k in range(5)], "paging_info": {"more_available": False}}
-        if chemin == "/ig/user_posts/":
-            if params.get("end_cursor") == "C2":
-                return 200, {"items": [media(f"P{k}", 30 + k) for k in range(10)] + [media("PH", 31, video=False)], "end_cursor": None}
-            if params.get("max_id"):
-                return 200, {"items": [media(f"P{k}", k) for k in range(12)], "end_cursor": "C2"}   # max_id ignoré : même page
-            return 200, {"items": [media(f"P{k}", k) for k in range(12)] + [media("PHOTO", 2, video=False)], "end_cursor": "C2"}
-        return 404, {"message": "Endpoint does not exist"}
+            return 200, {"user": {"pk": 77, "username": "k1", "follower_count": 5, "media_count": 30, "is_private": False}}
+        pages.append(params.get("max_id"))
+        j = {None: 2, "P2": 100}.get(params.get("max_id"), 200)
+        nxt = {None: "P2", "P2": "P3"}.get(params.get("max_id"))
+        return 200, {"items": [{"media": {"code": f"C{j}", "taken_at": int((maintenant - timedelta(days=j)).timestamp())}}],
+                     "paging_info": {"max_id": nxt, "more_available": bool(nxt)}, "pagination": {"id_acc": 4}}
 
     async def lire_comptes():
-        return [{"onglet": "Chloé", "handle": "k1", "etat": "GOOD", "gerant": "Caroline"}]
-    ecrits = {}
+        return [{"onglet": "Sophie", "handle": "k1", "etat": "GOOD", "gerant": "Thia"}]
 
     async def ecrire(classeur, titre, entete, lignes):
-        ecrits[titre] = lignes
         return True
 
     async def classeur():
@@ -444,38 +468,10 @@ def test_route_posts_decouverte_et_utilisee(monkeypatch):
     monkeypatch.setattr(pilotage, "_ecrire", ecrire)
     monkeypatch.setattr(paie_clics, "_classeur_usage", classeur)
     I._jour.update({"jour": "", "n": 0, "restant": None})
-    bilan = asyncio.run(I.passage_complet(None))
-    d = store["d"]
-    assert d["etat"]["route_posts"]["chemin"] == "/ig/user_posts/" and d["etat"]["route_posts"]["param"] == "end_cursor"
-    assert d["comptes"]["k1"]["route"] == "posts" and bilan["routes_posts"] == 1
-    codes = set(d["reels"]["k1"])
-    assert {"P0", "P11", "P9"} <= codes and "PHOTO" not in codes and "PH" not in codes      # vidéos seules, page 2 incluse
-    appels.clear()
     asyncio.run(I.passage_complet(None))
-    assert not any(c == I.API["reels"][0] for c, _ in appels) and any(c == "/ig/user_posts/" for c, _ in appels)
-
-
-def test_route_posts_temoin_et_erreur_passagere(monkeypatch):
-    import asyncio
-    store = {"etat": {"route_posts": {"aucune": "2026-10-22T09:55:00+00:00"}}}     # ancien « aucune » : ignoré
-    appels = []
-
-    async def appeler(session, chemin, params):
-        appels.append((chemin, dict(params)))
-        if chemin != "/ig/posts/":
-            return 404, {"message": f"Endpoint '{chemin}' does not exist"}
-        if params.get("id_user") == "1" or params.get("user") == "cassé":
-            return 503, {"status": "error", "message": "Temporary upstream error"}
-        return 200, {"items": [{"code": "V1", "taken_at": 1761134400, "media_type": 2}]}
-
-    async def rien(*a, **k):
-        return None
-    monkeypatch.setattr(I, "appeler", appeler)
-    monkeypatch.setattr(asyncio, "sleep", rien)
-    I._jour.update({"jour": "", "n": 0, "restant": None})
-    rp = asyncio.run(I.decouvrir_route_posts(None, store, "1", "cassé", ("2", "temoin")))
-    assert rp["chemin"] == "/ig/posts/" and rp["forme"] == "id_user"
-    assert sum(1 for c, p in appels if c == "/ig/posts/" and p.get("id_user") == "1") == 3      # 3 essais sur l'erreur passagère
-    store2 = {}
-    rp2 = asyncio.run(I.decouvrir_route_posts(None, store2, "1", "cassé", None))
-    assert "passager" in rp2 and "aucune2" not in rp2
+    d = store["d"]
+    assert pages == [None, "P2", "P3"] and d["etat"]["pagination_v"] == I.PAGINATION_V and "route_posts" not in d["etat"]
+    assert d["comptes"]["k1"]["rattrapage_j"] == 180 and "route" not in d["comptes"]["k1"] and d["etat"]["dernier_rattrapage"]["fini"]
+    pages.clear()
+    asyncio.run(I.passage_complet(None))                                  # version déjà appliquée : suivi léger (15 jours)
+    assert pages == [None, "P2"]

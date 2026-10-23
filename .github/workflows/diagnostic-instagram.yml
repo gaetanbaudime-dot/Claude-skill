@@ -9,6 +9,14 @@ on:
         description: "Comptes à tester (séparés par des virgules ; vide = la liste par défaut)"
         required: false
         default: ""
+      facons:
+        description: "Façons à tester (A, B, C, D ; B = celle du suivi corrigé)"
+        required: false
+        default: "A,B,C,D"
+      pages:
+        description: "Pages au plus par compte et par façon (12 Reels par page)"
+        required: false
+        default: "15"
 
 concurrency:
   group: suivi-instagram
@@ -45,3 +53,5 @@ jobs:
           SUIVI_FICHIER: donnees_ci/instagram.json
           RAPIDAPI_QUOTA_JOUR: "8000"
           DIAG_COMPTES: ${{ github.event.inputs.comptes }}
+          DIAG_FACONS: ${{ github.event.inputs.facons }}
+          DIAG_PAGES: ${{ github.event.inputs.pages }}
