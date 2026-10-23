@@ -2621,6 +2621,8 @@ def _etape_parcours(ctx: _Ctx, uid: str) -> str:
         if a:
             n, quand = a
             quand = quand if quand.tzinfo else quand.replace(tzinfo=timezone.utc)
+            if P.simple(f):                                               # 23/10 : 48 h seulement, aucun Reel à compter
+                return f"compte {n} le {_paris(quand):%d/%m}" if ctx.maintenant < quand else f"compte {n} : s'ouvre"
             bloque = P._bloque_sources(str(uid), f, n)
             if bloque:
                 return f"⚠ bloqué : compte {bloque} BAN"

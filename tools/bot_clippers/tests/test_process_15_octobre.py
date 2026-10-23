@@ -46,7 +46,7 @@ class ProcessTests(unittest.TestCase):
                 self.assertEqual('', ns['decider'](etat, {'existe': existe}, [{'existe': False}] * 100, True))
 
     def test_paliers_comptes_distincts_et_reels_uniques(self):
-        ns = fonctions('parcours.py', ['sources_reels', 'reels_detail', 'reels_pour'], {
+        ns = fonctions('parcours.py', ['simple', 'sources_reels', 'reels_detail', 'reels_pour'], {
             'process_clippeur': regles, 'datetime': datetime, 'timezone': timezone,
             '_date_creation': lambda f, n: datetime(2026, 10, 1, tzinfo=timezone.utc),
             'ordre': lambda f: f.get('ordre', 'prive3'),
@@ -62,7 +62,7 @@ class ProcessTests(unittest.TestCase):
         self.assertEqual(0, ns['reels_pour']('42', f, 3))
 
     def test_ancien_delai_ne_retarde_pas_le_palier(self):
-        ns = fonctions('parcours.py', ['_a_traiter'], {})
+        ns = fonctions('parcours.py', ['simple', '_a_traiter'], {})
         self.assertTrue(ns['_a_traiter']({}, {'type': 'etape', 'n': 3, 'quand': '2099-01-01'}, None))
 
     def test_remplacement_sans_aucun_effet(self):

@@ -36,5 +36,10 @@
     "pour": "Esperance",
     "lien_nouveau": true,
     "texte": "Salut Esperance !\n\nVoici ton lien : {lien}\n\nMets-le dans la bio de ton compte privé.\n\nTa bio a encore chloe-callista.fr/13 ? Remplace-le par celui-ci.\n\nUn souci ? Écris-le ici, dans ton salon."
+  },
+  {
+    "id": "annonce-arrivee-2310",
+    "salon": "#annonces",
+    "texte": "📢 **Les nouveaux arrivants : un seul message**\n\nLe clipper reçoit un seul message dans son salon perso.\n\nIl dit bienvenue et donne la créatrice avec ses vidéos.\n\nPuis il donne le compte 1.\n\nLes comptes se suivent simplement.\n\nCompte 2 : 48 h après la création du compte 1.\n\nCompte 3 : 48 h après la création du compte 2.\n\nAucun Reel à compter pour les ouvrir.\n\nLe lien arrive avec le compte 3, le privé. Il va dans la bio.\n\nLes autres comptes y mènent en story à la une.\n\n👥 **Pour les TL**\n\nLe bot vous mentionne dans le salon du nouveau.\n\nIl affiche son numéro WhatsApp.\n\nCréez le groupe avec lui et Gaëtan.\n\nCeux déjà dans l'agence gardent leur règle actuelle."
   }
 ]

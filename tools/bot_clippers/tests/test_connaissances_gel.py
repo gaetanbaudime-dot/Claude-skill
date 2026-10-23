@@ -79,7 +79,8 @@ class AnciennesReglesRefuseesTests(unittest.TestCase):
                 contexte = ligne[max(0, m.start() - 70): m.end() + 70]
                 permis = ("aucun délai de 48 h" in contexte or "plus de délai de 48 h" in contexte
                           or "délai de 48 h est retiré" in contexte or "pour répondre" in contexte
-                          or "48 h après la remise de ton compte 1" in contexte or "48 h après l'avertissement" in contexte)   # L6
+                          or "48 h après la remise de ton compte 1" in contexte or "48 h après l'avertissement" in contexte   # L6
+                          or "48 h après la création" in contexte)                                # 23/10 : compte 2 et 3 des nouveaux arrivants
                 self.assertTrue(permis, f"ligne {numero} : « {contexte} »")
 
 
@@ -88,6 +89,11 @@ class ReglesDu2310EcritesTests(unittest.TestCase):
         ("4 Reels sont publiés sur le compte 1", "C4 : compte 2 dès 4 Reels sur le compte 1"),
         ("4 Reels sont publiés sur le compte 2", "C5 : compte 3 dès 4 Reels sur le compte 2"),
         ("Aucun délai en plus", "C4 : aucun délai en plus"),
+        ("48 h après la création de ton compte 1", "23/10 (arrivées simplifiées) : compte 2 48 h après la création du compte 1"),
+        ("48 h après la création de ton compte 2", "23/10 (arrivées simplifiées) : compte 3 48 h après la création du compte 2"),
+        ("Bienvenue dans l'agence", "23/10 : un seul message d'arrivée"),
+        ("Il y voit ton numéro", "23/10 : le TL voit le numéro du clipper pour créer le groupe"),
+        ("Arrivé avant le 23 octobre 2026", "23/10 : les anciens gardent leurs 4 Reels"),
         ("au jour 3", "C11 : l'app au jour 3"),
         ("duplicateur de Reels", "C11 : le duplicateur est dans l'app"),
         ("rushes bruts", "C11 : rushes bruts seulement"),
