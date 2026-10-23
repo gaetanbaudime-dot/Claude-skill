@@ -538,3 +538,13 @@ def test_premier_passage_de_la_correction_relit_tout(monkeypatch):
     pages.clear()
     asyncio.run(I.passage_complet(None))                                  # version déjà appliquée : suivi léger (15 jours)
     assert pages == [None, "P2"]
+
+
+def test_publications_jamais_sous_les_reels_connus():
+    T0 = datetime(2026, 10, 23, 6, 0, tzinfo=timezone.utc)
+    suivis = [{"handle": "k1", "creatrice": "Sarah", "gerant": "Yves", "type": "Clipper"}]
+    reels = {f"R{k}": {"publie": (T0 - timedelta(days=k)).isoformat(), "vues": 10} for k in range(16)}
+    store = {"comptes": {"k1": {"suivi": [["t", 156, 1]], "reels_le": "x"}}, "reels": {"k1": reels}}
+    assert I.lignes_comptes(suivis, store, T0)[0][9] == "16"
+    store["comptes"]["k1"]["suivi"] = [["t", 156, 40]]
+    assert I.lignes_comptes(suivis, store, T0)[0][9] == "40"
