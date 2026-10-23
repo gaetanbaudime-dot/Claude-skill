@@ -243,6 +243,8 @@ async def liens_gaml() -> list:
     """Conserve les pages lues ; seule une page vide prouve la fin de pagination.
     Une page répétée ou malformée laisse l'inventaire incomplet : son absence ne
     prouve ni la suppression d'un lien ni la disponibilité d'une capacité.
+    23/10 : un inventaire incomplet dit POURQUOI dans le journal (avertissement « Inventaire GAML incomplet : … »), car il bloque toute
+    création de lien (compte 3, cohorte, lien déposé).
     """
     def _lot(r):
         lot = r if isinstance(r, list) else None
