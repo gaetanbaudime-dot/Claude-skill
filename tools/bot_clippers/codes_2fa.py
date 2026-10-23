@@ -147,7 +147,8 @@ def aide_instagram(cas="") -> str:
                      "S'il existe déjà, choisis « Se connecter ».\n"
                      "2. Si Instagram demande un code envoyé par e-mail, " + texte_salon_codes() + "\n"
                      "3. Saisis le dernier code de création du bon compte. Une vérification personnelle demandée par Meta "
-                     "revient au titulaire. Ne crée pas de compte pour éviter une suspension."),
+                     "revient au titulaire. Après une suspension, ne crée pas de compte de remplacement : fais appel (Fiche 6). "
+                     "Les comptes de ton parcours se créent normalement, un à la fois, avec les identifiants de l'agence."),
         "connexion": ("🔑 **Se connecter**\n\n"
                       "1. Utilise les accès du compte déjà attribué.\n"
                       "2. Lis le moyen demandé par Instagram : e-mail, application d'authentification, SMS ou WhatsApp.\n"
