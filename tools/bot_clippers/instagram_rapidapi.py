@@ -41,11 +41,12 @@ FOURNISSEURS = {
               "id": ("/ig/user_id/", lambda h: {"user": h}),
               "profil": ("/ig/info/", lambda i: {"id_user": i}),
               "reels": ("/ig/reels_posts/", lambda i, cur, n: {"id_user": i, **({"max_id": cur} if cur else {})}),
-              # 22/10 (Gaëtan : itschloe.douceur et itsvanlifesophie ont des dizaines de Reels, le relevé en voyait 12-16) : pour
-              # certains comptes, /ig/reels_posts/ s'arrête sans page suivante. Route de secours : les publications du compte
-              # (toutes, filtrées sur les vidéos). Le chemin exact est découvert une fois parmi ces candidats, puis mémorisé.
-              # 22/10 : seul /ig/posts/ existe (les autres : « does not exist ») ; il a répondu « Temporary upstream error ».
-              "posts_candidats": ["/ig/posts/", "/ig/user_posts/", "/ig/medias/", "/ig/feed/", "/ig/clips/"]},
+              # 23/10 (diagnostic IG · Diagnostic, 7 comptes × 4 façons) : FlashAPI fait tourner ses propres comptes Instagram et
+              # le curseur de page suivante (max_id) n'est valable que sur le compte qui a servi la page. Rejoué sur un autre, la
+              # page 2 revient vide (« message ») : le relevé s'arrêtait à 12 Reels. Renvoyer pagination.id_acc de la page
+              # précédente garde le même compte : 12 → 180 Reels en 15 pages sur le compte le plus actif, 57 sur 57 de
+              # Metricool sur un autre. /ig/posts/ ne tourne pas les pages (même page renvoyée) : route abandonnée.
+              "compte_page": "id_acc"},
     "looter": {"hote": "instagram-looter2.p.rapidapi.com",
                "id": ("/id", lambda h: {"username": h}),
                "profil": ("/profile", lambda i: {"id": i}),
@@ -61,16 +62,21 @@ PASSAGES_HEURES = [int(x) for x in os.environ.get("RAPIDAPI_PASSAGES", "7,14,21"
 HISTORIQUE_CREATRICE_J = int(os.environ.get("RAPIDAPI_HISTORIQUE_J", "365") or 365)
 PAGES_HISTORIQUE = int(os.environ.get("RAPIDAPI_PAGES_HISTORIQUE", "25") or 25)
 FENETRE_RELUE_J = int(os.environ.get("RAPIDAPI_FENETRE_J", "15") or 15)   # chaque passage relit les Reels de 15 j (vues à jour)
-PAGES_FENETRE = int(os.environ.get("RAPIDAPI_PAGES_FENETRE", "4") or 4)    # 12 Reels par page : 4 pages = 48 Reels au plus
+# 23/10 : les comptes les plus actifs publient 5 Reels par jour (79 Reels en 15 jours pour le plus actif) : 8 pages = 96 Reels.
+# La relecture s'arrête dès qu'une page dépasse la fenêtre : un petit compte ne coûte qu'une page.
+PAGES_FENETRE = int(os.environ.get("RAPIDAPI_PAGES_FENETRE", "8") or 8)
 # 22/10 (Gaëtan : « les vues d'un Reel montent pendant 45 jours ») : une fois par jour (1er passage, heure de Paris), la relecture
 # remonte à 45 jours pour mettre à jour les vues des Reels plus anciens ; les deux autres passages restent à 15 jours.
 FENETRE_LONGUE_J = int(os.environ.get("RAPIDAPI_FENETRE_LONGUE_J", "45") or 45)
-PAGES_LONGUE = int(os.environ.get("RAPIDAPI_PAGES_LONGUE", "12") or 12)
+PAGES_LONGUE = int(os.environ.get("RAPIDAPI_PAGES_LONGUE", "20") or 20)     # 45 jours : 240 Reels au plus
 GARDE_REELS_J = int(os.environ.get("RAPIDAPI_GARDE_J", "180") or 180)   # Reels des clippers gardés en mémoire (archive 180 j)
 # 22/10 (Gaëtan : « un gros backup des 90, 180 derniers jours ») : rattrapage lancé une fois (workflow, champ « rattrapage_jours »),
 # repris de passage en passage jusqu'à ce que chaque compte ait été relu sur RATTRAPAGE_J jours, puis le suivi léger reprend.
 RATTRAPAGE_J = int(os.environ.get("RAPIDAPI_RATTRAPAGE_J", "0") or 0)
 PAGES_RATTRAPAGE = int(os.environ.get("RAPIDAPI_PAGES_RATTRAPAGE", "60") or 60)   # 12 Reels par page : 720 Reels au plus
+# 23/10 : tout ce qui a été relu avant la correction du curseur (id_acc) est incomplet : au premier passage de cette version,
+# chaque compte est relu une fois sur GARDE_REELS_J jours (365 pour l'historique des créatrices), par le rattrapage habituel.
+PAGINATION_V = 2
 BUDGET_MIN = float(os.environ.get("SUIVI_BUDGET_MIN", "0") or 0)       # durée max d'un passage (0 : sans limite)
 ESSAIS = 2                                                              # 1 nouvel essai sur 429, 5xx ou délai dépassé
 PAUSE = float(os.environ.get("RAPIDAPI_PAUSE", "0.4") or 0.4)
@@ -79,7 +85,7 @@ ONGLET_COMPTES, ONGLET_REELS, ONGLET_TOP = "IG · Comptes", "IG · Reels", "IG �
 ONGLET_ARCHIVE, ONGLET_PASSAGES = "IG · Archive Reels", "IG · Passages"
 ENTETE_PASSAGES = ["Début (UTC)", "Durée (min)", "Comptes", "Profils relus", "Reels relus", "Pages lues", "Pages en échec",
                    "Requêtes", "Quota restant", "Rattrapage", "Arrêt", "Fenêtre relue",
-                   "Page pleine sans suite (pagination)", "Comptes relus par leurs publications",
+                   "Page pleine sans suite (pagination)", "Curseur perdu (page suivante vide)",
                    "Metricool (Reels officiels)"]
 ENTETE_COMPTES = ["Créatrice", "Gérant", "Type", "@", "ID Instagram", "Statut", "Followers", "Δ 24 h", "Δ 7 j", "Publications",
                   "Reels 24 h", "Reels 7 j", "Reels 15 j", "Reels 30 j", "Reels 60 j", "Vues 7 j", "Vues 15 j", "Vues 30 j",
@@ -90,7 +96,7 @@ ETATS_VIVANTS = ("good", "prive", "privé", "private")
 
 _deps = {}
 _jour = {"jour": "", "n": 0, "restant": None}
-_diag = {"pages": 0, "echecs": {}, "sans_suite": {}}                                      # pages de Reels lues et refusées (code → nombre) par passage
+_diag = {"pages": 0, "echecs": {}, "sans_suite": {}, "curseur_perdu": {}}                                      # pages de Reels lues et refusées (code → nombre) par passage
 _echantillons_faits = set()
 _verrou = None
 
@@ -520,25 +526,58 @@ async def relire_profil(session, store: dict, handle: str, maintenant: datetime)
     return True
 
 
-async def relire_reels(session, store: dict, handle: str, maintenant: datetime, jusqu_a=None, pages: int = 1, route: str = "reels") -> list:
+def compte_page(corps):
+    """Pur : le compte FlashAPI qui a servi la page (pagination.id_acc), à renvoyer avec le curseur de la page suivante."""
+    pag = corps.get("pagination") if isinstance(corps, dict) else None
+    v = pag.get("id_acc") if isinstance(pag, dict) else None
+    return None if v in (None, "") else str(v)
+
+
+def curseur_mort(code: int, corps) -> bool:
+    """Pur : réponse 200 sans aucun média ni page suivante, avec un message : le curseur n'a pas été reconnu."""
+    return code == 200 and isinstance(corps, dict) and not _medias(corps) and "message" in corps and not corps.get("paging_info")
+
+
+def a_des_reels(store: dict, handle: str) -> bool:
+    """Pur : le compte a déjà des Reels connus ou annonce des publications (une page 1 vide est alors suspecte)."""
+    if (store.get("reels") or {}).get(handle):
+        return True
+    suivi = ((store.get("comptes") or {}).get(handle) or {}).get("suivi") or []
+    return bool(suivi and len(suivi[-1]) > 2 and (suivi[-1][2] or 0) > 0)
+
+
+async def relire_reels(session, store: dict, handle: str, maintenant: datetime, jusqu_a=None, pages: int = 1) -> list:
     """Reels du compte (pages successives jusqu'à la date `jusqu_a` ou `pages` pages) ; [] si rien n'a pu être lu.
-    route « posts » : les publications du compte (route découverte, voir decouvrir_route_posts), vidéos seulement."""
+    Chaque page suivante est demandée avec le curseur ET le compte FlashAPI de la page précédente (voir FOURNISSEURS)."""
     i = await identifiant(session, store, handle)
     if not i:
         return []
-    rp = (store.get("etat") or {}).get("route_posts") or {}
-    if route == "posts" and not rp.get("chemin"):
-        return []
-    tous, curseur, lu, fin_api = [], None, False, False
+    tous, curseur, acc, lu, fin_api = [], None, None, False, False
+    chemin, fabrique = API["reels"]
     for _ in range(max(1, pages)):
-        if route == "posts":
-            chemin = rp["chemin"]
-            forme = rp.get("forme") or "id_user"
-            params = {forme: i if forme == "id_user" else handle, **({rp.get("param") or "max_id": curseur} if curseur else {})}
-        else:
-            chemin, fabrique = API["reels"]
-            params = fabrique(i, curseur, 12 if pages == 1 else 50)
+        params = fabrique(i, curseur, 12 if pages == 1 else 50)
+        if curseur and acc and API.get("compte_page"):
+            params[API["compte_page"]] = acc
         code, corps = await appeler(session, chemin, params)
+        if not curseur and code == 200 and isinstance(corps, dict) and not _medias(corps) and a_des_reels(store, handle):
+            # 23/10 (diagnostic) : une page 1 vide sans suite, sur des comptes lus 2 heures plus tôt (FlashAPI tombe sur un
+            # compte qui ne voit rien). Deux essais de plus ; toujours vide : le compte n'est pas compté comme relu.
+            for _essai in range(2):
+                await asyncio.sleep(2)
+                code, corps = await appeler(session, chemin, params)
+                if code != 200 or not isinstance(corps, dict) or _medias(corps):
+                    break
+            if code == 200 and isinstance(corps, dict) and not _medias(corps):
+                _diag["curseur_perdu"][handle] = {"page": 1, "acc": compte_page(corps), "message": "page 1 vide (3 essais)"}
+                journal.info("Reels de %s : page 1 vide trois fois, compte laissé à relire", handle)
+                break
+        if curseur and curseur_mort(code, corps):
+            await asyncio.sleep(2)                                       # un essai de plus avant de conclure
+            code, corps = await appeler(session, chemin, params)
+            if curseur_mort(code, corps):
+                _diag["curseur_perdu"][handle] = {"page": len(tous) // 12 + 1, "acc": acc, "message": str(corps.get("message"))[:120]}
+                journal.info("Reels de %s : curseur perdu après %s Reels (%s)", handle, len(tous), str(corps)[:160])
+                break
         if code != 200:
             cle = str(code or "réseau")
             _diag["echecs"][cle] = _diag["echecs"].get(cle, 0) + 1
@@ -546,111 +585,22 @@ async def relire_reels(session, store: dict, handle: str, maintenant: datetime, 
             break
         lu = True
         _diag["pages"] += 1
-        reels, curseur = lire_reels(corps, videos_seules=(route == "posts"))
+        reels, curseur = lire_reels(corps)
+        acc = compte_page(corps) or acc
         if not curseur and len(reels) >= 12 and isinstance(corps, dict):
             # 22/10 : des comptes très actifs s'arrêtaient à 12 Reels sans page refusée : l'API ne donne pas de page suivante.
-            _diag["sans_suite"][handle] = {"route": route, "cles": sorted(corps.keys())[:12], "paging": corps.get("paging_info"),
-                                           "plus": corps.get("more_available"), "suivant": corps.get("next_max_id")}
+            _diag["sans_suite"][handle] = {"cles": sorted(corps.keys())[:12], "paging": corps.get("paging_info")}
         tous += reels
         if not curseur:
             fin_api = True
-            store.setdefault("comptes", {}).setdefault(handle, {})["fin_pleine"] = len(reels) >= 12
-        if not curseur or (not reels and route == "reels") or (jusqu_a and reels and plus_ancien(reels) < jusqu_a) or not _quota_ok(RESERVE):
+        if not curseur or not reels or (jusqu_a and plus_ancien(reels) < jusqu_a) or not _quota_ok(RESERVE):
             break
-    store.setdefault("comptes", {}).setdefault(handle, {})["fin_api"] = fin_api
     e = store.setdefault("comptes", {}).setdefault(handle, {})
+    e["fin_api"] = fin_api
     if lu:
         store.setdefault("reels", {})[handle] = fusionner_reels(store.get("reels", {}).get(handle), tous, maintenant)
         e["reels_le"] = maintenant.isoformat(timespec="seconds")
     return tous
-
-
-def sous_compte(e: dict, reels_compte: dict, maintenant: datetime = None) -> bool:
-    """Pur : la route Reels s'est arrêtée d'elle-même (sans page suivante) et le relevé a l'air incomplet : on passe ce compte
-    sur la route des publications. Trois signes (un seul suffit) : nettement moins de Reels que de publications ; une page pleine
-    sans suite ; un compte très actif (10 Reels ou plus) dont aucun Reel n'a plus de 3 semaines (le nombre de publications
-    annoncé par l'API est parfois faux : 1 pour un compte qui a 14 Reels)."""
-    if not e.get("fin_api") or e.get("statut") == "privé":
-        return False
-    maintenant = maintenant or datetime.now(timezone.utc)
-    suivi = e.get("suivi") or []
-    pubs = suivi[-1][2] if suivi and len(suivi[-1]) > 2 and suivi[-1][2] is not None else None
-    n = len(reels_compte or {})
-    if pubs is not None and pubs >= 20 and n < pubs * 0.5:
-        return True
-    if e.get("fin_pleine"):
-        return True
-    dates = [d for d in (_instant(r.get("publie")) for r in (reels_compte or {}).values()) if d]
-    return n >= 10 and bool(dates) and min(dates) > maintenant - timedelta(days=21)
-
-
-async def _essai_route(session, chemin: str, params: dict, essais: int = 3) -> tuple:
-    """(code, corps) d'un chemin candidat ; une erreur passagère (5xx, « Temporary upstream error ») est réessayée."""
-    code, corps = 0, None
-    for k in range(essais):
-        code, corps = await appeler(session, chemin, params)
-        if code not in (0, 429, 500, 502, 503, 504):
-            break
-        await asyncio.sleep(5 * (k + 1))
-    return code, corps
-
-
-async def decouvrir_route_posts(session, store: dict, i: str, handle: str = "", temoin: tuple = None) -> dict:
-    """Trouve la route des publications : chemins candidats × formes de paramètre (ID ou @), sur le compte visé puis, s'il ne
-    répond pas, sur un compte témoin qui marche (`temoin` = (ID, @)). Garde le premier qui renvoie des médias et le nom du
-    paramètre de page suivante. Mémorisé dans store['etat']['route_posts'] ; {'aucune': date} seulement si tous les chemins
-    répondent « n'existe pas » (réessai à 7 jours) ; une erreur passagère est retentée au passage suivant."""
-    etat = store.setdefault("etat", {})
-    rp = etat.get("route_posts") or {}
-    if rp.get("chemin"):
-        return rp
-    if rp.get("aucune2"):
-        try:
-            if datetime.now(timezone.utc) - datetime.fromisoformat(rp["aucune2"]) < timedelta(days=7):
-                return rp
-        except (ValueError, TypeError):
-            pass
-    cibles = [(i, handle)] + ([temoin] if temoin and temoin[0] and str(temoin[0]) != str(i) else [])
-    passager = False
-    for chemin in API.get("posts_candidats") or []:
-        for (ci, ch) in cibles:
-            for forme in ("id_user", "user"):
-                if not _quota_ok(RESERVE):
-                    return rp
-                valeur = ci if forme == "id_user" else ch
-                if not valeur:
-                    continue
-                code, corps = await _essai_route(session, chemin, {forme: valeur})
-                if code == 404 and introuvable(code, corps) and "does not exist" in str(corps):
-                    break                                                    # le chemin n'existe pas : candidat suivant
-                if code != 200:
-                    passager = passager or code in (0, 429, 500, 502, 503, 504)
-                    continue
-                p1, cur = lire_reels(corps)
-                if not p1 and not _medias(corps):
-                    continue
-                trouve = {"chemin": chemin, "forme": forme, "param": None, "trouve_le": datetime.now(timezone.utc).isoformat(timespec="seconds")}
-                if cur:
-                    codes1 = {r["code"] for r in p1}
-                    for param in ("max_id", "end_cursor", "next_max_id", "cursor"):
-                        c2, corps2 = await _essai_route(session, chemin, {forme: valeur, param: cur})
-                        p2, _ = lire_reels(corps2) if c2 == 200 else ([], None)
-                        if p2 and not {r["code"] for r in p2} <= codes1:
-                            trouve["param"] = param
-                            break
-                etat["route_posts"] = trouve
-                journal.info("Route des publications trouvée : %s ?%s= (page suivante : %s)", chemin, forme, trouve["param"])
-                return trouve
-            else:
-                continue
-            break
-    if passager:
-        etat["route_posts"] = {"passager": datetime.now(timezone.utc).isoformat(timespec="seconds")}
-        journal.warning("Route des publications : erreurs passagères, réessai au passage suivant")
-    else:
-        etat["route_posts"] = {"aucune2": datetime.now(timezone.utc).isoformat(timespec="seconds")}
-        journal.warning("Aucune route des publications ne répond parmi %s", API.get("posts_candidats"))
-    return etat["route_posts"]
 
 
 # ------------------------------------------------------------------ 1. parcours : ouvrir le compte suivant
@@ -727,17 +677,9 @@ def metricool_texte(b) -> str:
     return " · ".join(morceaux)
 
 
-def route_posts_texte(store: dict, comptes: list) -> str:
-    """Pur : l'état de la route de secours (publications) pour le journal des passages."""
-    rp = (store.get("etat") or {}).get("route_posts") or {}
-    if rp.get("aucune2"):
-        return "aucune route des publications ne répond (réessai dans 7 jours)"
-    if rp.get("passager"):
-        return "route des publications : erreur passagère de l'API, réessai au passage suivant"
-    if not rp.get("chemin"):
-        return ""
-    hs = sorted(c["handle"] for c in comptes if ((store.get("comptes") or {}).get(c["handle"]) or {}).get("route") == "posts")
-    return f"{rp['chemin']} (page suivante : {rp.get('param') or 'aucune'}) : {len(hs)} compte(s) : " + ", ".join(hs)
+def curseur_texte(perdus: dict) -> str:
+    """Pur : les comptes dont la page suivante est revenue vide malgré le curseur (à surveiller)."""
+    return " ; ".join(f"{h} (page {v.get('page')}, {v.get('message')})" for h, v in sorted((perdus or {}).items()))[:4000]
 
 
 def lignes_passages(passages: list) -> list:
@@ -750,7 +692,7 @@ def lignes_passages(passages: list) -> list:
                     str(b.get("requetes", "")), "" if b.get("quota_restant") is None else str(b["quota_restant"]),
                     b.get("rattrapage", ""), b.get("arret", ""), b.get("fenetre", ""),
                     " ; ".join(f"{h} {json.dumps(v, ensure_ascii=False)[:160]}" for h, v in (b.get("sans_suite") or {}).items())[:4000],
-                    b.get("route_posts", ""), b.get("metricool", "")])
+                    b.get("curseur_perdu", ""), b.get("metricool", "")])
     return out
 
 
@@ -764,11 +706,20 @@ async def passage_complet(session) -> dict:
     etat = store.setdefault("etat", {})
     if RATTRAPAGE_J and int((etat.get("rattrapage") or {}).get("jours") or 0) != RATTRAPAGE_J:
         etat["rattrapage"] = {"jours": RATTRAPAGE_J, "depuis": maintenant.isoformat(timespec="seconds")}
+    if etat.get("pagination_v") != PAGINATION_V:
+        if store.get("comptes"):                                         # relevés d'avant la correction : tout relire une fois
+            for e in store["comptes"].values():
+                for k in ("rattrapage_j", "historique_v2", "route", "fin_pleine"):
+                    e.pop(k, None)
+            etat["rattrapage"] = {"jours": max(GARDE_REELS_J, RATTRAPAGE_J), "depuis": maintenant.isoformat(timespec="seconds"),
+                                  "motif": "curseur FlashAPI corrigé (id_acc)"}
+        etat.pop("route_posts", None)
+        etat["pagination_v"] = PAGINATION_V
     jours_r = int((etat.get("rattrapage") or {}).get("jours") or 0)
     jour_paris = _paris(maintenant).date().isoformat()
     longue = bool(FENETRE_LONGUE_J) and etat.get("fenetre_longue_le") != jour_paris
     fenetre_j, fenetre_p = (FENETRE_LONGUE_J, PAGES_LONGUE) if longue else (FENETRE_RELUE_J, PAGES_FENETRE)
-    _diag.update({"pages": 0, "echecs": {}, "sans_suite": {}})
+    _diag.update({"pages": 0, "echecs": {}, "sans_suite": {}, "curseur_perdu": {}})
     n0 = _jour["n"]
     # comptes déjà rattrapés d'abord (suivi léger garanti), le rattrapage remplit le temps qui reste
     comptes_ordre = sorted(comptes, key=lambda c: a_rattraper((store.get("comptes") or {}).get(c["handle"]) or {}, jours_r))
@@ -795,22 +746,7 @@ async def passage_complet(session) -> dict:
         else:
             jours, pages = fenetre_j, fenetre_p
         depuis = maintenant - timedelta(days=jours)
-        route = "posts" if e.get("route") == "posts" and ((etat.get("route_posts") or {}).get("chemin")) else "reels"
-        reels = await relire_reels(session, store, h, maintenant, jusqu_a=depuis, pages=pages, route=route)
-        if route == "posts" and e.get("reels_le") != maintenant.isoformat(timespec="seconds"):
-            # la route des publications n'a pas répondu pour ce compte : la route Reels, même incomplète, garde les nouveautés
-            reels = await relire_reels(session, store, h, maintenant, jusqu_a=depuis, pages=pages, route="reels")
-        if route == "reels" and sous_compte(e, (store.get("reels") or {}).get(h), maintenant) and _quota_ok(RESERVE):
-            temoin = next(((x.get("id"), hx) for hx, x in (store.get("comptes") or {}).items()
-                           if x.get("id") and not x.get("fin_api") and x.get("statut") == "public" and hx != h), None)
-            rp = await decouvrir_route_posts(session, store, e.get("id"), h, temoin)
-            if rp.get("chemin"):
-                plus = await relire_reels(session, store, h, maintenant, jusqu_a=maintenant - timedelta(days=max(jours, GARDE_REELS_J)),
-                                          pages=max(pages, PAGES_RATTRAPAGE), route="posts")
-                if plus:
-                    e["route"] = "posts"                                   # ce compte passe sur les publications, pour de bon
-                    bilan["routes_posts"] = bilan.get("routes_posts", 0) + 1
-                    reels = reels + plus
+        reels = await relire_reels(session, store, h, maintenant, jusqu_a=depuis, pages=pages)
         if reels:
             bilan["reels"] += 1
             if historique:
@@ -844,7 +780,7 @@ async def passage_complet(session) -> dict:
         "requetes": bilan["requetes"], "quota_restant": _jour["restant"],
         "rattrapage": (f"{jours_r} j : {restants} compte(s) restant(s)" if restants else f"{jours_r} j : fini") if jours_r else "",
         "arret": "quota" if bilan["arret_quota"] else "temps" if bilan["arret_temps"] else "", "fenetre": f"{fenetre_j} j", "sans_suite": dict(_diag["sans_suite"]),
-        "route_posts": route_posts_texte(store, comptes), "metricool": metricool_texte(bilan.get("metricool"))})
+        "curseur_perdu": curseur_texte(_diag["curseur_perdu"]), "metricool": metricool_texte(bilan.get("metricool"))})
     etat["passages"] = etat["passages"][-90:]
     _sauver(store)
     try:

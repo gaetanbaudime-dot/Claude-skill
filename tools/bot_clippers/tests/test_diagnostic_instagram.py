@@ -29,3 +29,13 @@ def test_tourner_avec_et_sans_id_acc(monkeypatch):
     _, vus_b, dans_b = asyncio.run(D.tourner(None, "1", "reels", True, maintenant - timedelta(days=60)))
     assert len(vus_a) == 12 and len(vus_b) == 24 and len(dans_b) == 24
     assert appels[-1] == {"id_user": "1", "max_id": "C1", "id_acc": 7}
+
+
+def test_ecart_avec_metricool():
+    depuis = datetime(2026, 9, 1, tzinfo=timezone.utc)
+    v = D.lire_verite([["@", "Code", "Lien", "Publié le"], ["Sophie1", "A", "", "2026-09-15T08:00:00Z"],
+                       ["sophie1", "B", "", "2026-09-14T08:00:00Z"], ["sophie1", "VIEUX", "", "2026-08-01T08:00:00Z"]], depuis)
+    assert v == {"sophie1": {"A": "2026-09-15T08:00", "B": "2026-09-14T08:00"}}
+    n = D.note_ecart({"A", "Z"}, v["sophie1"])
+    assert n == " · Metricool : 2 · manquants : 1 (B (2026-09-14)) · en plus de Metricool : 1"
+    assert D.note_ecart({"A"}, {}) == ""

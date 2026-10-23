@@ -15,6 +15,10 @@ Un curseur rejoué sur un autre compte de FlashAPI peut ne rien donner. On teste
 Chaque page est notée dans l'onglet « IG · Diagnostic » (code HTTP, Reels de la page, nouveaux, cumul, dates, more_available,
 curseur, id_acc, clés de la réponse), puis une ligne de synthèse par compte et par façon, à côté du nombre de Reels vu par
 Metricool sur la même fenêtre. Aucune donnée du suivi n'est modifiée. Environ 400 requêtes au plus.
+
+Résultat du 23/10 : B gagne partout (12 → 180 Reels sur le compte le plus actif, 57 sur 57 de Metricool sur un autre) ; A s'arrête
+dès que FlashAPI change de compte ; C et D renvoient toujours la même page. DIAG_FACONS choisit les façons (« B » seul pour
+contrôler le suivi corrigé) ; la synthèse liste alors les Reels que Metricool voit et l'API non (codes et dates), et l'inverse.
 """
 
 import asyncio
@@ -35,8 +39,10 @@ COMPTES = [h.strip().lower() for h in (os.environ.get("DIAG_COMPTES") or "itsvan
 PAGES = int(os.environ.get("DIAG_PAGES", "15") or 15)
 JOURS = int(os.environ.get("DIAG_JOURS", "60") or 60)
 FICHIER = Path(os.environ.get("SUIVI_FICHIER", "donnees_ci/instagram.json"))
-VARIANTES = [("A reels max_id", "reels", False), ("B reels max_id+id_acc", "reels", True),
+TOUTES = [("A reels max_id", "reels", False), ("B reels max_id+id_acc", "reels", True),
              ("C posts max_id", "posts", False), ("D posts max_id+id_acc", "posts", True)]
+FACONS = [f.strip().upper() for f in (os.environ.get("DIAG_FACONS") or "A,B,C,D").split(",") if f.strip()]
+VARIANTES = [v for v in TOUTES if v[0][0] in FACONS]
 ENTETE = ["Compte", "Façon", "Page", "Code HTTP", "Reels page", "Nouveaux", "Cumul", "Plus ancien", "Plus récent",
           "more_available", "Curseur (début)", "id_acc", "Clés de la réponse", "Note"]
 
@@ -82,24 +88,39 @@ async def tourner(session, i: str, route: str, avec_acc: bool, depuis: datetime)
 
 
 async def verite_metricool(classeur) -> dict:
-    """Nombre de Reels par compte dans l'onglet IG · Reels Metricool, sur la fenêtre."""
+    """Reels par compte dans l'onglet IG · Reels Metricool, sur la fenêtre : {@: {code: date}}."""
     import google_api
     try:
         valeurs = await google_api.sheets_lire(classeur, "'IG · Reels Metricool'!A1:H")
     except Exception:                                                   # noqa: BLE001
         return {}
+    return lire_verite(valeurs, datetime.now(timezone.utc) - timedelta(days=JOURS))
+
+
+def lire_verite(valeurs: list, depuis: datetime) -> dict:
+    """Pur : lignes de l'onglet Metricool → {@: {code: date de publication}} pour les Reels publiés depuis `depuis`."""
     if not valeurs:
         return {}
     tete = [str(x).strip() for x in valeurs[0]]
-    ih, ip = tete.index("@"), tete.index("Publié le")
-    depuis = datetime.now(timezone.utc) - timedelta(days=JOURS)
+    ih, ic, ip = tete.index("@"), tete.index("Code"), tete.index("Publié le")
     out = {}
     for r in valeurs[1:]:
         r = list(r) + [""] * 8
         q = I._instant(r[ip])
         if q and q >= depuis:
-            out[str(r[ih]).strip().lower()] = out.get(str(r[ih]).strip().lower(), 0) + 1
+            out.setdefault(str(r[ih]).strip().lower(), {})[str(r[ic]).strip()] = str(r[ip])[:16]
     return out
+
+
+def note_ecart(dans: set, verite: dict) -> str:
+    """Pur : Reels que Metricool voit et l'API non (et l'inverse), avec quelques codes datés."""
+    if not verite:
+        return ""
+    manquants = sorted(set(verite) - dans, key=lambda c: verite[c], reverse=True)
+    en_plus = len(dans - set(verite))
+    exemples = ", ".join(f"{c} ({verite[c][:10]})" for c in manquants[:8])
+    return f" · Metricool : {len(verite)} · manquants : {len(manquants)}" + (f" ({exemples})" if exemples else "") + \
+        (f" · en plus de Metricool : {en_plus}" if en_plus else "")
 
 
 async def main() -> int:
@@ -131,8 +152,8 @@ async def main() -> int:
                     detail.append([h, nom, str(k)] + l)
                 dates = sorted(_date(r) for r in vus.values() if _date(r))
                 synthese.append([h, nom, "SYNTHÈSE", "", "", "", str(len(vus)), dates[0] if dates else "", dates[-1] if dates else "",
-                                 "", "", "", "", f"{len(dans)} Reels sur {JOURS} j" + (f" · Metricool : {verite[h]}" if h in verite else "")])
-                print(h, nom, len(vus), "Reels vus,", len(dans), f"sur {JOURS} j", "· Metricool", verite.get(h, "—"))
+                                 "", "", "", "", f"{len(dans)} Reels sur {JOURS} j" + note_ecart(dans, verite.get(h) or {})])
+                print(h, nom, len(vus), "Reels vus,", len(dans), f"sur {JOURS} j", note_ecart(dans, verite.get(h) or {}))
     if classeur:
         await pilotage._ecrire(classeur, ONGLET, ENTETE, synthese + [[""] * len(ENTETE)] + detail)
     print("Requêtes :", I._jour["n"], "· quota restant :", I._jour["restant"])
