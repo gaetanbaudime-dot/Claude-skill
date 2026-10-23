@@ -49,6 +49,8 @@ jobs:
           RAPIDAPI_RATTRAPAGE_J: ${{ github.event.inputs.rattrapage_jours || '0' }}
           SUIVI_BUDGET_MIN: "320"
           RAPIDAPI_QUOTA_JOUR: "8000"
+          METRICOOL_API_KEY: ${{ secrets.METRICOOL_API_KEY }}
+          METRICOOL_USER_ID: ${{ secrets.METRICOOL_USER_ID }}
       - name: Garder l'historique pour le prochain passage
         if: always()
         uses: actions/cache/save@v4

@@ -79,7 +79,8 @@ ONGLET_COMPTES, ONGLET_REELS, ONGLET_TOP = "IG · Comptes", "IG · Reels", "IG �
 ONGLET_ARCHIVE, ONGLET_PASSAGES = "IG · Archive Reels", "IG · Passages"
 ENTETE_PASSAGES = ["Début (UTC)", "Durée (min)", "Comptes", "Profils relus", "Reels relus", "Pages lues", "Pages en échec",
                    "Requêtes", "Quota restant", "Rattrapage", "Arrêt", "Fenêtre relue",
-                   "Page pleine sans suite (pagination)", "Comptes relus par leurs publications"]
+                   "Page pleine sans suite (pagination)", "Comptes relus par leurs publications",
+                   "Metricool (Reels officiels)"]
 ENTETE_COMPTES = ["Créatrice", "Gérant", "Type", "@", "ID Instagram", "Statut", "Followers", "Δ 24 h", "Δ 7 j", "Publications",
                   "Reels 24 h", "Reels 7 j", "Reels 15 j", "Reels 30 j", "Reels 60 j", "Vues 7 j", "Vues 15 j", "Vues 30 j",
                   "Vues 60 j", "Dernier Reel", "Profil relu le", "Reels relus le", "Renommé en"]
@@ -712,6 +713,20 @@ def a_rattraper(e: dict, jours: int) -> bool:
     return bool(jours) and int(e.get("rattrapage_j") or 0) < jours
 
 
+def metricool_texte(b) -> str:
+    """Pur : le bilan Metricool en une phrase pour le journal des passages."""
+    if not isinstance(b, dict):
+        return ""
+    if b.get("erreur"):
+        return "erreur : " + b["erreur"]
+    morceaux = [f"{b.get('ajoutes', 0)} Reel(s) ajouté(s)", f"{b.get('importes', 0)} lu(s) dans l'onglet"]
+    if b.get("rest"):
+        morceaux.append("API : " + b["rest"])
+    if b.get("erreurs"):
+        morceaux.append("erreurs : " + " ; ".join(b["erreurs"])[:300])
+    return " · ".join(morceaux)
+
+
 def route_posts_texte(store: dict, comptes: list) -> str:
     """Pur : l'état de la route de secours (publications) pour le journal des passages."""
     rp = (store.get("etat") or {}).get("route_posts") or {}
@@ -735,7 +750,7 @@ def lignes_passages(passages: list) -> list:
                     str(b.get("requetes", "")), "" if b.get("quota_restant") is None else str(b["quota_restant"]),
                     b.get("rattrapage", ""), b.get("arret", ""), b.get("fenetre", ""),
                     " ; ".join(f"{h} {json.dumps(v, ensure_ascii=False)[:160]}" for h, v in (b.get("sans_suite") or {}).items())[:4000],
-                    b.get("route_posts", "")])
+                    b.get("route_posts", ""), b.get("metricool", "")])
     return out
 
 
@@ -809,6 +824,12 @@ async def passage_complet(session) -> dict:
             store["reels"][h] = {c: r for c, r in (store["reels"].get(h) or {}).items() if (_instant(r.get("publie")) or maintenant) >= limite}
         if k % 10 == 0:
             _sauver(store)
+    # 22/10 : Reels des comptes branchés à Metricool (source officielle ; l'API RapidAPI en voit une partie seulement)
+    try:
+        import metricool_reels
+        bilan["metricool"] = await metricool_reels.passage(store, comptes, maintenant, longue)
+    except Exception as erreur:                                         # noqa: BLE001
+        bilan["metricool"] = {"erreur": str(erreur)[:160]}
     restants = sum(1 for c in comptes if a_rattraper((store.get("comptes") or {}).get(c["handle"]) or {}, jours_r)
                    and ((store.get("comptes") or {}).get(c["handle"]) or {}).get("statut") != "introuvable")
     if longue and not (bilan["arret_quota"] or bilan["arret_temps"]):
@@ -823,7 +844,7 @@ async def passage_complet(session) -> dict:
         "requetes": bilan["requetes"], "quota_restant": _jour["restant"],
         "rattrapage": (f"{jours_r} j : {restants} compte(s) restant(s)" if restants else f"{jours_r} j : fini") if jours_r else "",
         "arret": "quota" if bilan["arret_quota"] else "temps" if bilan["arret_temps"] else "", "fenetre": f"{fenetre_j} j", "sans_suite": dict(_diag["sans_suite"]),
-        "route_posts": route_posts_texte(store, comptes)})
+        "route_posts": route_posts_texte(store, comptes), "metricool": metricool_texte(bilan.get("metricool"))})
     etat["passages"] = etat["passages"][-90:]
     _sauver(store)
     try:
