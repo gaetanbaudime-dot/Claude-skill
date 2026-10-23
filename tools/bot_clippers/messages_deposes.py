@@ -18,6 +18,8 @@ au salon perso de chaque clipper signé avec une créatrice, jamais aux candidat
 """
 
 import json
+import re
+import unicodedata
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -47,13 +49,23 @@ def lire_deposes() -> list:
         return []
 
 
+def _cle_salon(nom: str) -> str:
+    """« 📢｜annonces » et « annonces » donnent la même clé : lettres et chiffres sans accent, comme resoudre_salons du bot."""
+    ascii_ = unicodedata.normalize("NFD", str(nom or "")).encode("ascii", "ignore").decode("ascii")
+    return re.sub(r"[^a-z0-9]", "", ascii_.lower())
+
+
 def _salon_par_nom(client, nom: str):
+    """Le salon du nom exact d'abord ; sinon, le seul salon dont le nom ne diffère que par un emoji ou un séparateur
+    (23/10 : « #annonces » n'était pas trouvé si le salon porte un emoji). Deux candidats : aucun, on ne devine pas."""
     cible = nom.lstrip("#").strip().lower()
-    for g in client.guilds:
-        for s in getattr(g, "text_channels", []):
-            if s.name.lower() == cible:
-                return s
-    return None
+    salons = [s for g in client.guilds for s in getattr(g, "text_channels", [])]
+    for s in salons:
+        if s.name.lower() == cible:
+            return s
+    cle = _cle_salon(cible)
+    proches = [s for s in salons if cle and _cle_salon(s.name) == cle]
+    return proches[0] if len(proches) == 1 else None
 
 
 def _membre_du_salon(client, salon):
