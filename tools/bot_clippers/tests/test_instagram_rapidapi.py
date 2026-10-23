@@ -431,6 +431,33 @@ def test_curseur_perdu_reessaye_puis_note(monkeypatch):
     assert I.curseur_texte(I._diag["curseur_perdu"]).startswith("k1 (page 2, Not found)")
 
 
+def test_page_1_vide_reessayee_et_compte_pas_marque_relu(monkeypatch):
+    import asyncio
+    maintenant = datetime.now(timezone.utc)
+    vide = (200, {"items": [], "paging_info": {"more_available": False}, "pagination": {"id_acc": 3}, "status": "ok"})
+    plein = (200, {"items": [{"media": {"code": "N1", "taken_at": int(maintenant.timestamp())}}],
+                   "paging_info": {"more_available": False}, "pagination": {"id_acc": 4}})
+
+    async def rien(*a, **k):
+        return None
+    monkeypatch.setattr(asyncio, "sleep", rien)
+    I._jour.update({"jour": "", "n": 0, "restant": None})
+    for reponses, attendu in (([vide, vide, vide], None), ([vide, plein], "N1")):
+        store = {"comptes": {"k1": {"id": "77", "suivi": [["t", 10, 40]]}}, "reels": {"k1": {"OLD": {"publie": "2026-01-01T00:00:00+00:00"}}}}
+        file = list(reponses)
+
+        async def appeler(session, chemin, params):
+            return file.pop(0)
+        monkeypatch.setattr(I, "appeler", appeler)
+        I._diag.update({"pages": 0, "echecs": {}, "sans_suite": {}, "curseur_perdu": {}})
+        asyncio.run(I.relire_reels(None, store, "k1", maintenant, pages=4))
+        if attendu is None:
+            assert "reels_le" not in store["comptes"]["k1"] and I._diag["curseur_perdu"]["k1"]["page"] == 1 and not file
+        else:
+            assert attendu in store["reels"]["k1"] and store["comptes"]["k1"]["reels_le"]
+    assert not I.a_des_reels({"comptes": {"n": {"suivi": [["t", 0, 0]]}}}, "n")      # compte vide pour de vrai : pas d'essai
+
+
 def test_premier_passage_de_la_correction_relit_tout(monkeypatch):
     """Store d'avant la correction du curseur : chaque compte repart en rattrapage sur 180 jours, la route des publications
     est oubliée ; un store neuf n'est pas touché."""

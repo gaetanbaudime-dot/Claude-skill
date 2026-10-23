@@ -538,6 +538,14 @@ def curseur_mort(code: int, corps) -> bool:
     return code == 200 and isinstance(corps, dict) and not _medias(corps) and "message" in corps and not corps.get("paging_info")
 
 
+def a_des_reels(store: dict, handle: str) -> bool:
+    """Pur : le compte a déjà des Reels connus ou annonce des publications (une page 1 vide est alors suspecte)."""
+    if (store.get("reels") or {}).get(handle):
+        return True
+    suivi = ((store.get("comptes") or {}).get(handle) or {}).get("suivi") or []
+    return bool(suivi and len(suivi[-1]) > 2 and (suivi[-1][2] or 0) > 0)
+
+
 async def relire_reels(session, store: dict, handle: str, maintenant: datetime, jusqu_a=None, pages: int = 1) -> list:
     """Reels du compte (pages successives jusqu'à la date `jusqu_a` ou `pages` pages) ; [] si rien n'a pu être lu.
     Chaque page suivante est demandée avec le curseur ET le compte FlashAPI de la page précédente (voir FOURNISSEURS)."""
@@ -551,6 +559,18 @@ async def relire_reels(session, store: dict, handle: str, maintenant: datetime, 
         if curseur and acc and API.get("compte_page"):
             params[API["compte_page"]] = acc
         code, corps = await appeler(session, chemin, params)
+        if not curseur and code == 200 and isinstance(corps, dict) and not _medias(corps) and a_des_reels(store, handle):
+            # 23/10 (diagnostic) : une page 1 vide sans suite, sur des comptes lus 2 heures plus tôt (FlashAPI tombe sur un
+            # compte qui ne voit rien). Deux essais de plus ; toujours vide : le compte n'est pas compté comme relu.
+            for _essai in range(2):
+                await asyncio.sleep(2)
+                code, corps = await appeler(session, chemin, params)
+                if code != 200 or not isinstance(corps, dict) or _medias(corps):
+                    break
+            if code == 200 and isinstance(corps, dict) and not _medias(corps):
+                _diag["curseur_perdu"][handle] = {"page": 1, "acc": compte_page(corps), "message": "page 1 vide (3 essais)"}
+                journal.info("Reels de %s : page 1 vide trois fois, compte laissé à relire", handle)
+                break
         if curseur and curseur_mort(code, corps):
             await asyncio.sleep(2)                                       # un essai de plus avant de conclure
             code, corps = await appeler(session, chemin, params)
