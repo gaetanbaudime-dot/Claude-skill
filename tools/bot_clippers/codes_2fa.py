@@ -143,9 +143,11 @@ def aide_instagram(cas="") -> str:
     """Aide déterministe, sans lecture de compte ni de boîte, disponible même si le relais est indisponible."""
     aide = {
         "creation": ("🆕 **Créer le compte attribué**\n\n"
-                     "1. Suis l'étape de ton compte et utilise les coordonnées autorisées pour son titulaire. "
+                     # 23/10 (Julien a lu « coordonnées autorisées pour son titulaire » puis « Dans » au milieu d'une phrase) :
+                     # les mots du message de compte, une phrase par étape.
+                     "1. Crée-le avec l'identifiant, l'e-mail et le mot de passe de ton message de compte. "
                      "S'il existe déjà, choisis « Se connecter ».\n"
-                     "2. Si Instagram demande un code envoyé par e-mail, " + texte_salon_codes() + "\n"
+                     "2. Instagram demande un code envoyé par e-mail ? " + texte_salon_codes() + "\n"
                      "3. Saisis le dernier code de création du bon compte. Une vérification personnelle demandée par Meta "
                      "revient au titulaire. Après une suspension, ne crée pas de compte de remplacement : fais appel (Fiche 6). "
                      "Les comptes de ton parcours se créent normalement, un à la fois, avec les identifiants de l'agence."),
@@ -1849,6 +1851,8 @@ def _deja_montre(cle_guet: str, t: dict):
 
 
 def _noter_montre(cle_guet: str, codes: list):
+    if codes:
+        _ABSENTS.pop(str(cle_guet).removeprefix("u|"), None)          # 23/10 : un code montré efface la série « pas reçu »
     limite = _iso(_maintenant() - timedelta(minutes=CACHE_MIN))
     vus = {k: v for k, v in (_MONTRES.get(cle_guet) or {}).items() if v >= limite}
     for t in codes[:1]:
@@ -2028,17 +2032,43 @@ async def _servir(adresses: set, dire, cle_guet: str, duree: int = None, minutes
             _guets.pop(cle_guet, None)
 
 
-ABSENT_RAPPEL_MIN = int(os.environ.get("CODES_ABSENT_RAPPEL_MIN", "20") or 20)
+# 23/10 (Moutakabirou, 22/10 : 20 appuis sur « 📩 Mon code », quatre alertes identiques au salon admin en 9 h, aucune ne disant
+# que c'était la même panne) : la 1re demande sans code alerte tout de suite ; les suivantes sont comptées sans message, et un
+# rappel part au plus toutes les ABSENT_RAPPEL_MIN minutes avec le nombre de demandes. Un code montré efface la série.
+ABSENT_RAPPEL_MIN = int(os.environ.get("CODES_ABSENT_RAPPEL_MIN", "360") or 360)
+_ABSENTS = {}                                                          # uid → {"n": demandes sans code, "premiere": datetime}
 
 
-def texte_code_absent(uid: str, adresses: set, usage: str, panne: bool) -> str:
-    """18/10 : la ligne admin quand un clipper a attendu son code pour rien (sans l'adresse en clair, sans code)."""
+def _cause_google() -> str:
+    """La clé Google refusée empêche de relire les adresses du classeur : un compte remis depuis n'a pas son adresse ici."""
+    try:
+        import google_api
+        return google_api.raison_panne()
+    except Exception:                                                   # noqa: BLE001
+        return ""
+
+
+def texte_code_absent(uid: str, adresses: set, usage: str, panne: bool, n: int = 1, depuis_min: int = 0,
+                      cle_google: bool = False) -> str:
+    """18/10 : la ligne admin quand un clipper a attendu son code pour rien (sans l'adresse en clair, sans code). 23/10 : le
+    nombre de demandes de la série, combien d'adresses lui sont rattachées, et la clé Google refusée quand c'est elle."""
     formes = ", ".join(f"`{forme_adresse(a)}`" for a in sorted(adresses)[:3])
-    cause = ("La boîte des codes est illisible en ce moment : c'est elle qu'il faut réparer."
-             if panne else "La boîte des codes est lisible : le mail n'est pas arrivé jusqu'à elle (transfert iCloud ou Gmail "
-                           "de cette adresse), ou Instagram ne l'a pas encore envoyé.")
+    if panne:
+        cause = "La boîte des codes est illisible en ce moment : c'est elle qu'il faut réparer."
+    elif cle_google:
+        cause = ("La clé Google est refusée (alerte 🔴) : l'adresse d'un compte remis depuis n'a pas pu être relue du classeur, "
+                 "le bot ne sait donc pas que ce mail est le sien. Répare la clé d'abord.")
+    else:
+        cause = ("La boîte des codes est lisible : le mail n'est pas arrivé jusqu'à elle (transfert iCloud ou Gmail "
+                 "de cette adresse), ou Instagram ne l'a pas encore envoyé.")
+    serie = ""
+    if n > 1:
+        h, m = divmod(max(0, int(depuis_min)), 60)
+        serie = f" · {n}ᵉ demande sans code depuis {f'{h} h {m:02d}' if h else f'{m} min'}"
+    nb = len(adresses)
     return (f"🚨 **Code Instagram pas reçu** : <@{uid}> a appuyé sur « 📩 Mon code » et rien n'est arrivé en "
-            f"{ATTENTE_SEC // 60} minutes ({usage or 'auto'}, adresse {formes or 'inconnue'}).\n\n{cause}")
+            f"{ATTENTE_SEC // 60} minutes{serie} ({usage or 'auto'}, {nb} adresse{'s' if nb > 1 else ''} rattachée"
+            f"{'s' if nb > 1 else ''} : {formes or 'aucune'}).\n\n{cause}")
 
 
 def code_montre_recemment(cle_guet: str, minutes: int = None) -> bool:
@@ -2055,9 +2085,15 @@ def _signaler_code_absent(cle_guet: str, adresses: set, usage: str):
     Jamais bloquant : une tâche à part, et une erreur ici n'empêche jamais la réponse au clipper."""
     try:
         uid = str(cle_guet).removeprefix("u|")
-        if not uid.isdigit() or not _une_fois(f"absent|{uid}", minutes=ABSENT_RAPPEL_MIN):
+        if not uid.isdigit():
             return
-        asyncio.get_running_loop().create_task(_admin(texte_code_absent(uid, adresses, usage, lecteur_en_panne())))
+        serie = _ABSENTS.setdefault(uid, {"n": 0, "premiere": _maintenant()})
+        serie["n"] += 1
+        if not _une_fois(f"absent|{uid}", minutes=ABSENT_RAPPEL_MIN):
+            return                                                      # 23/10 : comptée, sans nouveau message
+        depuis = int((_maintenant() - serie["premiere"]).total_seconds() // 60)
+        asyncio.get_running_loop().create_task(_admin(texte_code_absent(
+            uid, adresses, usage, lecteur_en_panne(), n=serie["n"], depuis_min=depuis, cle_google=bool(_cause_google()))))
     except Exception as erreur:                                         # noqa: BLE001
         journal.warning("Codes : alerte « code pas reçu » : %s", _err(erreur))
 

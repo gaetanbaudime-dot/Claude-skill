@@ -59,6 +59,24 @@ async def _session_http():
     return _session
 
 
+# 23/10 (Gaëtan : depuis le 22/10 06 h 12 UTC, chaque lecture Google répond « invalid_grant : Invalid JWT Signature » ; on ne
+# le voyait qu'en bout de point du matin, tronqué, pendant que le scan, les places, la paie et les comptes à remettre tombaient en
+# silence) : une clé de compte de service refusée est gardée ici. bot_discord.surveiller_google la dit au salon admin, une fois,
+# avec le remède ; les rapports disent « non lu (clé Google refusée) » au lieu d'un zéro.
+ERREURS_CLE = ("invalid_grant", "invalid_client", "unauthorized_client")
+_PANNE_AUTH = {"depuis": None, "detail": ""}
+
+
+def panne_auth() -> dict:
+    """{depuis (horodatage), detail} tant que Google refuse la clé du compte de service ; {} sinon."""
+    return dict(_PANNE_AUTH) if _PANNE_AUTH["depuis"] else {}
+
+
+def raison_panne() -> str:
+    """Le mot à écrire à la place d'un chiffre quand la clé est refusée, '' sinon."""
+    return "clé Google refusée" if _PANNE_AUTH["depuis"] else ""
+
+
 async def jeton() -> str:
     """Jeton d'accès valable une heure (rafraîchi 5 minutes avant expiration)."""
     if not actif():
@@ -75,7 +93,11 @@ async def jeton() -> str:
                                                  "assertion": assertion}) as r:
             corps = await r.json(content_type=None)
             if r.status != 200 or not corps.get("access_token"):
+                if r.status in (400, 401) and isinstance(corps, dict) and corps.get("error") in ERREURS_CLE:
+                    _PANNE_AUTH["depuis"] = _PANNE_AUTH["depuis"] or time.time()
+                    _PANNE_AUTH["detail"] = str(corps.get("error_description") or corps.get("error") or "")[:120]
                 raise RuntimeError(f"Google jeton {r.status} : {str(corps)[:200]}")
+        _PANNE_AUTH.update(depuis=None, detail="")
         _jeton["valeur"] = corps["access_token"]
         _jeton["expire"] = maintenant + int(corps.get("expires_in", 3600))
         return _jeton["valeur"]

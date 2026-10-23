@@ -69,6 +69,22 @@ async def signaler(path,uid,sujet,guild,channel,message,pieces,notifier):
             db.execute("UPDATE tickets SET statut='transmis',notification=? WHERE id=?",(str(notification),ident));db.commit()
             return dict(id=ident,statut='transmis',nouveau=True)
 
+def ticket_recent(path,uid,prefixe,heures):
+    """23/10 (Yves, 22/10 : quatre tickets « assistance IA » en douze heures pour le même compte 2 verrouillé, dont un vide pour
+    une capture) : le sujet du ticket OUVERT de cet UID qui commence par `prefixe`, créé il y a moins de `heures`, sinon None.
+    La demande suivante s'y ajoute comme preuve, sans nouvelle notification."""
+    limite=datetime.now(timezone.utc).timestamp()-float(heures)*3600
+    with ouvrir(path) as db:
+        rows=db.execute('SELECT sujet,cree FROM tickets WHERE uid=? AND clos IS NULL ORDER BY id DESC',(str(uid),)).fetchall()
+    for r in rows:
+        try:
+            cree=datetime.fromisoformat(str(r['cree'])).timestamp()
+        except ValueError:
+            continue
+        if str(r['sujet']).startswith(prefixe) and cree>=limite:
+            return r['sujet']
+    return None
+
 def ajouter_suivi(path,uid,guild,channel,message,pieces):
     """Rattachement contextuel aux tickets ouverts du même auteur et salon.
 

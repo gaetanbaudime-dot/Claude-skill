@@ -33,8 +33,9 @@ class EscaladeIATests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(not transmis,'n’est pas confirmée' in texte)
     async def test_escalade_ia_utilise_ticket_et_ne_copie_pas_question(self):
         signal=AsyncMock(return_value={'statut':'a_envoyer'})
-        f=extraire('signaler_escalade',{'signaler_support':signal,'normaliser':str.lower})
-        self.assertFalse(await f(N(),'EXEMPLE-SECRET-FICTIF'))
+        f=extraire('signaler_escalade',{'signaler_support':signal,'normaliser':str.lower,'ticket_ia_recent':lambda uid:None,
+                                        'motif_probable':lambda q:'question'})
+        self.assertFalse(await f(N(author=N(id=1),id=2),'EXEMPLE-SECRET-FICTIF'))
         self.assertNotIn('EXEMPLE',signal.call_args.args[1])
     async def test_route_suivi_enregistre_piece_meme_sans_motif(self):
         import re

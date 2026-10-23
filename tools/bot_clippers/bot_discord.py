@@ -503,6 +503,19 @@ fois, tu réponds « {MESSAGE_ESCALADE} ».
 demande. La réponse arrive dans ton salon perso. » Rien d'autre, pas un autre sujet.
 40. Le lien WhatsApp de Gaëtan ({WHATSAPP_GAETAN_URL or "celui du message de bienvenue"}) est public : tu le donnes quand il \
 faut écrire à Gaëtan, partout, même dans #assistant. Jamais « je ne peux pas te donner ce lien ici ».
+41. Tu réponds ICI (23/10, Esperance : « écris-moi dans ton salon perso, je vérifierai », puis rien n'y a répondu). Jamais \
+« écris-moi dans ton salon perso », « je vérifierai », « je viens de voir ton message » : tu ne lis aucun autre salon que celui \
+où il te parle, et tu ne dis jamais avoir vu ce que tu n'as pas vu.
+42. Pas de « Salut <prénom> ! 👋 » si tu lui as déjà répondu dans l'historique ci-dessus (23/10, Jamel : trois « Salut Jamel » \
+en une minute) : tu enchaînes directement sur la réponse.
+43. La bio (23/10, Esperance et Amour). Chaque compte reçoit sa bio toute prête dans le message « Ton profil du compte N » de \
+son salon perso, avec la photo et le nom ; ce message part quand il appuie sur « ✅ Compte N créé ». La ligne « Profil » de ton \
+contexte dit s'il est parti. Parti : « Ta bio est dans le message Ton profil du compte N, copie-la. » Pas parti : « Appuie sur \
+✅ Compte N créé dans ton salon perso : ta photo, ton nom et ta bio arrivent, prêts à coller. » Il en veut une autre : une seule, \
+dans ce style, « Fan de <créatrice> 💛 Ses meilleurs moments, chaque jour ». Jamais un thème inventé (mode, beauté, humour, \
+sport), jamais une ville, une région, un lien ou un @.
+44. Après une transmission à l'équipe, tu n'affirmes jamais qu'une chose est arrivée ou réglée (« tes identifiants doivent être \
+là maintenant », 22/10, Moutakabirou : faux). Tu ne vois pas son salon.
 35. Mise en forme (09/10, Gaëtan : « Saute des lignes, aère ») : le clipper te lit sur son téléphone. Des paragraphes d'une ou \
 deux phrases, une ligne vide entre chaque paragraphe, avant et après une liste. Une seule action demandée par réponse ; une \
 marche à suivre, seulement s'il la demande, en 3 étapes numérotées au plus."""
@@ -515,7 +528,7 @@ if CANAL_FORMATION_ID:
 # 09/10 (Gaëtan : « Les clippeurs se font submerger d'informations sur leur salon privé… simple et efficace ») : l'assistant répond
 # là où le clipper écrit. Dans son salon perso, seulement à une question (« ? » ou mention du bot) ; plus aucun renvoi vers #assistant.
 INSTRUCTIONS += ("\n12. Tu réponds là où on te parle : le salon perso du clipper (il t'a posé une question), un message privé, ou le "
-                 "salon #assistant. Tu ne renvoies JAMAIS vers un autre salon pour poser une question : ni « va dans #assistant », ni "
+                 "salon #❓assistant-ia (23/10 : son vrai nom, jamais « #assistant »). Tu ne renvoies JAMAIS vers un autre salon pour poser une question : ni « va dans #assistant », ni "
                  "« écris-moi en MP ». Tu ne cites jamais un identifiant, un mot de passe ou un lien de quelqu'un d'autre. Dans le salon "
                  "#assistant, commun à tous, tu ne cites même pas ceux de la personne qui te parle. Le lien WhatsApp de Gaëtan n'est pas "
                  "concerné : il est public (règle 40).")
@@ -1522,7 +1535,9 @@ async def envoyer_notification_support(ticket, uid, sujet, source):
 def texte_notification_support(ticket, uid, sujet, source) -> str:
     """21/10 (Gaëtan : « simplifie ») : qui demande de l'aide, pourquoi, où lui répondre ; plus de hachage de question."""
     s = str(sujet or "")
-    quoi = "l'assistant n'a pas su lui répondre" if s.startswith("assistance IA") else \
+    parts = s.split(" · ")
+    motif = f" ({parts[1]})" if s.startswith("assistance IA") and len(parts) >= 3 else ""   # 23/10 : le motif probable
+    quoi = f"l'assistant n'a pas su lui répondre{motif}" if s.startswith("assistance IA") else \
         "il demande l'équipe" if s.startswith("demande de prise en charge") else s
     ou = f"→ {source}" if str(source or "").startswith("http") else "→ Demande en message privé : réponds-lui dans son salon."
     return f"🆘 **Support #{ticket}** · <@{uid}> : {quoi}.\n{ou}\n-# Dossier : `!support {uid}`"
@@ -1544,6 +1559,30 @@ async def alerter_admin_salon(message, texte: str) -> bool:
             retour = await signaler_support(message, sujet)
             return retour["statut"] == "transmis"
     return False
+
+
+MOTS_ACCUSE = {"ok", "okay", "okey", "oke", "okk", "oki", "okok", "d'accord", "daccord", "dac", "dacc", "dak", "merci", "mrc",
+               "compris", "parfait", "super", "top", "recu", "note", "vu", "entendu", "nickel", "cool", "thanks", "thx", "yes"}
+
+
+def accuse_reel(texte: str) -> bool:
+    """23/10 : dans #❓assistant-ia, un accusé (« D'accord », « ok merci ») reçoit un 👍 ; un « Bonjour » seul, non : c'est souvent
+    le premier message d'un nouveau, il mérite une vraie réponse."""
+    return any(m in MOTS_ACCUSE for m in re.findall(r"[a-z0-9']+", normaliser(texte or "")))
+
+
+RELANCE_TICKET_H = float(os.environ.get("RELANCE_TICKET_H", "24") or 24)
+TEXTE_RELANCE_ATTENTE = ("Ta demande est toujours chez l'équipe.\n\n"
+                         "La réponse arrive dans ton salon perso. Tu n'as rien à refaire d'ici là.")
+_RELANCE = re.compile(r"^(?:(?:et )?alors|toujours rien|toujours pas|rien|rien encore|rien toujours|toujours rien encore|j'?attends(?: toujours)?"
+                      r"|j'?attends le retour|des nouvelles|du nouveau|rien jusqu'?a present|rien pour l'?instant|rien pour le moment"
+                      r"|c'?est toujours pas arrive|pas encore|toujours en attente|ca arrive quand)\s*[?!.]*$")
+
+
+def est_relance_attente(texte: str) -> bool:
+    """« Rien jusqu'à présent », « toujours rien », « j'attends ? » : une relance d'une demande en cours, rien d'autre."""
+    t = normaliser((texte or "").replace("’", "'")).strip()
+    return bool(t) and len(t.split()) <= 6 and _RELANCE.match(t) is not None
 
 
 def est_acquiescement(texte: str) -> bool:
@@ -1644,11 +1683,47 @@ def est_escalade(reponse: str) -> bool:
             or re.search(action + r"[^.!?]*" + destinataire + "|" + destinataire + r"[^.!?]*" + action, r) is not None)
 
 
-async def signaler_escalade(message, question: str) -> bool:
-    """Même livraison vérifiée que les signalements directs, sans recopier la question."""
+SUPPORT_REGROUPE_H = float(os.environ.get("SUPPORT_REGROUPE_H", "6") or 6)
+# 23/10 (Yves, 22/10 : Support #9 à #12 pour le même compte 2 verrouillé ; Gaëtan ne voyait que « l'assistant n'a pas su
+# répondre ») : le motif probable, en quelques mots, jamais la question recopiée.
+MOTIFS_SUPPORT = (("compte banni ou suspendu", r"\b(?:bans?|banni\w*|suspendu\w*|suspension|desactiv\w*)\b"),
+                  ("compte verrouillé ou mot de passe", r"verrouill|bloqu|mot de passe|mdp|password|deconnect"),
+                  ("code Instagram", r"\bcodes?\b|2fa|authentif"),
+                  ("compte suivant ou identifiants", r"compte\s*(?:n\s*°?\s*|no?\s*|№\s*)?[23]\b|deuxieme compte|troisieme compte|coordonnee|identifiant"),
+                  ("profil (bio, nom, photo)", r"\bbio\b|photo de profil|nom du profil|\bprofil\b"),
+                  ("paiement", r"paie|paiement|paye|usdc|wallet|argent|virement"),
+                  ("lien", r"\blien\b"))
+
+
+def motif_probable(question: str) -> str:
+    """Le motif d'une demande transmise : quelques mots tirés d'une liste fixe, « capture » pour une image seule."""
+    q = normaliser((question or "").replace("’", "'"))
+    if not q.strip():
+        return "capture"
+    return next((nom for nom, motif in MOTIFS_SUPPORT if re.search(motif, q)), "question")
+
+
+def ticket_ia_recent(uid: str):
+    """Le ticket « assistance IA » encore ouvert de ce clipper, ouvert depuis moins de SUPPORT_REGROUPE_H heures, sinon None."""
+    try:
+        return support_suivi.ticket_recent(FICHIER_SUPPORT, str(uid), "assistance IA", SUPPORT_REGROUPE_H)
+    except Exception as erreur:                                         # noqa: BLE001 — jamais bloquer la transmission
+        journal.warning("Support : ticket récent de %s illisible (%s)", uid, type(erreur).__name__)
+        return None
+
+
+async def signaler_escalade(message, question: str):
+    """Même livraison vérifiée que les signalements directs, sans recopier la question. 23/10 : une demande qui suit une autre
+    de moins de SUPPORT_REGROUPE_H heures (ou une capture seule) s'ajoute au même ticket, sans nouvelle notification ; renvoie
+    alors « groupe ». True : transmis ; False : transmission non confirmée."""
     import hashlib
-    empreinte = hashlib.sha256(normaliser((question or "").strip()).encode()).hexdigest()[:16]
-    retour = await signaler_support(message, "assistance IA · question " + empreinte)
+    recent = ticket_ia_recent(str(message.author.id))
+    if recent:
+        retour = await signaler_support(message, recent)
+        return "groupe" if retour["statut"] == "transmis" else False
+    texte_q = normaliser((question or "").strip())
+    empreinte = hashlib.sha256((texte_q or f"capture {getattr(message, 'id', '')}").encode()).hexdigest()[:16]
+    retour = await signaler_support(message, f"assistance IA · {motif_probable(question)} · {empreinte}")
     return retour["statut"] == "transmis"
 
 
@@ -1680,6 +1755,8 @@ def avec_procedure_compte_banni(question: str, confirmation: str) -> str:
 
 async def reponse_escalade_verifiee(message, question):
     transmis = await signaler_escalade(message, question)
+    if transmis == "groupe":                                            # 23/10 : la suite d'une demande déjà transmise
+        return "C'est ajouté à ta demande en cours. Elle est signalée à l’équipe : la réponse arrive dans ton salon perso."
     return ("Ta demande est signalée à l’équipe." if transmis else
             "La transmission n’est pas confirmée. Ton équipe doit vérifier la demande.")
 
@@ -1825,6 +1902,35 @@ async def repondre_long(message, reponse: str):
 
 
 _DEMANDE_SUITE = re.compile(r"\b(et apres|ensuite|prochaine etape|je fais quoi|quoi faire|que dois.je faire|je dois faire quoi)\b")
+
+
+SALUT_FENETRE_MIN = int(os.environ.get("SALUT_FENETRE_MIN", "120") or 120)
+_SALUTATION = re.compile(r"^\s*(?:salut|bonjour|bonsoir|hello|coucou|hey)\b[^\n.!?,]{0,25}"
+                         r"(?:[!.,]+[ \t]*(?:👋|🙂|😊|😄)?|[ \t]*(?:👋|🙂|😊|😄))\s*", re.I)
+
+
+def retirer_salutation(reponse: str) -> str:
+    """23/10 (Jamel : « Salut Jamel ! 👋 » en tête de trois réponses en une minute) : la salutation d'ouverture saute quand le bot
+    lui a déjà répondu dans les SALUT_FENETRE_MIN dernières minutes. Jamais une réponse vidée."""
+    propre = _SALUTATION.sub("", reponse or "", count=1).lstrip()
+    if not propre:
+        return reponse
+    return propre[:1].upper() + propre[1:]
+
+
+_RENVOI_FICHE = re.compile(r"^\W*(?:les |plus de |tous les |tout est |tout ça est |voir |regarde |les infos |les details |details |"
+                           r"tout est explique )?[^\n]{0,40}\bfiche \d+\b[^\n]{0,60}$")
+
+
+def retirer_renvoi_fiche(reponse: str, question: str = "") -> str:
+    """23/10 (Amour : « Les détails sont dans Fiche 1 (#formation) » en dernière ligne) : le renvoi final vers une fiche saute,
+    comme la « Prochaine étape » du 18/10, sauf si la question parle de fiche, de formation ou de « où » trouver quelque chose."""
+    if re.search(r"\b(fiche|formation|ou (?:je )?trouve|ou est|ou sont)\b", normaliser(question or "")):
+        return reponse
+    paragraphes = re.split(r"\n\s*\n", (reponse or "").rstrip())
+    if len(paragraphes) > 1 and len(paragraphes[-1]) <= 110 and _RENVOI_FICHE.match(normaliser(paragraphes[-1])):
+        return "\n\n".join(paragraphes[:-1]).rstrip()
+    return reponse
 
 
 def retirer_prochaine_etape(reponse: str, question: str = "") -> str:
@@ -2021,6 +2127,51 @@ async def canal_admin():
     """Le salon admin privé (CANAL_ADMIN_ID, repli CANAL_BOT_ID) — toutes les notifications
     sensibles passent par ici, jamais par le salon public de l'assistant."""
     return await canal_par_id(CANAL_ADMIN_ID or CANAL_BOT_ID)
+
+
+GOOGLE_PANNE_MIN = int(os.environ.get("GOOGLE_PANNE_MIN", "10") or 10)          # panne tenue avant la 1re alerte
+GOOGLE_PANNE_RAPPEL_H = float(os.environ.get("GOOGLE_PANNE_RAPPEL_H", "12") or 12)  # rappel tant qu'elle dure
+
+
+def texte_panne_google(panne: dict, maintenant: float, email: str = "") -> str:
+    """23/10 : l'alerte unique d'une clé Google refusée — ce qui est cassé et le remède, en clair."""
+    minutes = max(0, int((maintenant - float(panne.get("depuis") or maintenant)) // 60))
+    duree = f"{minutes // 60} h {minutes % 60:02d}" if minutes >= 60 else f"{minutes} min"
+    compte = f" `{email}`" if email else ""
+    return (f"🔴 **Google Sheets refuse le bot depuis {duree}** ({panne.get('detail') or 'clé refusée'}).\n\n"
+            "Tout ce qui lit ou écrit le classeur est arrêté : comptes à remettre, candidatures, scan des comptes, places, "
+            "paie, adresses des codes.\n\n"
+            f"Remède : Google Cloud → IAM → Comptes de service →{compte} → Clés → Ajouter une clé → JSON. Colle le fichier "
+            "entier dans la variable Railway `GOOGLE_SERVICE_ACCOUNT_JSON` : Railway redémarre le bot tout seul.")
+
+
+async def surveiller_google():
+    """23/10 (Gaëtan : « Invalid JWT Signature » sur chaque lecture depuis le 22/10, invisible sauf en bout de digest) : toutes
+    les 5 minutes, un jeton est demandé (gratuit tant qu'il est valable). Clé refusée depuis GOOGLE_PANNE_MIN minutes → une
+    alerte au salon admin avec le remède, rappelée toutes les GOOGLE_PANNE_RAPPEL_H heures ; retour → « ✅ » une fois."""
+    await client.wait_until_ready()
+    dite = None
+    while not client.is_closed():
+        try:
+            await google_api.jeton()
+        except Exception:                                               # noqa: BLE001 — l'état est gardé par google_api
+            pass
+        try:
+            panne, maintenant = google_api.panne_auth(), time.time()
+            if panne and maintenant - float(panne["depuis"]) >= GOOGLE_PANNE_MIN * 60 \
+                    and (dite is None or maintenant - dite >= GOOGLE_PANNE_RAPPEL_H * 3600):
+                canal = await canal_admin()
+                if canal is not None:
+                    await canal.send(texte_panne_google(panne, maintenant, google_api.email_compte()))
+                    dite = maintenant
+            elif not panne and dite is not None:
+                canal = await canal_admin()
+                if canal is not None:
+                    await canal.send("✅ **Google Sheets répond de nouveau.** Le scan, les places et la paie repartent au prochain passage.")
+                dite = None
+        except Exception as erreur:                                     # noqa: BLE001 — la surveillance ne meurt jamais
+            journal.warning("Surveillance Google : %s", erreur)
+        await asyncio.sleep(300)
 
 
 async def canal_manager():
@@ -9137,6 +9288,8 @@ async def on_ready():
         except Exception as erreur:                   # noqa: BLE001 — candidats_a_sortir les protège aussi
             journal.warning("Quizz du site réussis sans état : %s", erreur)
         client.loop.create_task(boucle_pipeline())    # 09/10 : sortie ⑥ (48 h sans quiz), quizz réussis en plan, reprise des attentes
+        if google_api.actif():
+            client.loop.create_task(surveiller_google())  # 23/10 : clé Google refusée → une alerte claire, le remède, le retour
         # Digest du matin, lacunes et sauvegarde du dimanche (09/10 : plus de relance des tests du soir) : la boucle
         # ne dépendait que de LIEN_TRESORERIE/CANAL_REPORTING_ID — sans eux, aucun digest (audit 10/09).
         client.loop.create_task(boucle_rappels())
@@ -10535,7 +10688,10 @@ def normaliser_commande(texte: str) -> str:
     pour toutes les commandes : !pseudo, !app, !etape, !mesclics, !code…"""
     texte = re.sub(r"^!\s+", "!", (texte or "").strip())
     if texte.startswith("!"):
-        texte = re.sub(r"^!\S+", lambda m: m.group(0).lower(), texte, count=1)
+        # 23/10 (20/10 : trois « Commande non reconnue. Voulais-tu utiliser `!etape` ? » d'affilée à un clavier français qui
+        # écrit « !étape ») : les accents du mot de commande sautent aussi ; les arguments restent tels quels.
+        texte = re.sub(r"^!\S+", lambda m: "".join(c for c in unicodedata.normalize("NFD", m.group(0).lower())
+                                                    if unicodedata.category(c) != "Mn"), texte, count=1)
     return texte
 
 
@@ -11001,13 +11157,26 @@ async def on_message(message):
     # 27/09 (relecture du salon de Daniella) : moins de bruit. Un « ok », « merci », « d'accord » reçoit un 👍,
     # pas trois lignes qui redisent l'étape. 09/10 : en MP aussi pour un clipper signé (il y est maintenant servi) ; un candidat
     # qui dit « bonjour » en MP reçoit toujours une vraie réponse (sa prochaine étape).
+    dans_assistant_a = message.guild is not None and bool(salon_assistant_id()) and str(message.channel.id) == salon_assistant_id()
     if est_acquiescement(texte) and not message.attachments \
-            and (en_salon_perso or (message.guild is None and est_signe(auteur_membre(message)))):
+            and (en_salon_perso or (message.guild is None and est_signe(auteur_membre(message)))
+                 or (dans_assistant_a and accuse_reel(texte))):            # 23/10 (Moutakabirou : « D'accord » → 2 lignes)
         try:
             await message.add_reaction("👍")
         except (discord.Forbidden, discord.HTTPException):
             pass
         return
+    # 23/10 (Moutakabirou, 22/10 : « Rien jusqu'à présent » une demi-heure après sa demande transmise, l'assistant a répondu
+    # « tes identifiants doivent être là maintenant », faux) : une relance courte quand une demande est ouverte reçoit le fait.
+    if not est_staff(auteur_membre(message)) and est_relance_attente(texte) and not message.attachments:
+        ouvert = None
+        try:
+            ouvert = support_suivi.ticket_recent(FICHIER_SUPPORT, str(utilisateur), "", RELANCE_TICKET_H)
+        except Exception as erreur:                                     # noqa: BLE001
+            journal.warning("Relance d'attente : tickets illisibles (%s)", type(erreur).__name__)
+        if ouvert:
+            await message.reply(TEXTE_RELANCE_ATTENTE)
+            return
     if en_salon_perso:
         # Un message adressé à un humain (@Gaëtan) n'est pas pour le bot ; et quand le manager vient de parler, le bot se tait
         # sauf question.
@@ -11038,6 +11207,7 @@ async def on_message(message):
     # Historique récent de CE candidat (+ mes réponses) → le modèle garde le contexte : fini les
     # « c'est la première fois qu'on se parle » et les questions de suivi mal comprises (18/07).
     historique = []
+    deja_repondu = False
     # 08/10 (audit de l'assistant) : dans un salon commun (#assistant-ia), les réponses faites aux AUTRES clippers arrivaient au
     # modèle comme « ce que je t'ai dit » (« pas de compte créé » d'Yves relu pour le suivant). Là, on ne garde que les messages
     # de l'auteur et les réponses (du bot ou du staff) qui lui répondent ou le mentionnent.
@@ -11056,6 +11226,11 @@ async def on_message(message):
                     continue                                             # mot de passe) n'est jamais transmis au modèle
                 if not commun or _pour_lui(ancien):
                     historique.append(("assistant", ancien.content))
+                    try:                                                 # 23/10 (Jamel) : déjà salué il y a peu ?
+                        if (datetime.now(timezone.utc) - ancien.created_at).total_seconds() < SALUT_FENETRE_MIN * 60:
+                            deja_repondu = True
+                    except (TypeError, AttributeError):
+                        pass
             elif ancien.author.id == message.author.id:
                 historique.append(("user", ancien.content))
             elif not getattr(ancien.author, "bot", False) and est_staff(ancien.author) and (not commun or _pour_lui(ancien)):
@@ -11124,6 +11299,9 @@ async def on_message(message):
     reponse = re.sub(r"^\s*\[Contexte\s*:[^\]]*\]\s*", "", reponse)                         # 26/09 : jamais recopiée
     reponse = retirer_prochaine_etape(reponse, texte)                                          # 18/10 : « simplifie »
     reponse = retirer_fausse_promesse(reponse)                                                 # 18/10 : Mathieu
+    reponse = retirer_renvoi_fiche(reponse, texte)                                             # 23/10 : « Les détails sont dans Fiche 1 »
+    if deja_repondu:
+        reponse = retirer_salutation(reponse)                                                  # 23/10 : trois « Salut Jamel ! 👋 »
     reponse = re.sub(r"\n\s*\(?(Fiche \d[^\n]*|Manager\)?(\s*[—-]\s*Salon perso)?|FAQ terrain\)?|Parcours candidat\)?|Stratégie marketing\)?)\s*$", "", reponse).rstrip()
     reponse_liee = lier_salon_codes(lier_references(assainir_mentions(reponse)))   # 01/10 : #🔐-code-instagram cliquable
     reponse_liee = aerer(reponse_liee)                             # 09/10 (Gaëtan : « Saute des lignes, aère ») : lu au téléphone
