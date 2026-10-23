@@ -287,7 +287,7 @@ TEXTE_STORY = ("📌 **Une fois, maintenant : ta story à la une.**\n\n"
 # `story_lien_envoye` date la consigne. Au « ✅ Profil fait » du compte 3 privé, la cohorte reçoit la fin de la règle (STORY_LIEN_FIN).
 STORY_LIEN_COMPTE1 = ("🔗 **Ton lien est prêt.**\n\n"
                       "Voici ton lien :\n```\n{lien}\n```\n\n"
-                      "Crée d'abord ton compte 1. Ensuite, mets ce lien en story.\n\n"
+                      "Crée d'abord ton compte 1.\n\nAttends 24 h de warm-up. Puis mets ce lien en story.\n\n"
                       "1. Une story tous les 2 jours.\n"
                       "2. Utilise le sticker « Lien » d'Instagram.\n"
                       "3. Ne le mets jamais à la une.\n"
