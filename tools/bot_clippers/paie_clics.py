@@ -47,6 +47,10 @@ journal = logging.getLogger("clics")
 
 GAML_API_KEY = os.environ.get("GAML_API_KEY", "").strip()
 TAUX_CLIC = float(os.environ.get("TAUX_CLIC", "0.05") or 0.05)
+try:                                                                    # 23/10 : le forfait de liens GAML (même variable que places.py), plafond d'un compte
+    FORFAIT_LIENS_GAML = max(0, int(os.environ.get("GAML_FORFAIT_LIENS", "50") or 50))
+except ValueError:
+    FORFAIT_LIENS_GAML = 50
 # Visiteurs FRANCOPHONES (précision de Gaëtan, 23/09) : la zone qui paie sur OnlyFans/MYM. Noms tels que GAML les renvoie.
 # Le Maghreb et l'Afrique francophone (pays des clippers eux-mêmes) restent exclus par défaut : PAYS_PAYES pour changer.
 PAYS_PAYES_DEFAUT = ("France,Belgium,Switzerland,Canada,Luxembourg,Monaco,Réunion,Guadeloupe,Martinique,French Guiana,"
@@ -278,6 +282,15 @@ async def liens_gaml() -> list:
             complete = True
             break
         if not neufs:
+            # 23/10 : GAML ignore `page` et rend la même liste entière à chaque appel (49 liens lus, page 2 identique ; le MCP, sans
+            # paramètre de page, rend les mêmes 49). Une page qui redonne EXACTEMENT les liens déjà lus, sous le forfait du compte, est la
+            # liste entière : fin prouvée. Une page seulement en partie déjà lue, ou une liste au plafond du forfait (peut-être coupée),
+            # reste incomplète : fermé par défaut, comme avant.
+            if {l.get("id") for l in lot} == vus and len(vus) < FORFAIT_LIENS_GAML:
+                complete = True
+                journal.info("Inventaire GAML : page %s identique à la page 1 (%s liens, forfait %s) : le serveur ignore la page, liste entière",
+                             page, len(tous), FORFAIT_LIENS_GAML)
+                break
             raison = f"page {page} : {len(lot)} lien(s), tous déjà lus ({len(tous)} lus) : la page demandée est rendue identique"
             break
         tous += neufs
