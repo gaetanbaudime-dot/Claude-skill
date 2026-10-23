@@ -263,22 +263,28 @@ async def liens_gaml() -> list:
     tous = _lot(await _requete("GET", "/links"))
     vus = {l.get("id") for l in tous}
     complete = False
+    raison = f"aucune page vide après {len(tous)} liens (page 1)"       # 23/10 : dit POURQUOI l'inventaire est incomplet (bloquait tous les liens)
     for page in range(2, 11):
         try:
             lot = _lot(await _requete("GET", "/links", params={"page": page}))
             neufs = [l for l in lot if l.get("id") not in vus]
         except RuntimeError as erreur:
+            raison = f"page {page} refusée ({str(erreur)[:120]}), {len(tous)} liens lus"
             journal.info("Liens GAML : page %s refusée (%s), %s liens lus", page, erreur, len(tous))
             break
         if not lot:
             complete = True
             break
         if not neufs:
+            raison = f"page {page} : {len(lot)} lien(s), tous déjà lus ({len(tous)} lus) : la page demandée est rendue identique"
             break
         tous += neufs
         vus.update(l.get("id") for l in neufs)
+        raison = f"page {page} lue ({len(lot)} lien(s), {len(neufs)} nouveaux), pas de page vide avant la page 10"
     out = ListeGAML(tous)
     out.complete = complete
+    if not complete:
+        journal.warning("Inventaire GAML incomplet : %s", raison)
     return out
 
 
