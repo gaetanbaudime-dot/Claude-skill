@@ -834,6 +834,26 @@ def composition(fiches=None, registre=None, fin=None, mandats=None) -> dict:
 
 
 # ------------------------------------------------------------------ mesures (repli quand la paie n'est pas branchée)
+def liens_orphelins(d: dict, uid: str, nom: str, debut, fin) -> list:
+    """23/10 (!tl liste : Yves, TL Sarah, « ses visites : 0 » alors que le rapport de la veille le met en tête avec 499 puis 282) :
+    les liens dont la note GAML est « Clipping <son prénom> » mais rattachés à un AUTRE uid (ou à personne) dans la paie, avec
+    leurs visites payées de la période. [(lien, visites)] ; [] si rien. Rien n'est corrigé : la commande `!lien` le fait."""
+    prenom = str(nom or "").split(" - ")[0].strip()
+    if not prenom or prenom.startswith("id …"):
+        return []
+    cible = _n(f"clipping {prenom}")
+    debut, fin = _jour(debut), _jour(fin)
+    out = []
+    for lid, info in ((d or {}).get("liens") or {}).items():
+        info = info or {}
+        if _n(info.get("note")) != cible or str(info.get("uid") or "") == str(uid):
+            continue
+        visites = sum(_entier(v.get("payes")) for _, v in _jours_valides(d, lid, debut, fin))
+        if visites:
+            out.append((str(info.get("slug") or info.get("url") or lid), visites))
+    return sorted(out, key=lambda x: -x[1])
+
+
 def _liens_de(d: dict, uid: str) -> list:
     return [lid for lid, i in ((d or {}).get("liens") or {}).items() if str((i or {}).get("uid") or "") == str(uid)]
 
@@ -1015,12 +1035,15 @@ def calculer(d: dict, debut, fin, payees=None, reels_vus=None, jours_manquants=N
                 if tl_j is None:
                     tl_erreur.append("jours")
                 tl_j = tl_j or 0
+        tl_orphelins = liens_orphelins(d, e["tl"], noms.get(e["tl"]) or nom_de(e["tl"]), debut, fin) \
+            if (e["tl"] and not tl_p) else []                           # 23/10 : Yves « ses visites : 0 », 781 au top du jour
         part_tl = (tl_p or 0) if EQUIPE_COMPTE_TL else 0                # EQUIPE_COMPTE_TL=0 : le TL hors du total
         comptes = [v for v in vas if not v["hors_total"]]
         total = sum(v["payees"] for v in comptes) + part_tl
         projete = sum(v["projete"] for v in comptes) + part_tl + (part_tl * tl_j / max(1, n_jours - tl_j) if tl_j else 0)
         out["equipes"][c] = {"tl": e["tl"], "tl_nom": (noms.get(e["tl"]) or nom_de(e["tl"])) if e["tl"] else "",
                              "tl_payees": tl_p, "tl_manquants": tl_j, "tl_erreur": tl_erreur if EQUIPE_COMPTE_TL else [],
+                             "tl_orphelins": tl_orphelins,
                              "manager": e["manager"],
                              "manager_nom": (noms.get(e["manager"]) or nom_de(e["manager"])) if e["manager"] else "",
                              "vas": vas, "total": total, "projete": projete,
@@ -1558,6 +1581,10 @@ def texte_liste(calcul: dict, en_cours: bool) -> list:
             b.append(f"{e['va_primes']}/{len(e['vas'])} VA à {_fmt(TL_SEUIL_VA)} ou plus"
                      + (f" → {_usd(TL_PRIME_VA_USD * e['va_primes'])} au TL" if primee else sans_prime)
                      + (f" ; ses visites : {_fmt(e['tl_payees'] or 0)}" if e["tl_payees"] is not None else ""))
+            for lien_o, vis_o in (e.get("tl_orphelins") or [])[:2]:
+                b.append(f"⚠️ Le lien `{lien_o}` (note « Clipping {e['tl_nom'].split(' - ')[0]} », {_fmt(vis_o)} visites sur la période) "
+                         f"n'est pas rattaché à son compte Discord : ses visites ne lui comptent pas. `!lien @{e['tl_nom'].split(' - ')[0]} "
+                         f"{lien_o}` (ajoute `forcer` s'il est à quelqu'un d'autre).")
         else:
             b.append(f"{len(e['vas'])} VA, pas de TL : pas de prime TL")
         if e["manager"] and e["tl"] and e["manager"] != e["tl"]:

@@ -3245,6 +3245,21 @@ def _en_place(uid: str) -> str:
     return ", ".join(morceaux)
 
 
+def ligne_profil(fiche_p: dict) -> str:
+    """23/10 (Esperance : « ton salon perso a un message avec ta bio toute prête », il n'existait pas encore ; Amour : des bios
+    « mode, beauté » inventées) : le fait, pour l'étape en cours. Le profil (photo, nom, bio) part à l'appui sur « ✅ Compte N
+    créé » ; avant, il n'existe pas. '' hors étape 1 à 3 ou pour un parcours d'avant les profils."""
+    fiche_p = fiche_p or {}
+    n = int(fiche_p.get("etape", 0) or 0)
+    ouverte = (fiche_p.get("dates") or {}).get(str(n))
+    if n not in (1, 2, 3) or not ouverte or str(ouverte) < DISTILLE_DEPUIS:
+        return ""
+    if (fiche_p.get("profils") or {}).get(str(n)):
+        return (f"profil du compte {n} : PARTI, dans le message « Ton profil du compte {n} » de son salon perso (photo, nom et "
+                "bio prêts à coller)")
+    return f"profil du compte {n} : PAS ENCORE PARTI, il part quand il appuie sur « ✅ Compte {n} créé » dans son salon perso"
+
+
 def contexte_court(uid: str) -> str:
     """05/10 : ce que l'assistant du salon #assistant sait du clipper — l'étape et le nombre de comptes créés, jamais un
     identifiant, un mot de passe ni un lien (le salon est commun : rien ne doit passer d'un clipper à l'autre)."""
@@ -3281,7 +3296,8 @@ def contexte_court(uid: str) -> str:
                   "prévenue et les remet dans son salon perso. Ne lui dis jamais que son salon est vide ni qu'il a tout reçu")
     np_ = n_prive(fiche_p)
     autres_c = "comptes 1 et 3" if np_ == 2 else "comptes 1 et 2"
-    return (f"étape : {etape} · comptes créés : {crees} sur 3 · "
+    profil = ligne_profil(fiche_p)                                       # 23/10 : la bio existe-t-elle déjà ?
+    return (f"étape : {etape} · comptes créés : {crees} sur 3 · " + (f"{profil} · " if profil else "") +
             f"compte privé : le compte {np_} · règle du lien : seulement dans la bio du compte {np_} privé ; {autres_c} : une story "
             f"à la une avec le widget de mention du compte {np_}")
 
@@ -3608,6 +3624,7 @@ def contexte_llm(uid: str) -> str:
             "son équipe ici, dans son salon personnel. Aucune confirmation WhatsApp ne conditionne son arrivée. "
             "Ne recopie jamais la ligne [Contexte : …].]\n"
             + _ligne_acces_en_attente(uid)
+            + (f"[FAIT : {ligne_profil(_lire().get(str(uid)))}]\n" if ligne_profil(_lire().get(str(uid))) else "")
             + "[Mémoire du clipper]\n" + memoire(uid))
 
 

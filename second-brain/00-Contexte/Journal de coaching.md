@@ -22,6 +22,17 @@ tags: [contexte/coaching]
 
 ## Décisions prises
 
+### 2026-10-23 (bots) — La panne Google se dit en une alerte ; les alertes et tickets répétés se regroupent
+
+> [!tip] Verdict
+> Depuis le 22/10 10 h 12 (Dubaï), la clé du compte de service Google du bot est refusée : scan, places, paie, comptes à remettre et rapports tournaient à vide sans alerte claire. Le bot le dit maintenant en une alerte avec le remède, et un « non lu (clé Google refusée) » remplace les faux zéros. Les « code pas reçu » d'un même clipper et ses demandes à l'assistant sont regroupés au lieu d'arriver en rafale.
+
+- **Demande de Gaëtan (23/10)** : « Mise à jour BOT Gaëtan et Assistant IA », avec les journaux du 18 au 22/10.
+- **Constat** : la plupart du bruit des journaux (silence des codes toutes les heures, écho des coefficients, contrôle en entier) venait de la version du 21/10 restée en ligne jusqu'au 23/10 06 h 28 (PR #90 en échec) ; il était déjà coupé dans la PR #92.
+- **Corrigé ce jour** : surveillance de la clé Google ; rapport de la veille sans faux zéro ; une alerte « code pas reçu » par série (Moutakabirou : 20 appuis, 4 alertes) ; tickets d'assistance regroupés sur 6 h avec leur motif (Yves : 4 tickets dont un vide) ; relance « rien jusqu'à présent » qui reçoit le fait au lieu d'une fausse promesse ; 👍 aux accusés dans #assistant-ia ; plus de « Salut X » répété ni de renvoi de fiche en pied ; « !étape » compris ; l'assistant sait si la bio du compte est déjà partie ; `!tl liste` signale un lien de TL rattaché à un autre compte.
+- **Avocat du diable** : la clé elle-même ne se répare qu'à la main, dans la console Google du compte agence ; tant qu'elle ne l'est pas, ces corrections ne rendent visibles que les dégâts.
+- **Prédiction (23/10, revue le 30/10)** : sur la semaine, au plus une alerte « code pas reçu » par clipper et par jour, et aucun ticket d'assistance en double pour le même problème.
+
 ### 2026-10-18 (bots) — L'assistant ne promet plus rien qu'il ne fait pas ; `!sortie` expulse ; la relance du quiz réussi part à H+24
 
 > [!tip] Verdict

@@ -241,6 +241,12 @@ def _k(n: int) -> str:
     return f"{n / 1000:.1f} k".replace(".0 k", " k").replace(".", ",") if n >= 10_000 else _nb(n)
 
 
+def _pourquoi(bloc: dict) -> str:
+    """23/10 (le 21/10 : « 0 Reels (7 j : 0) » et « DATA_GM_ID » alors que la clé Google était refusée) : la raison d'un « non lu »."""
+    raison = str((bloc or {}).get("erreur") or "")
+    return f" ({raison})" if raison and raison != "True" else ""
+
+
 def composer(hier: date, subs: dict, vis: dict, rl: dict, mc: dict, effectif: int, creatrices: list) -> str:
     """Huit lignes, la veille. Les créatrices dans l'ordre du roster ; chiffres à zéro affichés (un zéro dit quelque chose)."""
     t = subs.get("tot") or {}
@@ -257,15 +263,18 @@ def composer(hier: date, subs: dict, vis: dict, rl: dict, mc: dict, effectif: in
             lignes.append(f"💰 **{_nb(t['subs'])} subs · {_nb(t['of_usd'])} $ OF · {_nb(t['mym_eur'])} € MYM** ({_nb(ca)} €) · {sept}")
             lignes.append("   " + " · ".join(f"{c} {_nb(v['subs'])}" for c, v in saisis))
     else:
-        lignes.append("💰 Subs et CA : classeur Data G&M non lu (DATA_GM_ID).")
+        lignes.append(f"💰 Subs et CA : classeur Data G&M non lu{_pourquoi(subs)}.")
     vp, vt = vis["par"], sum(v["hier"] for v in vis["par"].values())
     v7 = sum(v["j7"] for v in vis["par"].values())
     lignes.append(f"🔗 **{_nb(vt)} visites payables** (7 j : {_nb(v7)}) · "
                   + " · ".join(f"{c} {_nb(vp[c]['hier'])}" for c in creatrices if c in vp))
     rp, rt = rl["par"], sum(v["hier"] for v in rl["par"].values())
     r7 = sum(v["j7"] for v in rl["par"].values())
-    lignes.append(f"🎬 **{_nb(rt)} Reels** (7 j : {_nb(r7)}) · {rl['publie']} clipper(s) sur {effectif} ont publié · "
-                  + " · ".join(f"{c} {_nb(rp[c]['hier'])}" for c in creatrices if c in rp))
+    if rl.get("erreur"):                                                    # 23/10 : jamais « 0 Reels (7 j : 0) » sur une panne
+        lignes.append(f"🎬 Reels : classeur non lu{_pourquoi(rl)}.")
+    else:
+        lignes.append(f"🎬 **{_nb(rt)} Reels** (7 j : {_nb(r7)}) · {rl['publie']} clipper(s) sur {effectif} ont publié · "
+                      + " · ".join(f"{c} {_nb(rp[c]['hier'])}" for c in creatrices if c in rp))
     top = [(p, v) for p, v in vis["clippers"] if v > 0][:5]
     if top:
         lignes.append("🏆 " + " · ".join(f"{p} {_nb(v)}" for p, v in top))
@@ -424,6 +433,17 @@ def composer_cockpit(hier: date, onglets: dict, effectif: int = 0) -> str:
     return "\n".join(lignes)
 
 
+def _raison(erreur) -> str:
+    """Le mot court d'une source illisible : la clé Google refusée se dit telle quelle, le reste par son type."""
+    g = _deps.get("google_api")
+    try:
+        if g is not None and g.raison_panne():
+            return g.raison_panne()
+    except Exception:                                                       # noqa: BLE001
+        pass
+    return "clé Google refusée" if "invalid_grant" in str(erreur) else type(erreur).__name__
+
+
 async def executer(maintenant=None) -> str:
     """Compose le rapport de la veille ; les sources qui manquent ne bloquent pas les autres."""
     maintenant = maintenant or _deps["heure_paris"]()
@@ -444,7 +464,7 @@ async def executer(maintenant=None) -> str:
     try:
         subs = bloc_subs(await data_gm(hier + timedelta(days=1)), hier)
     except Exception as erreur:                                             # noqa: BLE001
-        journal.warning("Rapport : Data G&M (%s)", erreur); subs = {}
+        journal.warning("Rapport : Data G&M (%s)", erreur); subs = {"erreur": _raison(erreur)}
     vis = visites(groupes, exclus, _deps.get("clics_de"))
     try:
         comptes = await _deps["lire_comptes"]() if _deps.get("lire_comptes") else []
@@ -452,7 +472,8 @@ async def executer(maintenant=None) -> str:
         jour_scan = str(etat.get("dernier") or (hier + timedelta(days=1)).isoformat())[:10]
         rl = reels(comptes, etat.get("historique") or {}, jour_scan, groupes, exclus)
     except Exception as erreur:                                             # noqa: BLE001
-        journal.warning("Rapport : Reels (%s)", erreur); rl = {"par": {}, "clippers": {}, "silencieux": [], "publie": 0}
+        journal.warning("Rapport : Reels (%s)", erreur)
+        rl = {"par": {}, "clippers": {}, "silencieux": [], "publie": 0, "erreur": _raison(erreur)}
     mc = await metricool(hier)
     return composer(hier, subs, vis, rl, mc, effectif, creatrices)
 
