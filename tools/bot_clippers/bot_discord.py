@@ -6520,6 +6520,22 @@ def liberer_liens_de(uids, prenom: str, uids_connus=None) -> int:
     return n
 
 
+async def lien_pour_message_depose(membre) -> tuple:
+    """(adresse, raison) 23/10 (Gaëtan : « envoie le lien à Esperance ») : le lien du clipper par le circuit habituel
+    (attribuer_lien_parcours : GAML cloné, MYM et OF posés et vérifiés, fiche et paie au clic), puis son adresse lue dans sa fiche.
+    Déjà prêt : repris tel quel (le circuit ne clone jamais deux fois). Jamais d'exception ; adresse vide + raison."""
+    uid = str(membre.id)
+    try:
+        await attribuer_lien_parcours(membre, raison="un message déposé dans le dépôt")
+    except Exception as erreur:                                         # noqa: BLE001 — Bloque, GAML en panne, forfait plein
+        return "", f"{type(erreur).__name__} : {str(erreur)[:200]}"
+    fiche = (onboarding._lire_etat().get("clippers") or {}).get(uid) or {}
+    url = str(fiche.get("lien") or "")
+    if fiche.get("liens_prets") and url:
+        return url, ""
+    return "", "lien non prêt après l'attribution (forfait GAML plein ? voir la ligne admin)"
+
+
 async def attribuer_lien_parcours(membre, raison: str = "") -> None:
     """05/10 (Gaëtan : « le lien que pour le troisième compte ») : appelé par le parcours à l'ouverture de l'étape 3 — le lien GAML
     du clipper est créé (ou repris) maintenant, écrit dans sa fiche, et l'admin a une ligne.
@@ -9709,12 +9725,15 @@ async def on_ready():
                 journal.warning("Ajout des identifiants : %s", erreur)
         client.loop.create_task(_identifiants_au_demarrage())                # 30/09 : Clarisse, trois comptes neufs
         messages_deposes.configurer({"lire_json": lire_json, "ecrire_json": ecrire_json, "FICHIER": DONNEES / "messages_envoyes.json",
-                                     "chercher_membre": chercher_membre, "salon_perso": salon_perso_de, "canal_admin": canal_admin,
+                                     # 23/10 : les pseudos sont « Prénom - Créatrice » ; « pour : Esperance » ne passait pas par le pseudo entier
+                                     "chercher_membre": lambda reference, exact=True: chercher_par_prenom(reference),
+                                     "salon_perso": salon_perso_de, "canal_admin": canal_admin,
                                      "vue_whatsapp": vue_whatsapp, "prenom_de": prenom_de, "accueil_liaison": texte_accueil_liaison, "membre_par_id": membre_par_id,
                                      "categorie_nom": CATEGORIE_CLIPPERS_NOM, "est_staff": lambda m: str(m.id) in ADMIN_IDS or est_manager(m),
                                      "signe_creatrice": lambda uid: bool((lire_json(FICHIER_EQUIPES, {}).get(str(uid)) or {}).get("creatrice")),
                                      "salons_clippers": salons_clippers_acceptes,             # 30/09 : « tous_clippers »
-                                     "assurer_salon_arrivee": assurer_salon_arrivee})
+                                     "assurer_salon_arrivee": assurer_salon_arrivee,
+                                     "lien_pour": lien_pour_message_depose})                   # 23/10 : « lien_nouveau »
         client.loop.create_task(messages_deposes.envoyer_au_demarrage(client))  # messages écrits dans le dépôt, une fois (27/09)
         client.loop.create_task(nettoyer_candidatures_test())                    # 29/09 : les candidatures de test s'effacent
         # 09/10 (lot L6) : reels_uniques ne sert plus qu'à retrouver le TOP 20 d'ORIGINE de chaque créatrice (review_reels compare
