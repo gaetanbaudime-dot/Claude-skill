@@ -448,7 +448,10 @@ directement dans Meta. Le relais peut fournir un code de vérification d'e-mail 
 ni validation d'identité. Un code explicitement lié à un recours ou à une récupération reste hors du relais. \
 Compte piraté ou moyen d'accès perdu : https://www.instagram.com/hacked/ ; ce parcours peut exiger le titulaire. \
 Conserver la référence et le statut du recours, sans publier de code, mot de passe ou pièce d'identité. Pas de contournement \
-de bannissement, pas de création de remplacement pour éviter une suspension et aucune promesse de rétablissement.
+de bannissement, pas de compte de remplacement inventé après une suspension et aucune promesse de rétablissement. \
+23/10 (règle C10 : le clipper crée ses comptes avec les identifiants de l'agence) : cette interdiction ne vise QUE le remplacement \
+d'un compte suspendu ; les comptes 1, 2 et 3 du parcours se créent normalement, un à la fois, et tu ne dis jamais « ne crée pas \
+de compte » à un clipper qui en est à la création de son compte du parcours.
 24. Pseudo « déjà utilisé » : vérifier si le clipper a déjà créé son propre compte et doit choisir SE CONNECTER. \
 Un échec de connexion ou une suspension n'autorise pas à créer un autre compte. Seulement pour l'étape de création \
 déjà autorisée, choisir une variante disponible du pseudo, \
@@ -492,7 +495,8 @@ créatrice et son compte 1 arrivent dans son salon perso. Une étape à la fois 
 manager regarde », « il la verra », « l'équipe va te répondre ». Pour un blocage que la base ne résout pas, tu réponds \
 exactement « {MESSAGE_ESCALADE} » : c'est ce texte qui transmet VRAIMENT la demande à l'équipe.
 37. Le clipper parle d'un compte que ta mémoire ne connaît pas (compte suspendu, compte 2 créé…) : tu ne le contredis pas, ta \
-fiche n'est pas à jour. Tu réponds « {MESSAGE_ESCALADE} ».
+fiche n'est pas à jour. Tu réponds « {MESSAGE_ESCALADE} ». Compte banni ou suspendu (23/10) : même réponse ; le code envoie lui-même \
+la marche à suivre de la Fiche 6 AVANT la confirmation de l'équipe, tu ne la recopies pas.
 38. Tu as déjà donné la même consigne deux fois à cette personne et elle bloque encore : tu ne la redonnes pas une troisième \
 fois, tu réponds « {MESSAGE_ESCALADE} ».
 39. Après « Ta demande est signalée à l'équipe », un « j'attends ? » ou « et maintenant ? » reçoit : « Oui. Ton équipe a ta \
@@ -1646,6 +1650,32 @@ async def signaler_escalade(message, question: str) -> bool:
     empreinte = hashlib.sha256(normaliser((question or "").strip()).encode()).hexdigest()[:16]
     retour = await signaler_support(message, "assistance IA · question " + empreinte)
     return retour["statut"] == "transmis"
+
+
+# 23/10 (Gaëtan : Yves écrit « mon compte 2 est ban » et ne reçoit que « Ta demande est signalée à l'équipe ») : la règle 37 fait
+# répondre MESSAGE_ESCALADE à un compte inconnu de la fiche, puis la confirmation canonique remplaçait TOUTE la réponse. Le clipper
+# banni n'apprenait donc pas qu'il peut faire appel lui-même. Pour un ban, la marche à suivre de la Fiche 6 part d'abord, la
+# confirmation de l'équipe vient après. Le reste de l'escalade ne change pas. Texte court, une action par ligne (clipper sur téléphone).
+MOTIF_COMPTE_BANNI = re.compile(
+    r"\b(?:bans?|bannis?|bannies?|bannir|suspendus?|suspendues?|suspension|desactivee?s?|restreint\w*|nous examinons|en revision)\b"
+    r"|\bcompte\b(?:\s+\d)?\s+(?:(?:est|a ete|etait|vient d'etre|semble)\s+)?(?:\w+\s+)?bloque\w*")
+
+PROCEDURE_COMPTE_BANNI = ("Compte banni ou bloqué ? Fais l'appel toi-même, tout de suite.\n\n"
+                          "1. Ouvre le compte sur Instagram.\n"
+                          "2. Appuie sur « Contester la décision ».\n"
+                          "3. Instagram demande un selfie ou une pièce d'identité ? Donne les tiens. Jamais ceux d'un autre. "
+                          "Ne les envoie jamais dans Discord.\n"
+                          "4. Poste la réponse d'Instagram en capture dans ton salon perso.\n"
+                          "5. Si l'appel échoue, Gaëtan décide.\n\n"
+                          "Ne réutilise rien d'un compte banni. Ni l'e-mail, ni le mot de passe, ni l'identifiant.")
+
+
+def avec_procedure_compte_banni(question: str, confirmation: str) -> str:
+    """23/10 : si le clipper parle d'un compte banni, suspendu, désactivé ou bloqué, la marche à suivre de la Fiche 6 passe
+    AVANT la confirmation de l'équipe. Sinon la confirmation seule, comme avant."""
+    if MOTIF_COMPTE_BANNI.search(normaliser((question or "").replace("’", "'"))):
+        return PROCEDURE_COMPTE_BANNI + "\n\n" + confirmation
+    return confirmation
 
 
 async def reponse_escalade_verifiee(message, question):
@@ -5729,10 +5759,13 @@ async def onboarder_membre(g, m_, creatrice_c: str, par, etats_cl: dict, mgrs: l
                 journal.warning("Accueil de %s non vérifié : %s", uid_m, pourquoi)
                 return f"⚠️ Message du compte 1 ou informations non vérifiés ({pourquoi}) : reprise conservée."
             if sans_tl:
-                extras.append(f"pas de TL pour {creatrice_c} : salon sans TL")
+                extras.append(f"pas de TL pour {creatrice_c} : Gaëtan est TL par défaut, groupe WhatsApp par son bouton")
             demande_groupe = getattr(parcours, "demander_groupe_tl", None)     # 18/10 (E8) : le TL crée le groupe WhatsApp
             if demande_groupe is not None and tl is not None:                 # jamais au prix de l'arrivée (la fonction n'échoue pas)
                 await demande_groupe(salon_c, uid_m, tl, prenom_c, creatrice_c)
+            elif sans_tl and getattr(parcours, "demander_groupe_gaetan", None) is not None:
+                # 23/10 (Gaëtan : « Gaëtan est TL par défaut ») : sans TL, le groupe WhatsApp passe par Gaëtan (bouton wa.me)
+                await parcours.demander_groupe_gaetan(salon_c, m_, uid_m, prenom_c, creatrice_c)
             attribution._sortir_d_attente(uid_m)
             attribution.resoudre_blocage(uid_m)
             return (f"{'🆕' if cree_c else '✅'} {m_.display_name} → {creatrice_c} · <#{salon_c.id}>"
@@ -6336,12 +6369,13 @@ def liberer_liens_de(uids, prenom: str, uids_connus=None) -> int:
     return n
 
 
-async def attribuer_lien_parcours(membre) -> None:
+async def attribuer_lien_parcours(membre, raison: str = "") -> None:
     """05/10 (Gaëtan : « le lien que pour le troisième compte ») : appelé par le parcours à l'ouverture de l'étape 3 — le lien GAML
     du clipper est créé (ou repris) maintenant, écrit dans sa fiche, et l'admin a une ligne.
     10/10 (revue du recrutement, lot L3 : le forfait GAML de 50 liens est le 2e goulot, et un compte 3 sans lien partait en silence,
     sans app ni paie) : aucun lien → une ligne admin en direct, une fois par jour et par clipper (alertes_lien_gaml.json, écrit
-    AVANT l'envoi), avec le forfait lu dans clics.json (places.etat_gaml, lecture seule). Paie au clic éteinte : rien."""
+    AVANT l'envoi), avec le forfait lu dans clics.json (places.etat_gaml, lecture seule). Paie au clic éteinte : rien.
+    23/10 (Gaëtan, cohorte du lien en story dès le compte 1) : `raison` dit pourquoi le lien est créé avant le compte privé (ligne admin)."""
     uid = str(membre.id)
     creatrice = ((lire_json(FICHIER_EQUIPES, {}).get(uid) or {}).get("creatrice")
                  or (lire_json(FICHIER_PARCOURS, {}).get(uid) or {}).get("creatrice")
@@ -6355,7 +6389,7 @@ async def attribuer_lien_parcours(membre) -> None:
         canal = await canal_admin()
         if canal is not None:
             try:
-                await canal.send(f"🔗 Lien GAML de {prenom_de(membre)} ({creatrice}), créé avec son compte privé : {bilan['lien']} · "
+                await canal.send(f"🔗 Lien GAML de {prenom_de(membre)} ({creatrice}), créé avec {raison or 'son compte privé'} : {bilan['lien']} · "
                                  + " · ".join(bilan.get("lignes") or []))
             except (discord.Forbidden, discord.HTTPException):
                 pass
@@ -6373,7 +6407,8 @@ async def attribuer_lien_parcours(membre) -> None:
     raisons = " · ".join(x for x in bilan.get("lignes") or [] if x and x != "lien GAML absent")
     gaml = places.etat_gaml()
     plein = "forfait" in raisons.lower() or (gaml is not None and gaml["actifs"] >= gaml["forfait"])
-    compte = f"{prenom_de(membre)} (<@{uid}>, {creatrice}) a son compte {n_p} sans lien"
+    compte = (f"{prenom_de(membre)} (<@{uid}>, {creatrice}) n'a pas de lien : {raison}" if raison
+              else f"{prenom_de(membre)} (<@{uid}>, {creatrice}) a son compte {n_p} sans lien")
     if plein:
         texte = ("🔗 Forfait GAML plein" + (f" ({gaml['actifs']}/{gaml['forfait']} liens actifs)" if gaml is not None else "")
                  + f" : {compte}. Libère un lien (`!liens`) ou monte le forfait.")
@@ -11084,7 +11119,7 @@ async def on_message(message):
                             "date": datetime.now(timezone.utc).isoformat(timespec="seconds")})
             ecrire_json(FICHIER_LACUNES, lacunes[-200:])
     if est_escalade(reponse) and not est_staff(message.author):
-        reponse = await reponse_escalade_verifiee(message, texte)
+        reponse = avec_procedure_compte_banni(texte, await reponse_escalade_verifiee(message, texte))   # 23/10 : ban → Fiche 6 d'abord
     journaliser(utilisateur, ("[photo] " if len(contenu) > 1 else "") + texte, reponse)
     reponse = re.sub(r"^\s*\[Contexte\s*:[^\]]*\]\s*", "", reponse)                         # 26/09 : jamais recopiée
     reponse = retirer_prochaine_etape(reponse, texte)                                          # 18/10 : « simplifie »

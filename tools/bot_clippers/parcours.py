@@ -264,7 +264,8 @@ ETAPES = {
                   "💸 Ta paie arrive ici les 5 et 20.\n\n"
                   "Une question ? Écris-la ici, je réponds.")},
 }
-LIGNE_APP = "📱 Ton app clipper te montre tes visites et tes gains, jour par jour. Garde-la en favori.\n\n"
+LIGNE_APP = ("📱 Ton app clipper te montre tes visites et tes gains, jour par jour. Garde-la en favori.\n\n"
+             "🎞️ Le duplicateur de Reels est dedans. Mets-y tes rushes bruts, jamais postés tels quels.\n\n")
 LIGNE_LIEN = ("🔗 **Ton lien**, sur ton compte privé `{cprive}` : Modifier le profil → **Liens** → Ajouter un lien externe → colle :\n"
               "```\n{lien}\n```\n\n")
 # 10/10 (revue du recrutement : « jusqu'à 10 Reels par jour » contredisait la règle 5 du formulaire, 2 Reels par jour, et le scan
@@ -276,6 +277,23 @@ LIGNE_LIEN = ("🔗 **Ton lien**, sur ton compte privé `{cprive}` : Modifier le
 TEXTE_STORY = ("📌 **Une fois, maintenant : ta story à la une.**\n\n"
                "Sur {pointent_tes} : une story avec le widget de mention `@{cprive}`, puis mets-la à la une.\n\n"
                "Jamais de lien sur {pointent_court}.")
+# 23/10 (Gaëtan : « délivrer le lien GetAllMyLinks au premier compte Instagram et de dire de le poster uniquement en story, pas en
+# story à la une et pas en lien en bio, une story tous les deux jours » ; test par COHORTE d'abord) : les NOUVEAUX clippers des
+# créatrices de la variable LIEN_STORY_COMPTE1_CREATRICES (« Chloé » ou « Chloé,Sarah ») reçoivent leur lien GAML avec le compte 1,
+# dans un message à part (le message du compte 1 est livré une seule fois, par empreinte : on n'y touche pas). VIDE PAR DÉFAUT =
+# éteint, le parcours reste exactement celui des règles gelées (lien au compte 3). Le lien est alors créé à l'arrivée au lieu de
+# l'ouverture du compte 3 : il prend une place du forfait GAML plus tôt (alerte forfait de bot_discord.attribuer_lien_parcours).
+# `cohorte_story_lien` (fiche) date l'entrée, pour comparer plus tard les bans à J+7 et les visites payées avec les autres ;
+# `story_lien_envoye` date la consigne. Au « ✅ Profil fait » du compte 3 privé, la cohorte reçoit la fin de la règle (STORY_LIEN_FIN).
+STORY_LIEN_COMPTE1 = ("🔗 **Ton lien est prêt.**\n\n"
+                      "Voici ton lien :\n```\n{lien}\n```\n\n"
+                      "Crée d'abord ton compte 1. Ensuite, mets ce lien en story.\n\n"
+                      "1. Une story tous les 2 jours.\n"
+                      "2. Utilise le sticker « Lien » d'Instagram.\n"
+                      "3. Ne le mets jamais à la une.\n"
+                      "4. Ne le mets jamais dans ta bio.\n\n"
+                      "Plus tard, ton compte 3 arrive. Ce jour-là, tu arrêtes ces stories avec le lien.")
+STORY_LIEN_FIN = "Plus aucune story avec le lien. Seulement des stories qui mentionnent le compte privé."
 # 08/10 (privé en 2) : les étapes 2 et 3 de l'ordre « prive2 » — le compte 2 est le privé, le compte 3 le 2e compte de croissance.
 ETAPES_PRIVE2 = {
     2: {"icone": "🔒", "titre": "{palier}Privé · @{compte2}", "fiche": "1", "bouton": "✅ Compte 2 créé", "salons": [],
@@ -1385,6 +1403,11 @@ async def envoyer_etape(salon, membre, n: int, pointer: bool = True) -> bool:
         _ecrire(d)
     if pseudo_propose and not identifiants:
         await alerter_acces_en_attente(membre, uid)
+    if n == 1 and pointer and not (fiche_avant.get("messages") or {}).get("1"):
+        try:                                                            # 23/10 (Gaëtan) : cohorte du lien en story, éteinte par défaut
+            await livrer_story_lien(salon, membre, uid, premiere=True)
+        except Exception as erreur:                                     # noqa: BLE001 — la consigne en moins, jamais un compte 1 en moins
+            journal.warning("Lien en story de %s : %s", uid, type(erreur).__name__)
     return True
 
 
@@ -1944,7 +1967,10 @@ async def _story_puis_app(salon, membre, uid: str, fiche_p: dict = None) -> None
             ctx = await _contexte(getattr(salon, "guild", None), uid, _lire().get(uid) or fiche_p or {"prenom": _prenom(membre)})
             if ctx.get("ligne_lien"):
                 await salon.send((f"{membre.mention} " + ctx["ligne_lien"].strip())[:1990])
-            await salon.send((f"{membre.mention} " + _rendre(TEXTE_STORY, ctx))[:1990])
+            texte_story = _rendre(TEXTE_STORY, ctx)
+            if dans_cohorte_story(_lire().get(uid)):                    # 23/10 (Gaëtan) : fin des stories avec le lien pour la cohorte
+                texte_story += "\n\n" + STORY_LIEN_FIN
+            await salon.send((f"{membre.mention} " + texte_story)[:1990])
         except (discord.Forbidden, discord.HTTPException) as erreur:  # la routine et l'app partent quand même
             journal.warning("Story à la une de %s : %s", uid, erreur)
         if (_lire().get(uid) or {}).get("story_due"):
@@ -2168,6 +2194,41 @@ async def demander_groupe_tl(salon, uid: str, tl, prenom: str, creatrice: str) -
         return False
 
 
+# 23/10 (Gaëtan : « Clara, Jade et Maddie n'ont pas de TL : Gaëtan est TL par défaut ») : pour une créatrice sans TL, le groupe WhatsApp
+# suit le chemin de Gaëtan, le bouton wa.me d'avant le 18/10 (message déjà écrit « Tu peux m'ajouter au groupe ? ») et « ✅ J'ai écrit
+# à Gaëtan » (BoutonWhatsApp : marque `whatsapp`, prévient le salon admin). Sans lui personne ne créait le groupe et le clipper
+# restait dans la liste des bloqués (bloques.py : « pas de WhatsApp »). Aucune prime TL (P5) : lignes_primes ne prime que les équipes
+# qui ont un TL.
+TEXTE_GROUPE_GAETAN = ("📲 {mention} Pour ton groupe WhatsApp, écris à Gaëtan avec le bouton.\n\n"
+                       "{ligne}\n\n"
+                       "Puis appuie sur « J'ai écrit à Gaëtan ».")
+
+
+async def demander_groupe_gaetan(salon, membre, uid: str, prenom: str, creatrice: str) -> bool:
+    """23/10 : le message « écris à Gaëtan » dans le salon perso d'un clipper dont la créatrice n'a pas de TL, une seule fois
+    (`groupe_gaetan_demande` dans la fiche, écrit avant l'envoi). Renvoie True si le message est parti. Jamais d'exception : l'arrivée
+    ne dépend pas de ce message."""
+    try:
+        d = _lire()
+        fiche_p = d.get(str(uid))
+        if fiche_p is None or fiche_p.get("groupe_gaetan_demande") or fiche_p.get("whatsapp"):
+            return False
+        fiche_p["groupe_gaetan_demande"] = _maintenant()
+        _ecrire(d)
+        vue = discord.ui.View(timeout=None)
+        lien = lien_whatsapp_groupe(str(uid), fiche_p)
+        if lien:
+            vue.add_item(discord.ui.Button(label="💬 Écrire à Gaëtan", style=discord.ButtonStyle.link, url=lien))
+        vue.add_item(BoutonWhatsApp(str(uid)))
+        ligne = ("Le message est déjà écrit." if whatsapp_prerempli()
+                 else f"Envoie-lui : « {_message_wa(str(uid), fiche_p, groupe=True)} »")
+        await salon.send(TEXTE_GROUPE_GAETAN.format(mention=membre.mention, ligne=ligne), view=vue)
+        return True
+    except Exception as erreur:                                         # noqa: BLE001
+        journal.warning("Demande de groupe à Gaëtan pour %s : %s", uid, type(erreur).__name__)
+        return False
+
+
 # ------------------------------------------------------------------ app clippers
 # 08/10 (Gaëtan : « envoie automatiquement l'app dans le salon Discord privé du clippeur, une fois seulement qu'il a créé les
 # 3 IG : l'app + son lien de tracking GAML ») : dès que l'étape du compte 3 est fermée (étape 6 ou plus : compte 3 créé, ou
@@ -2180,9 +2241,18 @@ async def demander_groupe_tl(salon, uid: str, tl, prenom: str, creatrice: str) -
 # « tes vidéos à publier » : l'app montre les visites et les gains.
 TEXTE_APP = ("📱 {mention} **Ton app clipper**\n\n"
              "Tes visites et tes gains, jour par jour.\n\n"
+             "🎞️ Le duplicateur de Reels est dedans. Mets-y tes rushes bruts.\n\n"
+             "Un rush brut est une vidéo pas encore montée. Ne poste jamais un rush brut tel quel.\n\n"
              "Ouvre-la dans Safari (iPhone) ou Chrome (Android), puis mets-la sur ton écran d'accueil.\n\n"
              "🔒 Elle est à toi : ne donne son lien à personne.")
 APP_PAR_PASSE = 5                                                       # rattrapage : 5 messages au plus par passe horaire
+# 23/10 (Gaëtan : « donner leur application de clippeur au troisième jour, avec dedans le duplicateur de Reels, et leur dire de mettre
+# des rushes bruts ») : l'app part APP_JOUR jours (3 par défaut, 0 = l'ancienne règle seule) après l'arrivée du clipper dans son salon
+# perso (`bienvenue_ok`), au lieu de ses 3 comptes créés, et seulement pour les arrivées d'APP_JOUR_DEPUIS (les clippers déjà en route
+# ne sont pas touchés : pas d'envoi en masse au déploiement). L'app retrouve le clipper par son lien GAML (lien_app.chercher) : sans
+# lien prêt, rien ne part et aucune alerte « aucun lien GAML » n'est levée avant le jour de l'ancienne règle (compte 3 ouvert).
+APP_JOUR = int(os.environ.get("APP_JOUR", "3") or 0)
+APP_JOUR_DEPUIS = os.environ.get("APP_JOUR_DEPUIS", "2026-10-23T00:00:00+00:00")
 STORY_AUTO_H = int(os.environ.get("PARCOURS_STORY_AUTO_H", "24") or 24)   # 09/10 : « ✅ Fait » de la story oublié → fermée seule
 # 09/10 (plan : « les clippers déjà en route, on ne les touche pas ») : une étape 6 ouverte avant ce jour (ancien message « Ton lien
 # et ta story », app déjà envoyée avec lui) garde l'ancien déroulé : ni fermeture automatique, ni app retenue
@@ -2216,10 +2286,32 @@ def trois_comptes(fiche_p: dict) -> bool:
     return n >= 6
 
 
-def app_due(fiche_p: dict) -> bool:
+def jour_app_atteint(fiche_p: dict, uid, maintenant=None) -> bool:
+    """23/10 (Gaëtan, app au jour 3) : vrai quand APP_JOUR jours ont passé depuis l'arrivée du clipper dans son salon perso, que cette
+    arrivée est postérieure à APP_JOUR_DEPUIS, et que son lien GAML est prêt (l'app ne le retrouve que par lui). Sans lien prêt : faux,
+    l'ancienne règle (3 comptes créés) reste seule juge, sans alerte."""
+    f = fiche_p or {}
+    if APP_JOUR <= 0 or not _onb(uid).get("liens_prets"):
+        return False
+    brut = f.get("bienvenue_ok") or (f.get("dates") or {}).get("1")
+    try:
+        arrivee = datetime.fromisoformat(str(brut))
+        depuis = datetime.fromisoformat(APP_JOUR_DEPUIS)
+    except (TypeError, ValueError):
+        return False
+    arrivee = arrivee if arrivee.tzinfo else arrivee.replace(tzinfo=timezone.utc)
+    depuis = depuis if depuis.tzinfo else depuis.replace(tzinfo=timezone.utc)
+    maintenant = maintenant or datetime.now(timezone.utc)
+    return arrivee >= depuis and maintenant - arrivee >= timedelta(days=APP_JOUR)
+
+
+def app_due(fiche_p: dict, uid=None) -> bool:
     """09/10 : l'app part AVEC la routine (étape 7, un seul message). Le rattrapage seul ne vaut que si la routine est déjà partie
     (l'app n'était pas prête), ou pour une fiche ancienne à l'étape 6 sans date ; jamais pendant la story à la une (étape 6 ouverte)
-    ni pendant les 24 h qui précèdent la routine (ordre « prive2 »)."""
+    ni pendant les 24 h qui précèdent la routine (ordre « prive2 »).
+    23/10 (Gaëtan) : avec `uid`, l'app part aussi au jour APP_JOUR après l'arrivée (jour_app_atteint), lien prêt."""
+    if uid is not None and jour_app_atteint(fiche_p, uid):
+        return True
     if not trois_comptes(fiche_p):
         return False
     f = fiche_p or {}
@@ -2247,6 +2339,117 @@ def _liens_gaml(uid: str, creatrice: str) -> tuple:
     return (tous[0] if tous else ""), list(dict.fromkeys(tous))
 
 
+# ------------------------------------------------------------------ 23/10 : lien en story dès le compte 1 (cohorte d'essai)
+def creatrices_cohorte_story() -> set:
+    """Les créatrices (premier mot, sans accent ni casse) de la cohorte d'essai : LIEN_STORY_COMPTE1_CREATRICES, vide = éteint.
+    Lue à chaque appel : Gaëtan change la variable dans Railway sans toucher au code."""
+    brut = os.environ.get("LIEN_STORY_COMPTE1_CREATRICES", "")
+    return {m for m in ((_norm(x).split() or [""])[0] for x in str(brut).split(",")) if m}
+
+
+def dans_cohorte_story(fiche_p: dict) -> bool:
+    """Le clipper est entré dans la cohorte à son arrivée (clé `cohorte_story_lien`), même si la variable a changé depuis."""
+    return bool((fiche_p or {}).get("cohorte_story_lien"))
+
+
+def _creatrice_de(uid, fiche_p: dict) -> str:
+    return str((fiche_p or {}).get("creatrice") or _onb(uid).get("creatrice") or "")
+
+
+async def _ligne_admin_story(texte: str) -> None:
+    if not _deps.get("canal_admin"):
+        return
+    try:
+        canal = await _deps["canal_admin"]()
+        if canal is not None:
+            await canal.send(texte[:1990])
+    except Exception as erreur:                                         # noqa: BLE001 — une ligne admin en moins, jamais un blocage
+        journal.warning("Ligne admin du lien en story : %s", type(erreur).__name__)
+
+
+async def livrer_story_lien(salon, membre, uid, premiere: bool = False) -> str:
+    """23/10 : la consigne « ton lien, en story, une story tous les 2 jours » du compte 1, pour la cohorte d'essai seulement.
+    `premiere` : appelé à l'envoi du compte 1, seul moment où un clipper peut ENTRER dans la cohorte (jamais un ancien). Le lien est
+    créé ici s'il n'existe pas (un essai par jour, alerte forfait GAML de bot_discord) ; sans lien, rien n'est envoyé, une ligne au salon
+    admin, et le rattrapage horaire (rattraper_story_lien) réessaie. Écrit AVANT l'envoi : jamais deux fois.
+    Renvoie « envoye », « deja », « hors_cohorte », « trop_tard » (son compte 3 est ouvert : le lien est dans sa bio), « sans_lien »
+    ou « erreur »."""
+    uid = str(uid)
+    if not creatrices_cohorte_story():
+        return "hors_cohorte"
+    d = _lire()
+    f = d.get(uid)
+    if not isinstance(f, dict) or _onb(uid).get("sorti"):
+        return "hors_cohorte"
+    creatrice = _creatrice_de(uid, f)
+    if not f.get("cohorte_story_lien"):
+        cle = (_norm(creatrice).split() or [""])[0]
+        if not (premiere and cle and cle in creatrices_cohorte_story()):
+            return "hors_cohorte"
+        f["cohorte_story_lien"] = _maintenant()
+        _ecrire(d)
+    if f.get("story_lien_envoye"):
+        return "deja"
+    if lien_du(f):
+        return "trop_tard"
+    jour = datetime.now(timezone.utc).date().isoformat()
+    lien, _ = _liens_gaml(uid, creatrice)
+    if not (lien and _onb(uid).get("liens_prets")) and f.get("story_lien_essai") != jour and _deps.get("attribuer_lien"):
+        d = _lire()
+        if uid in d:
+            d[uid]["story_lien_essai"] = jour
+            _ecrire(d)
+        try:
+            await _deps["attribuer_lien"](membre, raison="la cohorte du lien en story, dès le compte 1")
+        except Exception as erreur:                                     # noqa: BLE001 — sans lien, la consigne attend
+            journal.warning("Lien GAML de %s (cohorte story) : %s", uid, erreur)
+        lien, _ = _liens_gaml(uid, creatrice)
+    if not (lien and _onb(uid).get("liens_prets")):
+        d = _lire()
+        if uid in d and not d[uid].get("story_lien_attente"):
+            d[uid]["story_lien_attente"] = jour                         # une seule ligne admin par clipper
+            _ecrire(d)
+            await _ligne_admin_story(f"🔗 Cohorte lien en story : {(f.get('prenom') or uid)} ({creatrice}) n'a pas encore de lien GAML. "
+                                     "La consigne attend, son parcours continue. Libère un lien (`!liens`) ou monte le forfait.")
+        return "sans_lien"
+    d = _lire()
+    if uid not in d or d[uid].get("story_lien_envoye"):
+        return "deja"
+    d[uid]["story_lien_envoye"] = _maintenant()
+    _ecrire(d)
+    try:
+        await salon.send((f"{membre.mention} " + STORY_LIEN_COMPTE1.format(lien=lien))[:1990])
+    except (discord.Forbidden, discord.HTTPException) as erreur:
+        journal.warning("Lien en story de %s : %s", uid, erreur)
+        d = _lire()
+        if uid in d:
+            d[uid].pop("story_lien_envoye", None)
+            _ecrire(d)
+        return "erreur"
+    journal.info("Lien en story (cohorte) envoyé à %s", uid)
+    return "envoye"
+
+
+async def rattraper_story_lien(client) -> list:
+    """Passe horaire : les clippers de la cohorte dont la consigne n'est pas partie (lien GAML pas encore créé). Éteint avec la variable.
+    Renvoie [(uid, état)] pour le journal."""
+    if not creatrices_cohorte_story():
+        return []
+    faits = []
+    for uid, f in list(_lire().items()):
+        if not isinstance(f, dict) or not f.get("cohorte_story_lien") or f.get("story_lien_envoye"):
+            continue
+        salon = client.get_channel(int(f.get("salon_id", 0) or 0)) if client is not None else None
+        membre = _deps["membre_par_id"](uid) if _deps.get("membre_par_id") else None
+        if salon is None or membre is None:
+            continue
+        try:
+            faits.append((uid, await livrer_story_lien(salon, membre, uid)))
+        except Exception as erreur:                                     # noqa: BLE001
+            journal.warning("Lien en story de %s, rattrapage : %s", uid, type(erreur).__name__)
+    return faits
+
+
 async def livrer_app(uid: str, salon=None, membre=None, client=None, forcer: bool = False, texte: str = "") -> str:
     """Envoie dans son salon perso le bouton de son app, une seule fois (forcer : staff ou `!app`, renvoyé même si déjà envoyé).
     09/10 : `texte` (le message déjà écrit, mention comprise : la routine) part avec le bouton à la place de TEXTE_APP, en UN message.
@@ -2262,7 +2465,7 @@ async def livrer_app(uid: str, salon=None, membre=None, client=None, forcer: boo
     if not forcer:
         if fiche_p.get("app"):
             return "deja"
-        if not app_due(fiche_p):                                        # 09/10 : avec la routine, pas avant
+        if not app_due(fiche_p, uid):                                   # 09/10 : avec la routine, pas avant (23/10 : ou au jour 3)
             return "pas_pret"
         if _deps.get("FICHIER_EQUIPES") and uid not in _deps["lire_json"](_deps["FICHIER_EQUIPES"], {}):
             return "pas_pret"                                           # sorti de l'équipe (sa fiche reste au parcours)
@@ -2399,7 +2602,7 @@ async def fermer_profils_oublies(client, maintenant=None) -> list:
 
 
 async def rattraper_app(client) -> list:
-    """Passe horaire : chaque clipper aux 3 comptes créés qui n'a pas encore son app la reçoit (APP_PAR_PASSE au plus). Ceux que
+    """Passe horaire : chaque clipper aux 3 comptes créés (23/10 : ou au jour APP_JOUR, lien prêt) qui n'a pas encore son app la reçoit (APP_PAR_PASSE au plus). Ceux que
     l'app ne connaît pas encore : une ligne au salon admin, une fois par jour et par clipper. Renvoie les lignes de bilan."""
     if not lien_app.actif():
         return []
@@ -2408,7 +2611,7 @@ async def rattraper_app(client) -> list:
     for uid, fiche_p in list(_lire().items()):
         if envoyes >= APP_PAR_PASSE:
             break
-        if not isinstance(fiche_p, dict) or fiche_p.get("app") or not app_due(fiche_p):   # 09/10 : avec la routine, pas avant
+        if not isinstance(fiche_p, dict) or fiche_p.get("app") or not app_due(fiche_p, uid):   # 09/10 : avec la routine, pas avant (23/10 : ou au jour 3)
             continue
         etat = await livrer_app(uid, client=client)
         if etat == "envoye":
@@ -2424,7 +2627,7 @@ async def rattraper_app(client) -> list:
         bilan.append("📱 App clippers pas encore envoyée, l'app ne connaît pas leur lien GAML (note « Clipping Prénom » ?) : "
                      + ", ".join(manquants))
     if envoyes:
-        bilan.append(f"📱 App clippers envoyée à {envoyes} clipper(s) aux 3 comptes créés")
+        bilan.append(f"📱 App clippers envoyée à {envoyes} clipper(s) (jour {APP_JOUR} après l'arrivée, ou 3 comptes créés)")
     return bilan
 
 
@@ -2678,6 +2881,10 @@ async def boucle(client) -> None:
                     await canal.send("\n".join(bilan_app)[:1990])
             except Exception as erreur:                                 # noqa: BLE001
                 journal.warning("App clippers (rattrapage) : %s", erreur)
+            try:                                                        # 23/10 : la consigne du lien en story, si le lien n'existait pas encore
+                await rattraper_story_lien(client)
+            except Exception as erreur:                                 # noqa: BLE001
+                journal.warning("Lien en story (rattrapage) : %s", erreur)
             maintenant = _deps["heure_paris"]()
             if maintenant.hour >= paie_clics.CLICS_HEURE and RELANCE_JOURS > 0:
                 # 05/10 : les étapes 4 et 5 ne s'ouvrent plus (compte 3 privé → lien → routine) ; les fiches encore à 4 ou 5
