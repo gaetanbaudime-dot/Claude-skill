@@ -30,5 +30,11 @@
     "id": "annonce-regles-2310",
     "salon": "#annonces",
     "texte": "📢 **Ce qui change pour les nouveaux clippers**\n\nTon app arrive à partir du jour 3.\n\nElle arrive quand ton lien est prêt.\n\nLe duplicateur de Reels est dedans. Mets-y tes rushes bruts. Jamais une vidéo déjà postée.\n\nTon compte 1 arrive tout de suite, dans ton salon perso.\n\nCompte 1 pas créé 48 h après sa remise ? Le bot t'avertit.\n\nToujours pas créé 48 h après l'avertissement ? Ton manager valide ta sortie du serveur.\n\nUn blocage ? Dis-le tout de suite dans ton salon perso.\n\nPhotos de profil, vidéos et lien Drive : dans le salon ℹ️ de ta créatrice.\n\nLe top 50 des créatrices françaises : dans #ressources."
+  },
+  {
+    "id": "lien-esperance-2310",
+    "pour": "Esperance",
+    "lien_nouveau": true,
+    "texte": "Salut Esperance !\n\nVoici ton lien : {lien}\n\nMets-le dans la bio de ton compte privé.\n\nTa bio a encore chloe-callista.fr/13 ? Remplace-le par celui-ci.\n\nUn souci ? Écris-le ici, dans ton salon."
   }
 ]

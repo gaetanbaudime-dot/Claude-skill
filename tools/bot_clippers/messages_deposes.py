@@ -15,6 +15,11 @@ remplace le texte par le message d'arrivée du membre (parcours, formation, lien
 salon de la catégorie Clippers dont le membre n'est ni staff ni signé avec une créatrice (« efface et renvoie ça à tous ceux
 qu'on a onboardés cette nuit », 28/09) ; "tous_clippers": true (30/09, Gaëtan : « seulement aux clippers acceptés ») l'applique
 au salon perso de chaque clipper signé avec une créatrice, jamais aux candidats — la forme de toute annonce de règle.
+"lien_nouveau": true (23/10, Gaëtan : « envoie le lien à Esperance ») : avec « pour », le bot crée (ou reprend) le lien du clipper par
+le circuit habituel (GAML cloné, MYM et OF posés et vérifiés, fiche et paie au clic écrites), puis remplace « {lien} » dans le
+texte par son adresse. Le salon est vérifié AVANT : sans salon, aucun lien n'est créé. Lien pas prêt (forfait GAML plein, MYM/OF
+manquant, départ enregistré) : rien n'est envoyé, la raison va au salon admin, retenté au démarrage suivant — sans second clone,
+le circuit reprenant son travail déjà fait.
 """
 
 import json
@@ -114,6 +119,16 @@ async def _envoyer_dans(client, salon, membre, entree: dict, ident: str) -> bool
     return True
 
 
+async def _lien_du_membre(membre) -> tuple:
+    """(adresse, raison) : jamais d'exception, une adresse vide dit pourquoi dans `raison`."""
+    try:
+        url, raison = await _deps["lien_pour"](membre)
+    except Exception as erreur:                                         # noqa: BLE001 — le message attend, il ne part pas sans lien
+        return "", f"{type(erreur).__name__} : {str(erreur)[:200]}"
+    url = str(url or "").strip()
+    return (url, "") if url.startswith("http") else ("", str(raison or "adresse absente")[:200])
+
+
 async def resoudre(client, entree: dict):
     """Le salon visé par une entrée, ou (None, raison)."""
     if entree.get("pour"):
@@ -174,6 +189,17 @@ async def envoyer_au_demarrage(client) -> list:
                     pass
             continue
         membre = _deps["chercher_membre"](str(entree["pour"]), exact=True) if entree.get("pour") else None
+        if entree.get("lien_nouveau") and membre is not None and _deps.get("lien_pour"):
+            url, raison_lien = await _lien_du_membre(membre)
+            if not url:
+                journal.warning("Message déposé « %s » non envoyé : lien non prêt (%s)", ident, raison_lien)
+                if admin is not None:
+                    try:
+                        await admin.send(f"📨 Message déposé « {ident} » non envoyé : lien non prêt ({raison_lien}). Je réessaie au prochain démarrage.")
+                    except (discord.Forbidden, discord.HTTPException):
+                        pass
+                continue
+            entree = {**entree, "texte": str(entree.get("texte") or "").replace("{lien}", url)}
         if not await _envoyer_dans(client, salon, membre, entree, ident):
             continue
         envoyes[ident] = {"date": datetime.now(timezone.utc).isoformat(timespec="seconds"), "salon": getattr(salon, "name", str(salon.id))}
