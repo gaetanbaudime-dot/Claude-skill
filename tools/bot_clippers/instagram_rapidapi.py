@@ -539,7 +539,10 @@ def curseur_mort(code: int, corps) -> bool:
 
 
 def a_des_reels(store: dict, handle: str) -> bool:
-    """Pur : le compte a déjà des Reels connus ou annonce des publications (une page 1 vide est alors suspecte)."""
+    """Pur : le compte a déjà des Reels connus ou annonce des publications (une page 1 vide est alors suspecte).
+    Un compte privé n'est jamais suspect : l'API n'y voit rien."""
+    if ((store.get("comptes") or {}).get(handle) or {}).get("statut") == "privé":
+        return False
     if (store.get("reels") or {}).get(handle):
         return True
     suivi = ((store.get("comptes") or {}).get(handle) or {}).get("suivi") or []
@@ -738,6 +741,14 @@ async def passage_complet(session) -> dict:
         if e.get("statut") == "introuvable":
             continue
         rattrapage = a_rattraper(e, jours_r)
+        if e.get("statut") == "privé":
+            # 23/10 : un compte privé ne montre aucun Reel à l'API (page 1 vide trois fois sur les 12 privés) : pas de requête,
+            # le rattrapage et l'historique sont considérés faits ; le profil (followers) reste relu.
+            if rattrapage:
+                e["rattrapage_j"] = jours_r
+            if s["type"] == "Créatrice" and not e.get("historique_v2"):
+                e["historique_v2"] = maintenant.isoformat(timespec="seconds")
+            continue
         # historique_v2 : le 1er passage (22/10) s'arrêtait page 1 sur les Reels épinglés ; la reprise est refaite une fois.
         historique = s["type"] == "Créatrice" and not e.get("historique_v2")
         if historique or rattrapage:

@@ -456,6 +456,42 @@ def test_page_1_vide_reessayee_et_compte_pas_marque_relu(monkeypatch):
         else:
             assert attendu in store["reels"]["k1"] and store["comptes"]["k1"]["reels_le"]
     assert not I.a_des_reels({"comptes": {"n": {"suivi": [["t", 0, 0]]}}}, "n")      # compte vide pour de vrai : pas d'essai
+    assert not I.a_des_reels({"comptes": {"p": {"statut": "privé", "suivi": [["t", 9, 45]]}}}, "p")
+
+
+def test_compte_prive_sans_requete_de_reels(monkeypatch):
+    import asyncio
+    import onboarding
+    import paie_clics
+    import pilotage
+    store = {}
+    I.configurer({"lire_json": lambda f, d: store.get("d", d), "ecrire_json": lambda f, d: store.__setitem__("d", d), "FICHIER": "x"})
+    chemins = []
+
+    async def appeler(session, chemin, params):
+        I._jour["n"] += 1
+        chemins.append(chemin)
+        if chemin == I.API["id"][0]:
+            return 200, {"id": 77, "status": "ok"}
+        return 200, {"user": {"pk": 77, "username": "p1", "follower_count": 40, "media_count": 45, "is_private": True}}
+
+    async def lire_comptes():
+        return [{"onglet": "Sarah", "handle": "p1", "etat": "GOOD", "gerant": "Simon"}]
+
+    async def ecrire(classeur, titre, entete, lignes):
+        return True
+
+    async def classeur():
+        return "C"
+    monkeypatch.setattr(I, "appeler", appeler)
+    monkeypatch.setattr(I, "RATTRAPAGE_J", 180)
+    monkeypatch.setattr(onboarding, "lire_comptes", lire_comptes)
+    monkeypatch.setattr(pilotage, "_ecrire", ecrire)
+    monkeypatch.setattr(paie_clics, "_classeur_usage", classeur)
+    I._jour.update({"jour": "", "n": 0, "restant": None})
+    bilan = asyncio.run(I.passage_complet(None))
+    assert I.API["reels"][0] not in chemins and bilan["rattrapage_restants"] == 0
+    assert store["d"]["comptes"]["p1"]["statut"] == "privé" and store["d"]["comptes"]["p1"]["rattrapage_j"] == 180
 
 
 def test_premier_passage_de_la_correction_relit_tout(monkeypatch):
