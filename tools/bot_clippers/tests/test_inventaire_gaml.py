@@ -9,10 +9,26 @@ class InventaireTests(unittest.IsolatedAsyncioTestCase):
     async def test_enveloppe_inconnue_ne_devient_pas_un_inventaire_vide(self):
         with patch.object(p,'_requete',AsyncMock(return_value={'unexpected':[{'id':'fictif'}]})):
             with self.assertRaises(RuntimeError): await p.liens_gaml()
-    async def test_page_repetee_nest_pas_une_fin_prouvee(self):
-        with patch.object(p,'_requete',AsyncMock(return_value=[{'id':'fictif'}])):
+    async def test_page_repetee_identique_sous_le_forfait_est_la_liste_entiere(self):
+        # 23/10 : GAML ignore `page` et rend la liste entière à chaque appel (49 liens, page 2 identique) : c'est la fin.
+        liste=[{'id':str(i)} for i in range(49)]
+        with patch.object(p,'_requete',AsyncMock(return_value=liste)),patch.object(p,'FORFAIT_LIENS_GAML',50):
             r=await p.liens_gaml()
-        self.assertFalse(r.complete);self.assertEqual(1,len(r))
+        self.assertTrue(r.complete);self.assertEqual(49,len(r))
+    async def test_page_repetee_au_plafond_du_forfait_reste_incomplete(self):
+        liste=[{'id':str(i)} for i in range(50)]
+        with patch.object(p,'_requete',AsyncMock(return_value=liste)),patch.object(p,'FORFAIT_LIENS_GAML',50):
+            r=await p.liens_gaml()
+        self.assertFalse(r.complete);self.assertEqual(50,len(r))
+    async def test_page_en_partie_deja_lue_nest_pas_une_fin_prouvee(self):
+        with patch.object(p,'_requete',AsyncMock(side_effect=[[{'id':'a'},{'id':'b'}],[{'id':'a'}]])),patch.object(p,'FORFAIT_LIENS_GAML',50):
+            r=await p.liens_gaml()
+        self.assertFalse(r.complete);self.assertEqual(['a','b'],[x['id'] for x in r])
+    async def test_page_neuve_puis_repetee_nest_pas_une_fin_prouvee(self):
+        # page 2 neuve (pagination réelle), page 3 qui ne redonne que la page 2 : pas la liste entière
+        with patch.object(p,'_requete',AsyncMock(side_effect=[[{'id':'a'}],[{'id':'b'}],[{'id':'b'}]])),patch.object(p,'FORFAIT_LIENS_GAML',50):
+            r=await p.liens_gaml()
+        self.assertFalse(r.complete);self.assertEqual(['a','b'],[x['id'] for x in r])
     async def test_hydra_et_page_vide_valident_linvenaire(self):
         with patch.object(p,'_requete',AsyncMock(side_effect=[{'hydra:member':[{'id':'a'}]},{'hydra:member':[{'id':'b'}]},{'hydra:member':[]}])):
             r=await p.liens_gaml()
