@@ -47,7 +47,6 @@ class AnciennesReglesRefuseesTests(unittest.TestCase):
         (r"au plus tôt 48\s*h", "plus de délai de 48 h entre les comptes (C4, C5, 18/10)"),
         (r"4 (Reels )?de plus", "le compte 3 n'attend rien de plus sur le compte 1 (C5)"),
         (r"publies bien sur tes", "les comptes 2 et 3 arrivent dès 4 Reels lus, sans jugement de qualité en plus (C4, C5)"),
-        (r"dans les 48\s*h après", "pas de durée annoncée pour le compte 1 : la règle L6 et le code ne disent pas la même chose"),
         (r"bouton WhatsApp", "plus de bouton WhatsApp dans la bienvenue : le TL crée le groupe (E8, E10)"),
         (r"reporting du dimanche", "le reporting du dimanche n'existe plus depuis le 5 octobre"),
         (r"sauf si ton manager le dit", "la cadence au-delà de 2 Reels est un choix du clipper (C7)"),
@@ -74,12 +73,13 @@ class AnciennesReglesRefuseesTests(unittest.TestCase):
             if re.search(r"Drive perso", ligne):
                 self.assertIn("Plus de Drive perso", ligne, f"ligne {numero}")
 
-    def test_48_h_seulement_pour_le_nier_ou_pour_l_appel_de_presence(self):
+    def test_48_h_seulement_pour_le_nier_pour_l_appel_de_presence_ou_pour_L6(self):
         for numero, ligne in enumerate(LIGNES, start=1):
             for m in re.finditer(r"48\s*h", ligne):
                 contexte = ligne[max(0, m.start() - 70): m.end() + 70]
                 permis = ("aucun délai de 48 h" in contexte or "plus de délai de 48 h" in contexte
-                          or "délai de 48 h est retiré" in contexte or "pour répondre" in contexte)
+                          or "délai de 48 h est retiré" in contexte or "pour répondre" in contexte
+                          or "48 h après la remise de ton compte 1" in contexte or "48 h après l'avertissement" in contexte)   # L6
                 self.assertTrue(permis, f"ligne {numero} : « {contexte} »")
 
 
@@ -108,6 +108,9 @@ class ReglesDu2310EcritesTests(unittest.TestCase):
         ("reportée à la période suivante", "P4 : sans adresse, report"),
         ("10 jours d'affilée", "L7 : sortie après 10 jours à 0 visite payée"),
         ("30 jours est désactivé, jamais effacé", "L5 : lien à 0 clic sur 30 jours désactivé"),
+        ("te prévient 48 h après la remise de ton compte 1", "L6 : avertissement 48 h après la remise (confirmée le 23/10)"),
+        ("Toujours pas créé 48 h après l'avertissement ? Tu sors du serveur", "L6 : sortie 48 h après l'avertissement"),
+        ("Ton manager vérifie avant", "L6 : la sortie est validée par le manager (le bot ne sort personne seul)"),
         ("1 Reel par jour et par compte de croissance chaque semaine", "C7 : +1 par semaine, volontaire"),
         ("Un fixe ne touche pas aussi le clic", "P3 : aucun fixe ne touche aussi le clic"),
     ]

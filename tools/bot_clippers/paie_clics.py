@@ -1449,6 +1449,16 @@ def texte_clics_periode(d: dict, uid: str, periode: tuple) -> str:
             + ("Ton forfait fixe est distinct des visites." if regime(uid) != "clic" else "La paie au clic dépend de la période et du régime applicables."))
 
 
+def _lien_masque(uid: str) -> bool:
+    """23/10 : le lien GAML est créé à l'arrivée pour tous (parcours.lien_arrivee_actif) : `!mesclics` ne le montre pas avant que le
+    parcours le remette (compte privé ouvert, ou consigne de la cohorte). Sans parcours configuré ou en cas d'erreur : visible, comme avant."""
+    try:
+        import parcours                                                 # import tardif : parcours importe paie_clics
+        return not parcours.lien_remis(uid)
+    except Exception:                                                   # noqa: BLE001
+        return False
+
+
 def texte_mesclics(d: dict, uid: str, nom: str) -> str:
     lids = liens_de(d, uid)
     if not lids:
@@ -1493,7 +1503,7 @@ def texte_mesclics(d: dict, uid: str, nom: str) -> str:
             (f"Une visite qui compte = {_usd(TAUX_CLIC)}. " if au_clic else "")
             + "Les visites qui comptent viennent de France ou d’un pays francophone, hors robots.\n\n"
             + ("" if not au_clic or str(uid) in d["wallets"] else "⚠️ Je n'ai pas ton adresse de paiement. Colle ton adresse USDC dans ton app (onglet Versements), ou écris `!wallet 0x…` ici (`!wallet FR76…` pour un virement).\n\n")
-            + "-# Ton lien : " + " · ".join(d["liens"][l].get("url", "") for l in lids))
+            + ("" if _lien_masque(uid) else "-# Ton lien : " + " · ".join(d["liens"][l].get("url", "") for l in lids))).rstrip()
 
 
 def ligne_matin(d: dict, uid: str) -> str:
