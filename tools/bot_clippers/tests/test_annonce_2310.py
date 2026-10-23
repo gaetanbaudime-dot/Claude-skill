@@ -94,5 +94,40 @@ class EntreeAnnonce(unittest.TestCase):
         self.assertEqual(len(self.ids), len(set(self.ids)))
 
 
+class EntreeAnnonceArrivee(unittest.TestCase):
+    """23/10, 14 h 51 : l'annonce de l'arrivée simplifiée (un seul message, 48 h puis 48 h, le TL voit le numéro)."""
+
+    @classmethod
+    def setUpClass(cls):
+        deposes = json.loads((ROOT / "messages_a_envoyer.json").read_text(encoding="utf-8"))
+        cls.ids = [str(e["id"]) for e in deposes]
+        cls.entree = next((e for e in deposes if e["id"] == "annonce-arrivee-2310"), None)
+
+    def test_presente_une_seule_fois_et_visee_annonces_seulement(self):
+        self.assertEqual(self.ids.count("annonce-arrivee-2310"), 1)
+        self.assertEqual(self.entree["salon"], "#annonces")
+        for cle in ("pour", "tous_clippers", "tous_arrivants", "effacer_bot", "lien_nouveau"):
+            self.assertFalse(self.entree.get(cle), cle)
+
+    def test_lisible_sur_telephone(self):
+        texte = self.entree["texte"]
+        self.assertLessEqual(len(texte), 1900)
+        self.assertNotIn("\n\n\n", texte)
+        for bloc in texte.split("\n\n"):
+            self.assertNotIn("\n", bloc, "une ligne vide entre chaque paragraphe")
+            self.assertNotIn("(", bloc)
+            for phrase in re.split(r"(?<=[.?!:])\s+", bloc.replace("**", "")):
+                self.assertLessEqual(len(phrase.split()), 10, phrase)
+
+    def test_dit_les_regles_du_jour_sans_toucher_les_anciens(self):
+        texte = self.entree["texte"]
+        for attendu in ("un seul message", "48 h après la création du compte 1", "48 h après la création du compte 2",
+                        "Aucun Reel à compter", "compte 3", "story à la une", "numéro WhatsApp", "Gaëtan",
+                        "Ceux déjà dans l'agence gardent leur règle actuelle"):
+            self.assertIn(attendu, texte)
+        for interdit in ("GAML", "Sarah", "100 liens", "0,05", "mot de passe"):
+            self.assertNotIn(interdit, texte)
+
+
 if __name__ == "__main__":
     unittest.main()

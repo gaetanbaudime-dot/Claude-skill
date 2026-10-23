@@ -23,14 +23,19 @@ class Retenue(Exception):
 RAISONS = {}
 
 
-def modele(mention, handle, mail, mdp):
-    """Valeurs existantes uniquement ; rendu destiné au seul salon du titulaire."""
-    return (f"{mention}\n\n**Étape 1 · Crée ton compte 1**\n\n"
-            f"Identifiant : `{handle}`\n\nE-mail : `{mail}`\n\nMot de passe : `{mdp}`\n\n"
-            "1. Instagram → Créer un compte → utilise cet e-mail.\n\n"
-            "2. Le code reçu par e-mail : dans le salon 🔐-code-instagram, appuie sur « 📩 Mon code ».\n\n"
-            "3. Si Instagram demande ton numéro ou ta date de naissance, utilise les vrais.\n\n"
-            "Créé ? Appuie sur le bouton.")
+def modele(mention, handle, mail, mdp, codes="", suite=""):
+    """Valeurs existantes uniquement ; rendu destiné au seul salon du titulaire.
+    23/10 (Gaëtan : « 1️⃣ Instagram, crée un compte, utilise cet e-mail. 2️⃣ Le code reçu dans le salon #code-instagram, comme ça il peut
+    cliquer direct dessus ; on enlève « Créé ? Appuie sur le bouton » ») : étapes numérotées par emoji, le salon des codes en mention
+    cliquable (`codes`, sinon parcours.mention_salon_codes), plus de phrase sur le bouton (son libellé le dit). `suite` : une ligne
+    en plus à la fin (les délais du parcours simple)."""
+    codes = codes or parcours.mention_salon_codes()
+    texte = (f"{mention}\n\n📱 **Ton compte 1**\n\n"
+             f"Identifiant : `{handle}`\n\nE-mail : `{mail}`\n\nMot de passe : `{mdp}`\n\n"
+             "1️⃣ Instagram → Créer un compte → utilise cet e-mail.\n\n"
+             f"2️⃣ Le code arrive dans {codes}. Appuie sur « 📩 Mon code ».\n\n"
+             "3️⃣ Instagram demande ta date de naissance ou ton numéro ? Mets les vrais.")
+    return texte + (f"\n\n{suite}" if suite else "")
 
 
 def diagnostic_lecteurs(guild, salon, uid, creatrice, admin_ids, est_staff):

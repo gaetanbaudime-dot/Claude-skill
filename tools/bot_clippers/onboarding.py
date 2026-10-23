@@ -782,8 +782,8 @@ def message_comptes(comptes: list, prenom: str, creatrice: str, debut: int = 1) 
     # 01/10 (relecture) : ce message livre déjà les comptes — « le suivant arrive tout seul ici » y était faux (plusieurs
     # comptes sous les yeux, ou un remplaçant livré à l'étape 7 qui n'aura pas de suivant). Plus de règle recollée ici.
     import parcours                                                     # 01/10 : les deux conditions de la règle (import tardif)
-    consigne = (f"Crée-les un par un : le suivant au plus tôt {parcours.ATTENTE_COMPTE_H} h après le précédent, et seulement "
-                f"quand {parcours.REELS_OUVERTURE} Reels sont publiés sur ton dernier compte qui publie.\n\nSur ton téléphone seulement."
+    consigne = (f"Crée-les un par un : le suivant {parcours.ATTENTE_SIMPLE_H} h après la création du précédent.\n\n"
+                "Sur ton téléphone seulement."
                 if len(comptes) > 1 else "Sur ton téléphone seulement.")
     return (f"🔐 **Tes comptes Instagram, {prenom}** · créatrice : {creatrice} · chaque bloc se copie d'un geste.\n\n" + "\n\n".join(blocs) + "\n\n"
             f"{consigne}\n\n"

@@ -54,7 +54,7 @@ class Remise(unittest.IsolatedAsyncioTestCase):
         await self.appeler()
         self.original.edit.assert_awaited_once()
         kw = self.original.edit.call_args.kwargs
-        attendu = ('<@42>\n\n**Étape 1 · Crée ton compte 1**\n\n'
+        attendu = ('<@42>\n\n📱 **Ton compte 1**\n\n'
                    'Identifiant : `compte_fictif`\n\nE-mail : `fictif@example.invalid`\n\n'
                    'Mot de passe : `MOT_DE_PASSE_FICTIF`\n\n')
         self.assertTrue(kw['content'].startswith(attendu))

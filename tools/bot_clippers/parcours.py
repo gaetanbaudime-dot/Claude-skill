@@ -53,6 +53,28 @@ REELS_OUVERTURE = 4   # 05/10 (Gaëtan) : « 48 h et 4 Reels »
 DISTILLE_DEPUIS = "2026-09-30T06:40:00+00:00"   # une étape envoyée avant : son profil est déjà parti (ancien déroulé), pas de doublon
 ATTENTE_COMPTE_H = 0
 WARMUP_H = int(os.environ.get("PARCOURS_WARMUP_H", "24") or 24)
+# 23/10 (Gaëtan, 14 h 51 : « on donne le premier compte, on attend 48 heures, on donne le deuxième, on attend 48 heures, on donne le
+# troisième : je ne vois pas plus compliqué que ça ») : les NOUVEAUX arrivants (fiche marquée « simple » à la création du parcours, pour
+# une arrivée à partir de ARRIVEE_SIMPLE_DEPUIS) reçoivent le compte 2 ATTENTE_SIMPLE_H h après la création du compte 1 et le compte 3
+# ATTENTE_SIMPLE_H h après celle du compte 2, sans condition de Reels : REELS_OUVERTURE ne les concerne plus. Les clippers déjà en
+# route gardent « 4 Reels » : la règle ne change pas sous leurs pieds, et leurs comptes en attente ne partent pas tous au déploiement.
+ARRIVEE_SIMPLE_DEPUIS = os.environ.get("ARRIVEE_SIMPLE_DEPUIS", "2026-10-23T11:00:00+00:00")
+ATTENTE_SIMPLE_H = int(os.environ.get("PARCOURS_ATTENTE_SIMPLE_H", "48") or 48)
+
+
+def simple(fiche_p) -> bool:
+    """Parcours des arrivées du 23/10 : 48 h entre les comptes, aucune condition de Reels."""
+    return bool((fiche_p or {}).get("simple"))
+
+
+def _marque_simple() -> dict:
+    """La marque posée sur une fiche créée maintenant : vide avant ARRIVEE_SIMPLE_DEPUIS (ou date illisible : l'ancien parcours)."""
+    try:
+        depuis = datetime.fromisoformat(ARRIVEE_SIMPLE_DEPUIS)
+    except (TypeError, ValueError):
+        return {}
+    depuis = depuis if depuis.tzinfo else depuis.replace(tzinfo=timezone.utc)
+    return {"simple": datetime.now(timezone.utc).isoformat(timespec="seconds")} if datetime.now(timezone.utc) >= depuis else {}
 # 08/10 (Gaëtan, GO n° 1 du checkup : « le compte privé en 2e position ») : compte 1 croissance, compte 2 PRIVÉ (le lien dans sa
 # bio), compte 3 croissance. Le lien existe à J+2 au lieu de J+5-6 : les Reels du compte 1 ont une destination dès leurs
 # premières vues. Le compte privé ne publie pas : le compte 3 s'ouvre 48 h après lui, quand 4 Reels de plus sont publiés sur le
@@ -159,17 +181,36 @@ def source_reels(fiche_p: dict, n: int) -> int:
 
 
 def sources_reels(fiche_p: dict, n: int) -> list:
-    """15/10 : quatre Reels vérifiés du compte précédent ; ancien privé en 2 à vérifier."""
+    """15/10 : quatre Reels vérifiés du compte précédent ; ancien privé en 2 à vérifier. 23/10 : aucun pour un parcours simple (48 h
+    seulement) : plus de scan du soir, de blocage ni de condition à dire pour lui."""
+    if simple(fiche_p):
+        return []
     return [n - 1] if ordre(fiche_p) == "prive3" else []
 
 
 def regle_comptes(fiche_p: dict = None) -> str:
     if fiche_p and ordre(fiche_p) == "prive2":
         return "Ancien ordre des comptes : vérification par le manager avant la suite."
-    return ("Trois comptes créés au total, sans remplacement. Le compte 1 est disponible immédiatement. "
-            "Les quatre premiers Reels publiés et vérifiés sur le compte 1 sont ton test opérationnel, après le quiz. "
-            "Le compte 2 arrive dès que ces quatre Reels sont vérifiés. "
-            "Le compte 3, privé, arrive après 4 Reels publiés et vérifiés sur le compte 2.")
+    if fiche_p and not simple(fiche_p):
+        return ("Trois comptes créés au total, sans remplacement. Le compte 1 est disponible immédiatement. "
+                "Les quatre premiers Reels publiés et vérifiés sur le compte 1 sont ton test opérationnel, après le quiz. "
+                "Le compte 2 arrive dès que ces quatre Reels sont vérifiés. "
+                "Le compte 3, privé, arrive après 4 Reels publiés et vérifiés sur le compte 2.")
+    # 23/10 (Gaëtan) : la règle des arrivées depuis le 23/10, et celle qu'on donne sans fiche. Les fiches d'avant gardent la leur.
+    return (f"Trois comptes créés au total, sans remplacement. Le compte 1 est disponible immédiatement. "
+            f"Le compte 2 arrive {ATTENTE_SIMPLE_H} h après la création du compte 1. "
+            f"Le compte 3, privé, arrive {ATTENTE_SIMPLE_H} h après la création du compte 2. "
+            "Aucune condition de Reels pour les ouvrir.")
+
+
+def mention_salon_codes() -> str:
+    """23/10 (Gaëtan : « #code-instagram, comme ça il peut cliquer direct dessus ») : le salon des codes en mention cliquable quand son
+    id est connu, sinon son nom."""
+    try:
+        sid = codes_2fa.salon_codes_id()
+    except Exception:                                                   # noqa: BLE001
+        sid = ""
+    return f"<#{sid}>" if sid else f"#{codes_2fa.SALON_CODES_NOM}"
 
 
 def texte_codes() -> str:
@@ -208,6 +249,8 @@ TEXTE_PUBLIER = {1: ("✅ **Ton compte 1 peut publier : 2 Reels par jour.**\n\n"
                      "Pas de lien sur ce compte.")}
 # 10/10 (revue du recrutement) : plus de « Un doute sur une vidéo ? Envoie-la ici avant » sous « compte 1 peut publier » (LIGNE_DOUTE
 # retirée) : une action par message, et la relecture des Reels publiés reste (review_reels).
+# 23/10 : la règle des délais, dite une fois, au compte 1, pour que tout le monde soit sur la même longueur d'onde.
+LIGNE_48H = "⏳ Ton compte 2 arrive 48 h après la création du compte 1. Puis le compte 3, 48 h après le compte 2."
 LIEN_REPORTING = os.environ.get("LIEN_REPORTING", "https://forms.gle/uhPewryox7R4jifv5").strip()   # formulaire du dimanche
 
 
@@ -505,6 +548,8 @@ def _bloque_sources(uid, fiche_p: dict, n: int) -> int:
     """09/10 : le compte source BAN qui bloque l'ouverture du compte n (toutes ses sources BAN et aucun autre compte qui publie),
     0 sinon."""
     sources = sources_reels(fiche_p, n)
+    if not sources:
+        return 0                                                        # 23/10 : parcours simple (ou ancien privé en 2) : aucune source
     if len(sources) > 1:
         # 09/10 (revue : un compte 2 BAN, même un faux BAN, ouvrait le privé sur les seuls Reels du compte 1) : le privé ne s'ouvre
         # que si les comptes 1 ET 2 publient ; l'un des deux BAN → bloqué, l'équipe prévenue (remplacement ou `!pseudo`)
@@ -1260,8 +1305,9 @@ async def envoyer_etape(salon, membre, n: int, pointer: bool = True) -> bool:
     pseudo_propose = None
     if n == 1 and pointer and (fiche_avant.get("messages") or {}).get("1"):
         return True
-    if n in (2, 3) and not (fiche_avant.get("messages") or {}).get(str(n)) and reels_pour(uid, fiche_avant, n) < REELS_OUVERTURE:
-        return False
+    if n in (2, 3) and not (fiche_avant.get("messages") or {}).get(str(n)) and not simple(fiche_avant) \
+            and reels_pour(uid, fiche_avant, n) < REELS_OUVERTURE:
+        return False                                                    # 23/10 : un parcours simple n'attend que ses 48 h (programme)
     if n >= 2:                                                          # 08/10 : l'ordre des comptes est figé ici, pour de bon (revue : dès 2)
         d = _lire()
         if uid in d:
@@ -1365,7 +1411,8 @@ async def envoyer_etape(salon, membre, n: int, pointer: bool = True) -> bool:
         texte = f"{membre.mention}\n\n**{_rendre(e['titre'], ctx)}**\n\n{_rendre(e['texte'], ctx)}"
         if identifiants:
             import remise_compte1
-            texte = remise_compte1.modele(membre.mention, pseudo_propose, *identifiants)
+            texte = remise_compte1.modele(membre.mention, pseudo_propose, *identifiants, codes=mention_salon_codes(),
+                                          suite=LIGNE_48H if simple(fiche_p) else "")
     # 18/10 (Gaëtan : « pourquoi ça envoie cette merde comme premier message ») : la bienvenue (créatrice, vidéos) passe AVANT le
     # compte 1 aussi quand le compte 1 est une proposition contrôlée ; avant, elle sautait et le clipper ne lisait qu'un @.
     if n == 1 and fiche_p.get("accueil_unique") and not (fiche_p.get("messages") or {}).get("bienvenue"):
@@ -1436,14 +1483,18 @@ async def alerter_acces_en_attente(membre, uid: str, raison: str = "") -> bool:
 # 16/10 : un seul accueil, fusionné avec Croissance 1 ; aucune confirmation WhatsApp requise.
 # Le programme reste un filet de reprise lorsque le membre ou le stock est indisponible.
 BIENVENUE_H = int(os.environ.get("PARCOURS_BIENVENUE_H", "1") or 1)
-TEXTE_BIENVENUE = ("🎉 **Bienvenue, {prenom} !**\n\n"
-                   "Ta créatrice : **{creatrice}**.\n\n"
-                   "{videos_bienvenue}\n\n"
-                   "Garde ce message. `!etape` affiche ton avancement et tes consignes.\n"
-                   "Une question ? Réponds ici, dans ton salon personnel.")
+# 23/10 (Gaëtan : « juste un petit message : Bienvenue dans l'agence, on le mentionne, on lui donne sa créatrice, le salon ℹ️ de la
+# créatrice avec le #, le Google Drive dedans, puis le compte 1 ») : la bienvenue tient en trois lignes et se continue, dans le MÊME
+# message, par le compte 1 (remise_compte1.modele). Plus de « Garde ce message », plus de « Ta créatrice » répété dans un second
+# message : le salon ℹ️ est déjà dans celui-ci, onboarding_discord.confirmer_accueil n'envoie plus son complément.
+TEXTE_BIENVENUE = ("🎉 **Bienvenue dans l'agence, {prenom} !**\n\n"
+                   "🎬 Ta créatrice : **{creatrice}**.\n\n"
+                   "📁 Ses vidéos et son Google Drive sont dans {info}.")
 # 10/10 (vérification L10 : deux « 🎉 Bienvenue dans l'agence » à la suite) : un clipper qui a déjà reçu le repli d'attente (« Ta
 # créatrice arrive ici dès qu'un compte est prêt pour toi ») lit « Ta créatrice est là », pas une seconde bienvenue.
-TEXTE_CREATRICE_LA = TEXTE_BIENVENUE.replace("🎉 **Bienvenue, {prenom} !**", "🎉 **Ta créatrice est là, {prenom} !**", 1)
+TEXTE_CREATRICE_LA = ("🎉 **Ta créatrice est là, {prenom} !**\n\n"
+                      "🎬 C'est **{creatrice}**.\n\n"
+                      "📁 Ses vidéos et son Google Drive sont dans {info}.")
 
 
 def _a_attendu(uid) -> bool:
@@ -1584,7 +1635,7 @@ async def demarrer_parcours(salon, membre, creatrice: str, bienvenue: bool = Tru
     trace = _reprendre_trace(uid, salon, creatrice)
     if not bienvenue or trace:
         reprise = {**nouveau, "salon_id": str(salon.id), "etape": 1, "dates": {}, "notes": (fiche_p or {}).get("notes", []),
-                   "ordre": "prive2" if PRIVE_EN_2 else "prive3",
+                   "ordre": "prive2" if PRIVE_EN_2 else "prive3", **_marque_simple(),
                    "programme": [{"quand": _maintenant(), "type": "etape", "n": 1}]}   # filet : membre introuvable à l'instant
         for cle in ("bienvenue", "whatsapp", "whatsapp_par"):         # la bienvenue reste au-dessus, le WhatsApp déjà déclaré aussi
             if (trace or {}).get(cle):
@@ -1599,7 +1650,7 @@ async def demarrer_parcours(salon, membre, creatrice: str, bienvenue: bool = Tru
     # 09/10 : étape 1 « en attente » (pas de dates["1"]) le temps de la bienvenue. 10/10 : le compte 1 part juste après elle ; le
     # programme à BIENVENUE_H h n'est qu'un filet (membre introuvable à l'instant). « pret_retire » : pas de « ✅ C'est fait » à retirer.
     d[uid] = {**nouveau, "salon_id": str(salon.id), "etape": 1, "dates": {}, "notes": (fiche_p or {}).get("notes", []),
-              "ordre": "prive2" if PRIVE_EN_2 else "prive3",                # 08/10 : le privé en 2 pour tout nouveau parcours
+              "ordre": "prive2" if PRIVE_EN_2 else "prive3", **_marque_simple(),   # 08/10 : le privé en 2 ; 23/10 : 48 h, sans Reels
               "bienvenue": maintenant.isoformat(timespec="seconds"), "pret_retire": True, "accueil_unique": True,
               "programme": [{"quand": (maintenant + timedelta(hours=BIENVENUE_H)).isoformat(timespec="seconds"), "type": "etape", "n": 1}]}
     _ecrire(d)
@@ -1892,7 +1943,8 @@ async def _apres_fermeture(salon, uid: str, n: int, par: str, fiche_p: dict, pri
             base = min(_date_creation(fiche_p, n) or maintenant, maintenant)
             publier = {"quand": (base + timedelta(hours=WARMUP_H)).isoformat(timespec="seconds"), "type": "publier", "n": n}
             suite_n = 7 if dernier else n + 1
-            etape = {"quand": (base + timedelta(hours=WARMUP_H if dernier else ATTENTE_COMPTE_H)).isoformat(timespec="seconds"),
+            attend_h = ATTENTE_SIMPLE_H if simple(fiche_p) else ATTENTE_COMPTE_H     # 23/10 : 48 h après la création de ce compte
+            etape = {"quand": (base + timedelta(hours=WARMUP_H if dernier else attend_h)).isoformat(timespec="seconds"),
                      "type": "etape", "n": suite_n}
             deja_chaud = _echu(publier, maintenant)                     # compte créé il y a plus de 24 h : il publie tout de suite
             d = _lire()
@@ -2023,7 +2075,8 @@ async def _envoyer_publier(salon, membre, uid: str, n: int) -> None:
     a = attente(fiche_p)
     # 01/10 (relecture) : la condition seulement si le compte suivant attend encore ; BAN sans aucun compte vivant : rien ici,
     # l'équipe est prévenue (_signaler_bloques)
-    if a and a[0] == n + 1 and reels_pour(uid, fiche_p, n + 1) < REELS_OUVERTURE and not _bloque_sources(uid, fiche_p, n + 1):
+    if a and a[0] == n + 1 and not simple(fiche_p) and reels_pour(uid, fiche_p, n + 1) < REELS_OUVERTURE \
+            and not _bloque_sources(uid, fiche_p, n + 1):
         texte += "\n\n" + phrase_suivant(uid, fiche_p, n)
     # 10/10 : plus de « Un doute sur une vidéo ? Envoie-la ici avant » ici (LIGNE_DOUTE retirée)
     vue = None
@@ -2171,8 +2224,34 @@ class BoutonGroupeTL(discord.ui.DynamicItem[discord.ui.Button], template=r"watl:
                 pass
 
 
-TEXTE_GROUPE_TL = ("👥 {tl} : crée le groupe WhatsApp de {prenom} pour {creatrice} (toi, {prenom} et Gaëtan), puis appuie sur "
-                   "le bouton ci-dessous.")
+# 23/10 (Gaëtan : « on mentionne le team leader, on lui demande de créer le groupe WhatsApp, on affiche le numéro du clipper qu'il a
+# rentré : le TL crée le groupe avec moi dedans et le clipper ») : le numéro donné par le clipper à sa liaison, tel quel. Pas de
+# parenthèses ni de tirets : une phrase, une action.
+TEXTE_GROUPE_TL = ("👥 {tl} : crée le groupe WhatsApp de {prenom} pour {creatrice}.\n\n"
+                   "Mets-y {prenom}, Gaëtan et toi.\n\n"
+                   "{ligne_tel}\n\n"
+                   "Groupe créé ? Appuie sur le bouton.")
+
+
+def tel_du_clipper(uid) -> str:
+    """Le numéro que le clipper a donné en se liant à sa candidature (pipeline.json, « liaisons »), tel qu'enregistré ; vide si absent.
+    Jamais d'exception, jamais écrit dans un journal."""
+    try:
+        pipe = _deps["lire_json"](_deps["FICHIER_PIPELINE"], {}) or {}
+        return str(((pipe.get("liaisons") or {}).get(str(uid)) or {}).get("tel") or "").strip()
+    except Exception:                                                   # noqa: BLE001
+        return ""
+
+
+def ligne_tel_tl(prenom: str, tel: str) -> str:
+    """Le numéro du clipper pour le TL, avec le lien WhatsApp qui ouvre la conversation (numéro en +indicatif seulement)."""
+    if not tel:
+        return f"📞 Le numéro de {prenom} n'est pas dans son dossier. Demande-le lui dans son salon."
+    chiffres = re.sub(r"\D", "", tel)
+    ligne = f"📞 Numéro de {prenom} : `{tel}`"
+    if tel.startswith("+") and 8 <= len(chiffres) <= 15:
+        ligne += f"\n\n💬 Ouvre-le dans WhatsApp : <https://wa.me/{chiffres}>"
+    return ligne
 
 
 async def demander_groupe_tl(salon, uid: str, tl, prenom: str, creatrice: str) -> bool:
@@ -2187,7 +2266,9 @@ async def demander_groupe_tl(salon, uid: str, tl, prenom: str, creatrice: str) -
         _ecrire(d)
         vue = discord.ui.View(timeout=None)
         vue.add_item(BoutonGroupeTL(str(uid)))
-        await salon.send(TEXTE_GROUPE_TL.format(tl=tl.mention, prenom=prenom or "ce clipper", creatrice=creatrice or "sa créatrice"),
+        nom = prenom or "ce clipper"
+        await salon.send(TEXTE_GROUPE_TL.format(tl=tl.mention, prenom=nom, creatrice=creatrice or "sa créatrice",
+                                                ligne_tel=ligne_tel_tl(nom, tel_du_clipper(uid))),
                          view=vue)
         return True
     except Exception as erreur:                                         # noqa: BLE001
@@ -2829,7 +2910,7 @@ async def _programme_du_jour(client, maintenant=None) -> list:
                 partants.append(x)
             elif not _etape_attendue(fiche_p, x):
                 continue                                                # déjà envoyée (`!etape` du staff) : retirée, sans message
-            elif int(x.get("n") or 0) not in (2, 3) or reels_pour(uid, fiche_p, int(x.get("n") or 0)) >= REELS_OUVERTURE:
+            elif int(x.get("n") or 0) not in (2, 3) or simple(fiche_p) or reels_pour(uid, fiche_p, int(x.get("n") or 0)) >= REELS_OUVERTURE:
                 partants.append(x)                                      # 08/10 : la routine (7), 11/10 : « ligne », sans Reels
             else:
                 gardes.append(x)                                        # 48 h passées, Reels pas encore là : on attend
@@ -2898,8 +2979,8 @@ def _a_traiter(fiche_p: dict, item: dict, maintenant) -> bool:
     """10/10 : l'élément du programme est à traiter maintenant. Échu (_echu), ou :
     - « routine2 » : plus programmée depuis le 11/10 ; reste retirée sans message sur les fiches d'avant le déploiement ;
     - le compte 1 : jamais plus de BIENVENUE_H h après la bienvenue (celles d'avant le 10/10 l'avaient programmé à 3 h)."""
-    if item.get("type") == "etape" and int(item.get("n") or 0) in (2, 3) and not item.get("ligne"):
-        return True  # 15/10 : les anciens délais ne retardent plus les paliers.
+    if item.get("type") == "etape" and int(item.get("n") or 0) in (2, 3) and not item.get("ligne") and not simple(fiche_p):
+        return True  # 15/10 : les anciens délais ne retardent plus les paliers. 23/10 : sauf le parcours simple, qui attend ses 48 h.
     if item.get("type") == "routine2":
         return True
     # 11/10 (revue du lot W) : un compte 1 retenu faute de ligne (« ligne ») suit son heure de nouvel essai, pas la bienvenue
@@ -3135,6 +3216,10 @@ def etat_des_comptes(uid: str, maintenant=None) -> str:
                 # 11/10 (lot W, contre-vérification du lot L3 : l'assistant parlait des 48 h et des Reels à un clipper qui les avait,
                 # alors que le bot lui avait écrit « Ton compte n arrive dès qu'il est prêt »)
                 parts.append(f"{nom} : {TEXTE_ATTENTE_LIGNE}" + (" — il est PRIVÉ, il portera le lien" if i == np_ else ""))
+            elif a and a[0] == i and simple(fiche_p):                   # 23/10 : 48 h après la création du compte précédent, sans Reels
+                parts.append(f"{nom} : pas encore ouvert, il arrive automatiquement le {_date_fr(a[1])}, "
+                             f"48 h après la création du compte {i - 1}, sans condition de Reels"
+                             + (" — il est PRIVÉ, il portera le lien" if i == np_ else ""))
             elif a and a[0] == i:                                       # 01/10 : la règle unique, sans date promise
                 parts.append(f"{nom} : pas encore ouvert, il arrive automatiquement "
                              f"dès que le scan voit {condition_texte(uid, fiche_p, i)}"
@@ -3235,6 +3320,11 @@ def prochaine_etape(salon_id, maintenant=None) -> str:
                 return (f"compte {k} en warm-up jusqu'au {_date_fr(quand)} : pas de Reel dessus. Je te dis ici quand il peut publier."
                         + (" Tes autres comptes : 2 Reels par jour." if k > 1 else ""))
         a = attente(fiche_p)
+        if a and simple(fiche_p):                                       # 23/10 : seulement ses 48 h, une date
+            if fiche_p.get("ligne_attendue") == a[0]:
+                return f"ton compte {a[0]} arrive dès qu'il est prêt. D'ici là : 2 Reels par jour sur {c['autres']}."
+            return (f"ton compte {a[0]} arrive ici le {_date_fr(a[1])}, 48 h après la création du compte {a[0] - 1}. "
+                    f"D'ici là : 2 Reels par jour sur {c['autres']}.")
         if a:                                                           # 01/10 : le compte suivant attend ses 48 h ET ses Reels
             m = _bloque_sources(uid, fiche_p, a[0])                     # 09/10 : toutes ses sources BAN
             if m:                                                       # 01/10 (relecture) : plus de « tes autres comptes » fantôme
@@ -3388,6 +3478,9 @@ def contexte_court(uid: str) -> str:
         a = attente(fiche_p)
         if a and a[0] == n and fiche_p.get("ligne_attendue") == n:     # 11/10 (lot W) : il attend une ligne, pas ses Reels
             etape = f"attente du compte {n}, {TEXTE_ATTENTE_LIGNE}"
+        elif a and a[0] == n and simple(fiche_p):                       # 23/10 : 48 h, sans Reels
+            etape = (f"attente du compte {n} : il arrive automatiquement le {_date_fr(a[1])}, "
+                     f"48 h après la création du compte {n - 1}, sans condition de Reels")
         elif a and a[0] == n:
             etape = (f"attente du compte {n} : il arrive dès que "
                      f"le scan voit {condition_texte(uid, fiche_p, n)}")
@@ -3825,6 +3918,10 @@ async def commande_staff(message, texte: str) -> bool:
             await message.reply(TEXTE_COMPTE_ATTENDU.format(n=n))
             return True
         a = attente(fiche_p)
+        if a and a[0] == n and simple(fiche_p):                         # 23/10 : une date, 48 h après le compte précédent
+            await message.reply(f"Ton compte {n} arrive automatiquement ici le {_date_fr(a[1])}, "
+                                f"48 h après la création du compte {n - 1}.")
+            return True
         if a and a[0] == n:
             await message.reply(f"Ton compte {n} arrive automatiquement ici, "
                                 f"dès que je vois {condition_texte(uid, fiche_p, n)}.")

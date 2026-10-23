@@ -53,7 +53,7 @@ DOCTRINE = ("Doctrine (elle prime sur tout) : le clipper met SON numéro de tél
             # 09/10 (Gaëtan : « Go enlever le test… », « Enlève le truc qui envoie un dossier Drive au clippeur ») : plus de test
             # vidéo pour entrer, plus de Drive perso ni de TOP 20 ; l'assistant répond là où le clipper écrit.
             "parcours : formulaire, vidéo de formation, quizz à 8/10, puis Discord : sa créatrice, le lien de ses vidéos et le "
-            "groupe WhatsApp dans un seul message de bienvenue, puis compte 1, 4 Reels, compte 2, 4 Reels, compte 3 privé avec "
+            "groupe WhatsApp dans un seul message de bienvenue, puis compte 1, 48 h, compte 2, 48 h, compte 3 privé avec "
             "le lien, puis son app de clippeur ; il n'y a plus de test vidéo pour entrer : n'en parle jamais ; les vidéos à "
             "monter sont celles de sa créatrice (lien dans son message de bienvenue), plus de Drive perso ni de « TOP 20 » ; "
             "la story du jour se prend dans les photos ou les vidéos de sa créatrice ; une question posée dans son salon perso "
