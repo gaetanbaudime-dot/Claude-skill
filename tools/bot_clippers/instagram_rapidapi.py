@@ -314,6 +314,11 @@ def lignes_comptes(suivis: list, store: dict, maintenant: datetime) -> list:
         dernier = suivi[-1] if suivi else [None, None, None]
         txt = lambda v: "" if v is None else str(v)                     # noqa: E731
         lu_reels = bool(e.get("reels_le"))
+        # 23/10 : le nombre de publications de l'API retarde parfois (1 annoncée pour 16 Reels relus) : jamais moins que les Reels connus
+        pubs = dernier[2] if len(dernier) > 2 else None
+        connus = len((store.get("reels") or {}).get(s["handle"]) or {})
+        if pubs is not None and connus > pubs:
+            dernier = [dernier[0], dernier[1], connus]
         out.append([s["creatrice"], s["gerant"], s["type"], s["handle"], txt(e.get("id")), e.get("statut") or "pas encore relu",
                     txt(dernier[1]), txt(ecart(suivi, 24, maintenant)), txt(ecart(suivi, 168, maintenant)), txt(dernier[2] if len(dernier) > 2 else None),
                     *[(str(f[f"reels{j}"]) if lu_reels else "") for j in (1, 7, 15, 30, 60)],

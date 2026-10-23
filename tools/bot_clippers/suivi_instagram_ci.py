@@ -56,6 +56,12 @@ async def main() -> int:
                 print("Pseudos :", json.dumps(bp, ensure_ascii=False))
             except Exception as erreur:                                 # noqa: BLE001 — le suivi est déjà écrit
                 print("Pseudos non vérifiés :", type(erreur).__name__, str(erreur)[:200])
+        # 23/10 : Public / Privé / Introuvable dans le LOG (colonne « Visibilité Insta ») et anomalies des comptes des clippers
+        try:
+            import visibilite_ig
+            print("Visibilité :", json.dumps(await visibilite_ig.passage(lire_json(FICHIER, {})), ensure_ascii=False))
+        except Exception as erreur:                                     # noqa: BLE001
+            print("Visibilité non écrite :", type(erreur).__name__, str(erreur)[:200])
     print("Bilan :", json.dumps(bilan, ensure_ascii=False), "· requêtes :", I._jour["n"], "· quota restant :", I._jour["restant"])
     if I.RATTRAPAGE_J:
         print(f"Rattrapage {I.RATTRAPAGE_J} j : {bilan.get('rattrapage_restants', 0)} compte(s) restant(s), repris au passage suivant.")
