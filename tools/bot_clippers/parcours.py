@@ -1408,6 +1408,7 @@ async def envoyer_etape(salon, membre, n: int, pointer: bool = True) -> bool:
             await livrer_story_lien(salon, membre, uid, premiere=True)
         except Exception as erreur:                                     # noqa: BLE001 — la consigne en moins, jamais un compte 1 en moins
             journal.warning("Lien en story de %s : %s", uid, type(erreur).__name__)
+        await preparer_lien_arrivee(membre, uid)                        # 23/10 : le lien pour l'app du jour 3 (éteint par défaut, ne lève jamais)
     return True
 
 
@@ -2450,6 +2451,103 @@ async def rattraper_story_lien(client) -> list:
     return faits
 
 
+# ------------------------------------------------------------------ 23/10 : lien GAML créé à l'arrivée pour tous (app au jour 3)
+# 23/10 (Gaëtan : « ne t'inquiète pas pour le GAML, je vais passer au forfait supérieur à 100 liens ») : l'app du jour 3 retrouve le
+# clipper par son lien GAML (lien_app.chercher). Pour que TOUS les nouveaux l'aient au jour 3, le lien est créé à l'arrivée, pas au
+# compte 3. Le clipper ne le voit pas avant son compte privé (lien_remis : `!mesclics` masque la ligne « Ton lien », le message du
+# compte 3 le donne comme avant) ; seule la cohorte le reçoit plus tôt, avec sa consigne. ÉTEINT PAR DÉFAUT : `LIEN_ARRIVEE_TOUS=1`
+# dans Railway une fois le palier GAML 100 pris, sinon une place du forfait de 50 part à chaque arrivée, sorties comprises.
+LIENS_ARRIVEE_PAR_PASSE = 5                                             # passe horaire : pas plus de 5 créations d'un coup
+
+
+def lien_arrivee_actif() -> bool:
+    """Lue à chaque appel : Gaëtan allume ou éteint la variable dans Railway sans toucher au code."""
+    return os.environ.get("LIEN_ARRIVEE_TOUS", "0").strip() == "1"
+
+
+def lien_remis(uid) -> bool:
+    """Le clipper peut-il voir son lien ? Faux seulement pour un lien créé à l'arrivée (`lien_arrivee` dans la fiche) tant que son
+    compte privé n'est pas ouvert et que la cohorte n'a pas reçu sa consigne. Les anciens clippers et les liens créés au compte 3
+    gardent le comportement d'avant : vrai."""
+    try:
+        f = _lire().get(str(uid)) or {}
+    except Exception:                                                   # noqa: BLE001 — parcours non configuré (outils, tests) : visible
+        return True
+    if not f.get("lien_arrivee"):
+        return True
+    return bool(lien_du(f) or f.get("story_lien_envoye"))
+
+
+def _arrivee_de(fiche_p: dict):
+    brut = (fiche_p or {}).get("bienvenue_ok") or ((fiche_p or {}).get("dates") or {}).get("1")
+    try:
+        arrivee = datetime.fromisoformat(str(brut))
+    except (TypeError, ValueError):
+        return None
+    return arrivee if arrivee.tzinfo else arrivee.replace(tzinfo=timezone.utc)
+
+
+async def preparer_lien_arrivee(membre, uid) -> str:
+    """Crée le lien GAML d'un nouveau clipper à son arrivée (une tentative par jour, écrite AVANT l'appel). Renvoie « eteint »,
+    « sans_fiche », « deja » (lien déjà prêt), « essai_du_jour », « cree » ou « sans_lien » (forfait plein : la ligne admin du forfait
+    part, la passe horaire réessaie). Jamais d'exception."""
+    if not lien_arrivee_actif():
+        return "eteint"
+    uid = str(uid)
+    try:
+        d = _lire()
+        f = d.get(uid)
+        if not isinstance(f, dict) or _onb(uid).get("sorti") or not _deps.get("attribuer_lien"):
+            return "sans_fiche"
+        if _onb(uid).get("liens_prets"):
+            return "deja"
+        jour = datetime.now(timezone.utc).date().isoformat()
+        if f.get("lien_arrivee_essai") == jour:
+            return "essai_du_jour"
+        f["lien_arrivee_essai"] = jour
+        _ecrire(d)
+        await _deps["attribuer_lien"](membre, raison="l'app du jour 3 (lien créé à l'arrivée pour tous)")
+        if not _onb(uid).get("liens_prets"):
+            return "sans_lien"
+        d = _lire()
+        if uid in d:
+            d[uid]["lien_arrivee"] = _maintenant()
+            _ecrire(d)
+        return "cree"
+    except Exception as erreur:                                         # noqa: BLE001 — le lien en moins, jamais une arrivée en moins
+        journal.warning("Lien à l'arrivée de %s : %s", uid, type(erreur).__name__)
+        return "sans_lien"
+
+
+async def rattraper_liens_arrivee(client=None) -> list:
+    """Passe horaire : les arrivées d'APP_JOUR_DEPUIS ou après qui n'ont pas encore de lien (arrivées avant l'allumage de la variable,
+    forfait plein). LIENS_ARRIVEE_PAR_PASSE au plus. Éteint avec la variable. Renvoie [(uid, état)]."""
+    if not lien_arrivee_actif():
+        return []
+    try:
+        depuis = datetime.fromisoformat(APP_JOUR_DEPUIS)
+    except ValueError:
+        return []
+    depuis = depuis if depuis.tzinfo else depuis.replace(tzinfo=timezone.utc)
+    registre = _deps["lire_json"](_deps["FICHIER_EQUIPES"], {}) if _deps.get("FICHIER_EQUIPES") else None
+    faits = []
+    for uid, f in list(_lire().items()):
+        if len(faits) >= LIENS_ARRIVEE_PAR_PASSE:
+            break
+        if not isinstance(f, dict) or f.get("app") or _onb(uid).get("liens_prets") or _onb(uid).get("sorti"):
+            continue
+        arrivee = _arrivee_de(f)
+        if arrivee is None or arrivee < depuis:
+            continue
+        if registre is not None and uid not in registre:
+            continue                                                    # sorti de l'équipe (sa fiche reste au parcours)
+        membre = _deps["membre_par_id"](uid) if _deps.get("membre_par_id") else None
+        if membre is None:
+            continue
+        faits.append((uid, await preparer_lien_arrivee(membre, uid)))
+    return faits
+
+
 async def livrer_app(uid: str, salon=None, membre=None, client=None, forcer: bool = False, texte: str = "") -> str:
     """Envoie dans son salon perso le bouton de son app, une seule fois (forcer : staff ou `!app`, renvoyé même si déjà envoyé).
     09/10 : `texte` (le message déjà écrit, mention comprise : la routine) part avec le bouton à la place de TEXTE_APP, en UN message.
@@ -2885,6 +2983,10 @@ async def boucle(client) -> None:
                 await rattraper_story_lien(client)
             except Exception as erreur:                                 # noqa: BLE001
                 journal.warning("Lien en story (rattrapage) : %s", erreur)
+            try:                                                        # 23/10 : le lien créé à l'arrivée, pour les arrivées sans lien
+                await rattraper_liens_arrivee(client)
+            except Exception as erreur:                                 # noqa: BLE001
+                journal.warning("Lien à l'arrivée (rattrapage) : %s", erreur)
             maintenant = _deps["heure_paris"]()
             if maintenant.hour >= paie_clics.CLICS_HEURE and RELANCE_JOURS > 0:
                 # 05/10 : les étapes 4 et 5 ne s'ouvrent plus (compte 3 privé → lien → routine) ; les fiches encore à 4 ou 5
@@ -2978,7 +3080,7 @@ def memoire(uid: str) -> str:
     vivants = _vivants(uid, fiche_p)                                    # 01/10 : un compte BAN ne sert plus, on n'en parle plus
     if vivants:
         lignes.append("Comptes Instagram : " + ", ".join(vivants) + " (mots de passe déjà dans le salon, ne jamais les redonner)")
-    if onb.get("lien"):
+    if onb.get("lien") and lien_remis(uid):                             # 23/10 : un lien créé à l'arrivée ne se dit pas avant sa remise
         np_ = n_prive(fiche_p)
         lignes.append(f"Lien (dans la bio du compte {np_} privé seulement ; les autres comptes : story à la une avec le widget de "
                       f"mention du compte {np_}) : {onb['lien']}")
@@ -3653,8 +3755,9 @@ async def commande_app(message) -> bool:
     if salon is None or getattr(message.channel, "id", None) != salon.id:
         await message.reply("Tape `!app` dans ton salon perso. Ton lien d'app est à toi seul.")
         return True
-    if not trois_comptes(_lire().get(uid) or {}):
-        await message.reply("Ton app arrive ici dès que ton compte 3 est créé.")
+    fiche_app = _lire().get(uid) or {}
+    if not (trois_comptes(fiche_app) or jour_app_atteint(fiche_app, uid)):   # 23/10 : au jour 3, lien prêt, ou 3 comptes créés
+        await message.reply("Ton app arrive à partir du jour 3.\n\nElle part dès que ton lien est prêt.\n\nAu plus tard, elle arrive avec ton compte 3.")
         return True
     etat = await livrer_app(uid, salon=salon, membre=message.author, forcer=True)
     if etat != "envoye":

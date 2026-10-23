@@ -44,7 +44,15 @@ journal = logging.getLogger("sortie_auto")
 ACTIF = os.environ.get("SORTIE_AUTO", "1").strip() != "0"
 # 08/10 (audit : « 3 jours » annoncé, purge à 48 h sans prévenir) : la règle suit la dernière consigne de Gaëtan (05/10, 15 h 30 :
 # « donne-leur 48 h ») — avertissement à 24 h, sortie à 48 h, et le même chiffre dans tous les textes.
-JOURS_COMPTE1 = int(os.environ.get("SORTIE_JOURS_COMPTE1", "2") or 2)
+# 23/10 (règle L6 des règles gelées, confirmée par Gaëtan : « la règle L6, c'est très bien ») : compte 1 non créé 48 h après sa remise →
+# UN avertissement ; sortie 48 h après l'AVERTISSEMENT (pas avant, jamais sans lui). La sortie reste validée par le manager
+# (RETRAIT_AUTOMATIQUE éteint) : le bot signale, `!sortie` exécute. Les chiffres sont fixés ici, plus lus dans Railway (la variable
+# SORTIE_JOURS_COMPTE1 n'a plus d'effet : une valeur oubliée là-bas aurait défait la règle gelée sans que personne le voie).
+AVERTIR_APRES_H = 48                                                    # remise du compte 1 → avertissement
+SORTIE_APRES_AVERTISSEMENT_H = 48                                       # avertissement → sortie (validée)
+TOLERANCE_PASSE_H = 2                                                   # la passe quotidienne ne tombe pas à la minute : 46 h valent 48 h
+JOURS_AVERTIR = AVERTIR_APRES_H // 24
+JOURS_COMPTE1 = (AVERTIR_APRES_H + SORTIE_APRES_AVERTISSEMENT_H) // 24  # 4 jours au plus entre la remise et la sortie
 KICK = os.environ.get("SORTIE_KICK", "1").strip() != "0"
 # Scheduled first-account checks only alert managers; no automatic release or kick.
 RETRAIT_AUTOMATIQUE = os.environ.get("SORTIE_AUTO_RETRAIT", "0").strip() == "1"
@@ -55,7 +63,7 @@ REGLE_DEPUIS = os.environ.get("SORTIE_AUTO_DEPUIS", "2026-09-30")
 VISITES_ACTIF = int(os.environ.get("APPEL_VISITES_ACTIF", "5") or 5)
 # 10/10 (L9a) : un relevé du scan plus vieux que MESURE_JOURS jours ne mesure plus rien (budget Apify coupé, passage raté)
 MESURE_JOURS = int(os.environ.get("APPEL_MESURE_JOURS", "1") or 1)
-RAISON_COMPTE1 = f"{JOURS_COMPTE1 * 24} h sans créer ton compte 1 (règle de l'équipe)"
+RAISON_COMPTE1 = f"compte 1 non créé {SORTIE_APRES_AVERTISSEMENT_H} h après l'avertissement (règle L6)"
 _deps = {}
 
 
@@ -382,25 +390,65 @@ def sans_compte1(parcours: dict, maintenant=None, depuis: str = None, garder=(),
     return out
 
 
-def a_avertir_compte1(parcours: dict, deja: dict, maintenant=None, **kw) -> list:
-    """Ceux à J-1 (JOURS_COMPTE1 - 1 jours) ou plus, pas encore avertis pour cette référence. 08/10 : « ou plus » — un clipper déjà
-    au-delà (règle passée de 3 jours à 48 h) est averti d'abord, il ne sort jamais sans avertissement."""
-    return [(u, p, j, ref) for u, p, j, ref in sans_compte1(parcours, maintenant, **kw)
-            if j >= JOURS_COMPTE1 - 1 and deja.get(u) != ref]
+def _instant(brut):
+    """Un instant iso lu en UTC, None s'il est absent ou illisible."""
+    try:
+        v = datetime.fromisoformat(str(brut))
+    except (TypeError, ValueError):
+        return None
+    return v if v.tzinfo else v.replace(tzinfo=timezone.utc)
 
 
-def a_sortir_compte1(parcours: dict, maintenant=None, deja: dict = None, **kw) -> list:
-    """Ceux à JOURS_COMPTE1 jours ou plus. 08/10 : seulement ceux déjà avertis pour cette référence à une passe précédente
-    (`deja` = les avertis lus AVANT la passe) : jamais de sortie sans avertissement la veille."""
+def _heures_depuis(brut, maintenant) -> float:
+    """Heures écoulées depuis l'instant `brut` ; 0 s'il est illisible (dans le doute, rien ne part)."""
+    v = _instant(brut)
+    return 0.0 if v is None else (maintenant - v).total_seconds() / 3600
+
+
+def _averti(uid, ref, deja: dict, quand) -> bool:
+    """Averti POUR CETTE RÉFÉRENCE et, depuis le 23/10, avec l'instant de l'avertissement : un avertissement d'avant (texte sans
+    échéance, aucun instant gardé) ne compte pas, le clipper reçoit l'avertissement de L6 avant toute sortie."""
+    if deja.get(uid) != ref:
+        return False
+    return quand is None or _instant(quand.get(uid)) is not None
+
+
+def a_avertir_compte1(parcours: dict, deja: dict, maintenant=None, quand: dict = None, **kw) -> list:
+    """L6 : ceux dont le compte 1 n'est pas créé 48 h après sa remise (AVERTIR_APRES_H, à TOLERANCE_PASSE_H près), pas encore avertis
+    pour cette référence. « Ou plus » : un clipper déjà au-delà est averti d'abord, il ne sort jamais sans avertissement.
+    `quand` = les instants d'avertissement (`avertis_compte1_le`) ; sans lui, seule la référence compte (appels d'avant le 23/10)."""
+    maintenant = maintenant or datetime.now(timezone.utc)
     return [(u, p, j, ref) for u, p, j, ref in sans_compte1(parcours, maintenant, **kw)
-            if j >= JOURS_COMPTE1 and (deja is None or deja.get(u) == ref)]
+            if _heures_depuis(ref, maintenant) >= AVERTIR_APRES_H - TOLERANCE_PASSE_H and not _averti(u, ref, deja, quand)]
+
+
+def a_sortir_compte1(parcours: dict, maintenant=None, deja: dict = None, quand: dict = None, **kw) -> list:
+    """L6 : ceux avertis pour cette référence il y a SORTIE_APRES_AVERTISSEMENT_H heures ou plus (à TOLERANCE_PASSE_H près), et
+    toujours sans compte 1. `deja` + `quand` = les avertis et leurs instants lus AVANT la passe : un clipper averti dans cette
+    passe ne sort pas dans la même. Sans `deja` (appel d'avant le 23/10) : JOURS_COMPTE1 jours depuis la remise suffisent."""
+    maintenant = maintenant or datetime.now(timezone.utc)
+    sortants = []
+    for u, p, j, ref in sans_compte1(parcours, maintenant, **kw):
+        if deja is None:
+            if j >= JOURS_COMPTE1:
+                sortants.append((u, p, j, ref))
+            continue
+        if not _averti(u, ref, deja, quand):
+            continue
+        if quand is not None and _heures_depuis(quand.get(u), maintenant) < SORTIE_APRES_AVERTISSEMENT_H - TOLERANCE_PASSE_H:
+            continue
+        sortants.append((u, p, j, ref))
+    return sortants
 
 
 def texte_avertissement_compte1(prenom: str, jours: int) -> str:
-    return (f"⚠️ {prenom}, **peux-tu confirmer l'avancement de ton compte 1 ?** ({jours} jours depuis son ouverture).\n\n"
-            "Si tu l'as déjà créé, signale-le ici afin que le suivi soit mis à jour.\n\n"
-            "Sinon, crée-le et valide ton étape. En cas de blocage, écris à Gaëtan sur WhatsApp. "
-            "Aucune exclusion automatique n'est déclenchée par ce rappel.")
+    """L6, en phrases courtes : l'échéance est dite, le recours aussi (compte déjà créé, blocage)."""
+    return (f"⚠️ {prenom}, ton compte 1 n'est toujours pas créé.\n\n"
+            f"Il t'a été remis il y a {jours} jours.\n\n"
+            f"Crée-le dans les {SORTIE_APRES_AVERTISSEMENT_H} h, puis valide ton étape.\n\n"
+            "Tu l'as déjà créé ? Écris-le ici, je mets ton suivi à jour.\n\n"
+            "Bloqué ? Écris à Gaëtan sur WhatsApp.\n\n"
+            f"Pas de compte 1 dans {SORTIE_APRES_AVERTISSEMENT_H} h ? Ton manager valide ta sortie du serveur.")
 
 
 async def executer(client, appliquer: bool = True) -> list:
@@ -443,20 +491,24 @@ async def executer(client, appliquer: bool = True) -> list:
     kw = {"garder": garder, "prenom_de": prenom_de, "notes": _deps.get("notes"), "reprises": reprises,
           "prouve": lambda u, ouv: _bloque(u) or compte1_prouve(u, ouv, onboarding_d, historique) or _visites_actives(u)}   # 08/10 : scan ou visites
     avertis_avant = dict(d.get("avertis_compte1", {}))                  # 08/10 : la sortie exige un avertissement d'une passe précédente
-    for uid, prenom, nb_jours, ref in a_avertir_compte1(parcours, avertis_avant, **kw):
+    avertis_le = dict(d.get("avertis_compte1_le", {}))                  # 23/10 (L6) : ... d'au moins 48 h
+    for uid, prenom, nb_jours, ref in a_avertir_compte1(parcours, avertis_avant, quand=avertis_le, **kw):
         if not appliquer:
-            bilan.append(f"· {prenom} : compte 1 pas créé depuis {nb_jours} j → rappel non punitif à prévoir")
+            bilan.append(f"· {prenom} : compte 1 pas créé depuis {nb_jours} j → avertissement L6 à envoyer (sortie {SORTIE_APRES_AVERTISSEMENT_H} h après)")
             continue
         salon = _deps["salon_perso"](uid) if _deps.get("salon_perso") else None
         if salon is None:
             continue
         try:
             await salon.send(texte_avertissement_compte1(prenom, nb_jours))
-            d = _etat(); d.setdefault("avertis_compte1", {})[uid] = ref; _deps["ecrire_json"](_deps["FICHIER"], d)
-            bilan.append(f"⚠️ {prenom} : averti, sort demain s'il n'a toujours pas créé son compte 1 ({nb_jours} j)")
+            d = _etat()
+            d.setdefault("avertis_compte1", {})[uid] = ref
+            d.setdefault("avertis_compte1_le", {})[uid] = instant        # l'échéance de la sortie part de CET instant
+            _deps["ecrire_json"](_deps["FICHIER"], d)
+            bilan.append(f"⚠️ {prenom} : averti, sortie à valider dans {SORTIE_APRES_AVERTISSEMENT_H} h s'il n'a toujours pas créé son compte 1 ({nb_jours} j)")
         except Exception as erreur:                                         # noqa: BLE001
             journal.warning("Avertissement compte 1 de %s : %s", prenom, erreur)
-    for uid, prenom, nb_jours, ref in a_sortir_compte1(parcours, deja=avertis_avant, **kw):
+    for uid, prenom, nb_jours, ref in a_sortir_compte1(parcours, deja=avertis_avant, quand=avertis_le, **kw):
         if not appliquer:
             bilan.append(f"· {prenom} : compte 1 pas créé depuis {nb_jours} j → " + ("sortie possible" if RETRAIT_AUTOMATIQUE else "à vérifier par le manager (aucune sortie automatique)") + (" et expulsé" if (KICK and RETRAIT_AUTOMATIQUE) else ""))
             continue
@@ -511,7 +563,7 @@ async def commande(message, texte: str) -> bool:
     go = mots == ["go"]                                                 # 10/10 (L9a) : plus de `!sortie-auto reels` (ancienne règle)
     bilan = await executer(message.client if hasattr(message, "client") else None, appliquer=go)
     if not bilan:
-        await message.reply(f"✅ Aucun compte 1 à relancer : aucun retard détecté depuis {JOURS_COMPTE1 - 1} jours."
+        await message.reply(f"✅ Aucun compte 1 à relancer : aucun retard détecté depuis {AVERTIR_APRES_H} h."
                             + ("" if ACTIF else " Sortie automatique éteinte (`SORTIE_AUTO=0`)."))
         return True
     await message.reply((("🛡️ **Rappels et vérifications du compte 1**\n" if go else "🔎 **Comptes 1 à vérifier** (`!sortie-auto go` pour envoyer les rappels)\n")
@@ -524,9 +576,10 @@ async def boucle(client):
     if not ACTIF:
         journal.info("Sortie automatique éteinte (SORTIE_AUTO=0)")
         return
-    journal.info("Suivi compte 1 actif : rappel à J-1, %s à %d jours, à %d h UTC ; référence à partir du %s",
-                 "sortie automatisée" if RETRAIT_AUTOMATIQUE else "revue humaine SANS sortie",
-                 JOURS_COMPTE1, HEURE_UTC, COMPTE1_DEPUIS)
+    journal.info("Suivi compte 1 actif (L6) : avertissement à %d h après la remise, %s %d h après l'avertissement, à %d h UTC ; "
+                 "référence à partir du %s",
+                 AVERTIR_APRES_H, "sortie automatisée" if RETRAIT_AUTOMATIQUE else "revue humaine SANS sortie",
+                 SORTIE_APRES_AVERTISSEMENT_H, HEURE_UTC, COMPTE1_DEPUIS)
     while not client.is_closed():
         maintenant = datetime.now(timezone.utc)
         d = _etat()
@@ -584,7 +637,7 @@ def bilan_pour_digest() -> tuple:
                       + "\n-# `!sortie @x raison` pour le sortir, `!note @x garde` pour le garder."] if dormants else [])
     if not a_dire:
         return bloc_inactifs, []
-    out = [f"🚪 **Sorties** ({JOURS_COMPTE1 * 24} h sans compte 1)"]
+    out = [f"🚪 **Sorties** (compte 1 : avertis à {AVERTIR_APRES_H} h, sortie {SORTIE_APRES_AVERTISSEMENT_H} h après)"]
     for x in a_dire:
         jour = str(x.get("jour") or "")
         if len(a_dire) > 1 and len(jour) == 10:
