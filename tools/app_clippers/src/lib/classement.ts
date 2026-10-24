@@ -1,7 +1,9 @@
 import type { Clic, Clipper360, Compte, Pilotage } from "./pilotage";
 import { estGood, fenetre, jours, meme, normaliser } from "@/components/pilotage/calc";
 
-export type CompteClassement = Compte & { numero: number };
+/** `prive` : le compte au lien GAML. `extra` (24/10) : un compte actif hors des trois emplacements du parcours (refait n° 4+, ou @
+ *  du LOG DASHBOARD absent de la fiche du bot) : affiché en plus (➕), jamais promu à la place d'un 1, 2 ou 3. */
+export type CompteClassement = Compte & { numero: number; prive?: boolean; extra?: boolean };
 export type FicheClipper = {
   id: string; prenom: string; creatrices: string[]; comptes: CompteClassement[]; liens: string[];
   clics7: number | null; avant7: number | null; manquants: number; serie: (number | null)[];
@@ -79,8 +81,20 @@ export function classementClippers(d: Pilotage, filtre = ""): FicheClipper[] {
       const actif = estGood(c.etat) || (prive && normaliser(c.etat) === "prive");
       if (actif && affichage <= 3 && !places.has(affichage)) places.set(affichage, { ...c, numero: affichage });
     }
-    const comptes = [...places.values()].sort((a, b) => a.numero - b.numero);
-    const croissance = comptes.filter(c => c.numero < 3);
+    // 24/10 (Gaëtan : « un visuel entre la réalité et ce qu'on affiche ») : les comptes actifs qui ne sont dans aucun des trois
+    // emplacements s'ajoutent, sans renuméroter les autres ; leurs Reels et vues comptent dans les totaux de croissance.
+    const places3 = [...places.values()].map((c): CompteClassement => ({ ...c, prive: c.numero === 3 }));
+    const pris = new Set(places3.map(c => handle(c.handle)));
+    const extras: CompteClassement[] = [];
+    for (const { c, n } of [...ordonnes].sort((a, b) => (a.n ?? 999) - (b.n ?? 999))) {
+      if (pris.has(handle(c.handle)) || (n !== undefined && n >= 1 && n <= 3)) continue;
+      const prive = c.roleCompte ? normaliser(c.roleCompte) === "prive" : normaliser(c.etat) === "prive" || normaliser(c.mesure || "").startsWith("prive");
+      if (!(estGood(c.etat) || normaliser(c.etat) === "prive")) continue;
+      pris.add(handle(c.handle));
+      extras.push({ ...c, numero: 4 + extras.length, prive, extra: true });
+    }
+    const comptes = [...places3.sort((a, b) => a.numero - b.numero), ...extras];
+    const croissance = comptes.filter(c => !c.prive);
     const reels = total(croissance, c => c.reels7), vues = total(croissance, c => c.vuesRecentes);
     const semaine = l.clics.filter(c => c.jour >= f.debut && c.jour <= f.fin);
     const avant = l.clics.filter(c => c.jour >= f.avantDebut && c.jour <= f.avantFin);
@@ -98,7 +112,10 @@ export function classementClippers(d: Pilotage, filtre = ""): FicheClipper[] {
 }
 
 /** Le serveur retire toutes les autres équipes, leurs subs/CA et les clés d'app avant sérialisation. */
-export function pilotageEquipe(d: Pilotage, membres: { prenom: string; creatrice?: string; comptes: { handle: string; n: number; etat?: string }[] }[]): Pilotage {
+export function pilotageEquipe(d: Pilotage, membres: { prenom: string; creatrice?: string; comptes: { handle: string; n: number; etat?: string }[] }[],
+  options: { tousActifs?: boolean } = {}): Pilotage {
+  // 24/10 : `tousActifs` (équipe d'un TL) garde aussi les comptes actifs au-delà du n° 3 ; le pilotage personnel garde ses n° 1 à 3
+  const actif = (c: Compte) => estGood(c.etat) || normaliser(c.etat) === "prive";
   const autorises = new Set(membres.flatMap(m => m.comptes.map(c => handle(c.handle))));
   const noms = new Set(membres.map(m => normaliser(m.prenom)));
   const refs = (d.clippers || []).filter(p => {
@@ -113,7 +130,7 @@ export function pilotageEquipe(d: Pilotage, membres: { prenom: string; creatrice
       totalIg: m.comptes.length, gaml: "", gamlUuids: "", liens: 0, visites7: null, qualiteVisites: "", reels7: null, anomalies: "" });
   }
   const numeros = new Map(membres.flatMap(m => m.comptes.map(c => [handle(c.handle), c.n] as const)));
-  const comptes = d.comptes.filter(c => (numeros.get(handle(c.handle)) ?? c.numero ?? 1) <= 3 && c.axe === "Horizontal" && c.type === "Clipper" && (autorises.has(handle(c.handle))
+  const comptes = d.comptes.filter(c => ((numeros.get(handle(c.handle)) ?? c.numero ?? 1) <= 3 || (options.tousActifs && actif(c))) && c.axe === "Horizontal" && c.type === "Clipper" && (autorises.has(handle(c.handle))
     || (noms.has(normaliser(c.gerant)) && (d.clippers || []).filter(p => normaliser(p.prenom) === normaliser(c.gerant)).length <= 1)))
     .map(c => ({ ...c, numero: numeros.get(handle(c.handle)) ?? c.numero }));
   const clics = d.clics.filter(c => {

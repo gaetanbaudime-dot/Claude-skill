@@ -1,12 +1,14 @@
 /** 12/10 : les comptes Instagram du clipper (onglet « Comptes app » publié par le bot) et ses demandes de changement de @.
  *  GET : { comptes, demandes, tl } ; POST { n, handle } : ajoute la demande à « Pseudos app », le bot l'applique sous 15 minutes
  *  avec la règle de `!pseudo`. 5 demandes par minute et par clipper au plus.
- *  24/10 : `comptes` = tous les comptes qu'il gère (comptesAffiches : n° 4+ compris, sans BAN ni ancien @) ; le pilotage
+ *  24/10 : `comptes` = tous les comptes qu'il gère selon le LOG DASHBOARD (comptesReels, puis comptesAffiches : n° 4+ compris,
+ *  sans BAN ni ancien @) ; le pilotage
  *  personnel garde sa règle des n° 1 à 3. Un @ se corrige sur n'importe lequel de ses comptes, le bot vérifie qu'il est à lui. */
 import { NextRequest, NextResponse } from "next/server";
 import { clipperParJeton } from "@/lib/clippers";
 import { demanderPseudo, mesComptes, mesDemandes, nettoyerHandle } from "@/lib/comptesApp";
 import { comptesAffiches } from "@/lib/comptesVisibles";
+import { comptesReels } from "@/lib/comptesReels";
 import { pilotage } from "@/lib/pilotage";
 import { pilotageEquipe } from "@/lib/classement";
 import { semaine } from "@/lib/activite";
@@ -23,7 +25,8 @@ export async function GET(_req: Request, { params }: { params: { token: string }
     const [m, demandes, stats] = await Promise.all([mesComptes(c.cle), mesDemandes(c.cle), pilotage().catch(() => null)]);
     const parcours = m.comptes.filter(x => x.n >= 1 && x.n <= 3);
     const personnel = stats ? pilotageEquipe(stats, [{ prenom: c.prenom, creatrice: c.creatrice, comptes: parcours }]) : null;
-    const comptes = comptesAffiches(m.comptes);
+    // 24/10 : la liste part du LOG DASHBOARD (Gérant), la fiche du bot donne les n° pour corriger un @ (lib/comptesReels)
+    const comptes = comptesAffiches(comptesReels(c.prenom, m.comptes, stats?.comptes ?? null));
     // 24/10 : « Ma semaine » = ses Reels (inputs), vues, followers et clics payés des 7 derniers jours clos
     let clicsParJour: Record<string, number> | null = null;
     if (personnel) {

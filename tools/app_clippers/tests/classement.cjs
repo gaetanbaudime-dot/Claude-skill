@@ -24,12 +24,23 @@ const d = { aujourdhui: '2026-10-17', publie: 'now', fraicheur: '', taux: 0.92, 
   clics: [...calc.jours('2026-10-03', '2026-10-09').map(j => clic(j, 10)), ...calc.jours('2026-10-10', '2026-10-16').map(j => clic(j, 20)), clic('2026-10-17', 9000), clic('2026-10-16', 3000, { qui: 'Clara' })] };
 let c = classementClippers(d).find(x => x.id === '1');
 assert.equal(c.clics7, 140); assert.equal(c.avant7, 70); assert.equal(c.serie.length, 7);
-assert.equal(c.reels7, 14); assert.equal(c.vues7, 2000); assert.equal(c.comptes.length, 3);
-assert.equal(c.comptes[2].numero, 3); assert.equal(c.comptes[2].etat, 'PRIVE');
-// Ban : conserver les numéros d'origine, ne pas promouvoir un ancien quatrième compte.
+// 24/10 : le 4e compte actif s'affiche en plus des trois emplacements (➕) et compte dans les totaux de croissance
+assert.equal(c.reels7, 21); assert.equal(c.vues7, 3000); assert.equal(c.comptes.length, 4);
+assert.equal(c.comptes[2].numero, 3); assert.equal(c.comptes[2].etat, 'PRIVE'); assert.equal(c.comptes[2].prive, true);
+assert.equal(c.comptes[3].handle, 'compte4'); assert.equal(c.comptes[3].extra, true); assert.equal(c.comptes[3].prive, false);
+// Ban : numéros d'origine conservés ; le 4e compte actif reste un ➕, jamais promu à la place du 1.
 let variant = { ...d, comptes: d.comptes.map(x => x.handle === 'compte1' ? { ...x, etat: 'BAN' } : x) };
 c = classementClippers(variant).find(x => x.id === '1');
-assert.equal(c.comptes.length, 2); assert.equal(c.comptes[0].numero, 2); assert.equal(c.reels7, 7);
+assert.equal(c.comptes.length, 3); assert.equal(c.comptes[0].numero, 2); assert.equal(c.reels7, 14);
+assert.deepEqual(c.comptes.map(x => x.handle).join(), 'compte2,compte3,compte4'); assert.equal(c.comptes[2].extra, true);
+// Un 4e compte qui n'est pas actif (à créer, ancien @) ne s'ajoute jamais
+variant = { ...d, comptes: d.comptes.map(x => x.handle === 'compte4' ? { ...x, etat: 'à créer' } : x) };
+c = classementClippers(variant).find(x => x.id === '1');
+assert.equal(c.comptes.length, 3); assert.equal(c.reels7, 14);
+// Un compte actif privé hors parcours (mesure « privé ») est un 🔒 en plus, hors des totaux de croissance
+variant = { ...d, comptes: d.comptes.map(x => x.handle === 'compte4' ? { ...x, mesure: 'privé' } : x) };
+c = classementClippers(variant).find(x => x.id === '1');
+assert.equal(c.comptes[3].prive, true); assert.equal(c.reels7, 14);
 // Ancien parcours : privé en 2, croissance en 3.
 variant = { ...d, comptes: [compte(1, { roleCompte: 'croissance' }), compte(2, { roleCompte: 'privé' }), compte(3, { roleCompte: 'croissance' })] };
 c = classementClippers(variant).find(x => x.id === '1');
@@ -45,6 +56,10 @@ assert.equal(identiteDe('Alex', [ref('3', 'Alex Martin'), ref('4', 'Alex Paul')]
 // L'API TL doit retirer les autres équipes, le CA, les subs et les boutons.
 const scoped = pilotageEquipe(d, [{ prenom: 'Caroline', comptes: [1, 2, 3].map(n => ({ handle: `compte${n}`, n })) }]);
 assert.equal(scoped.comptes.length, 3); assert.equal(scoped.clippers.length, 1);
+// 24/10 : l'équipe d'un TL (tousActifs) garde aussi le 4e compte actif ; jamais les comptes d'une autre équipe
+const scopedTl = pilotageEquipe(d, [{ prenom: 'Caroline', comptes: [1, 2, 3, 4].map(n => ({ handle: `compte${n}`, n })) }], { tousActifs: true });
+assert.equal(scopedTl.comptes.length, 4); assert.ok(scopedTl.comptes.every(x => x.gerant === 'Caroline'));
+assert.equal(classementClippers(scopedTl)[0].comptes.length, 4);
 assert.ok(scoped.clics.every(x => x.qui === 'Caroline')); assert.equal(scoped.subs.length, 0); assert.equal(scoped.boutons.length, 0);
 assert.equal(classementClippers(scoped).length, 1);
 const renamed = { ...d, comptes: d.comptes.filter(x => x.numero !== 4).map(x => x.handle === 'compte1' ? { ...x, handle: 'nouveau', numero: undefined } : x) };

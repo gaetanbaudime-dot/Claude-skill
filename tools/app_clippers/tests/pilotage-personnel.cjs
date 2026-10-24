@@ -15,6 +15,7 @@ const model = load('lib/classement.ts', { '@/components/pilotage/calc': calc });
 const visibles = load('lib/comptesVisibles.ts');
 const dates = load('lib/dates.ts');
 const activite = load('lib/activite.ts', { './dates': dates });
+const reels = load('lib/comptesReels.ts');
 const me = { prenom: 'Caroline', creatrice: 'Chloé', cle: 'caroline' };
 const compte = (handle, n, gerant) => ({ handle, n, numero: n, gerant, creatrice: 'Chloé', axe: 'Horizontal', type: 'Clipper', etat: 'GOOD' });
 const mine = [1, 2, 3, 4].map(n => compte('mine'+n, n, 'Caroline'));
@@ -31,6 +32,7 @@ const route = load('app/api/k/[token]/comptes/route.ts', {
   '@/lib/pilotage': { pilotage: async () => { reads++; if (fail) throw Error('Sheets unavailable'); return data; } },
   '@/lib/classement': model,
   '@/lib/comptesVisibles': visibles,
+  '@/lib/comptesReels': reels,
   '@/lib/activite': activite,
   '@/lib/dates': dates,
 });
