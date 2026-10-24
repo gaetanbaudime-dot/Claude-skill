@@ -12,6 +12,7 @@ function load(file, deps = {}) {
 }
 const calc = load('components/pilotage/calc.ts');
 const model = load('lib/classement.ts', { '@/components/pilotage/calc': calc });
+const visibles = load('lib/comptesVisibles.ts');
 const me = { prenom: 'Caroline', creatrice: 'Chloé', cle: 'caroline' };
 const compte = (handle, n, gerant) => ({ handle, n, numero: n, gerant, creatrice: 'Chloé', axe: 'Horizontal', type: 'Clipper', etat: 'GOOD' });
 const mine = [1, 2, 3, 4].map(n => compte('mine'+n, n, 'Caroline'));
@@ -27,12 +28,13 @@ const route = load('app/api/k/[token]/comptes/route.ts', {
   '@/lib/comptesApp': { mesComptes: async cle => { assert.equal(cle, 'caroline'); return { comptes: mine, tl: 'Mathieu' }; }, mesDemandes: async () => [] },
   '@/lib/pilotage': { pilotage: async () => { reads++; if (fail) throw Error('Sheets unavailable'); return data; } },
   '@/lib/classement': model,
+  '@/lib/comptesVisibles': visibles,
 });
 (async () => {
   let r = await route.GET({}, { params: { token: 'invalid-token' } });
   assert.equal(r.status, 404); assert.equal(reads, 0);
   r = await route.GET({ url: '?clipper=romaric' }, { params: { token: 'own-token' } });
-  assert.equal(r.status, 200); assert.equal(r.body.comptes.length, 3);
+  assert.equal(r.status, 200); assert.equal(r.body.comptes.length, 4);                 // 24/10 : la liste montre aussi le n° 4
   assert.equal(r.body.pilotage.clippers.length, 1); assert.equal(r.body.pilotage.clippers[0].prenom, 'Caroline');
   assert.ok(r.body.pilotage.comptes.every(c => c.gerant === 'Caroline' && c.numero <= 3));
   assert.ok(r.body.pilotage.clics.every(c => c.qui === 'Caroline'));
@@ -40,6 +42,6 @@ const route = load('app/api/k/[token]/comptes/route.ts', {
   assert.equal(r.headers['Cache-Control'], 'private, no-store');
   fail = true;
   r = await route.GET({}, { params: { token: 'own-token' } });
-  assert.equal(r.status, 200); assert.equal(r.body.pilotage, null); assert.equal(r.body.comptes.length, 3);
-  console.log('Pilotage personnel : jeton, propriétaire, limite 3, absence de données tierces et panne de source vérifiés.');
+  assert.equal(r.status, 200); assert.equal(r.body.pilotage, null); assert.equal(r.body.comptes.length, 4);
+  console.log('Pilotage personnel : jeton, propriétaire, limite 3 du pilotage, liste complète des comptes, absence de données tierces et panne de source vérifiés.');
 })().catch(e => { console.error(e); process.exitCode = 1; });

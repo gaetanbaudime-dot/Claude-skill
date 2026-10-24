@@ -2,16 +2,24 @@
 import { useCallback, useEffect, useState } from "react";
 import { signaler } from "@/lib/signal";
 import type { Pilotage } from "@/lib/pilotage";
+import { etatAffiche, type Ton } from "@/lib/comptesVisibles";
 import PilotageClipper from "./pilotage/PilotageClipper";
 
 /** 12/10 (Gaëtan : « un onglet où il peut mettre à jour le @ de ses 3 comptes Instagram, ça nous permettra d'avoir toujours les
- *  bons ») : ses comptes dans l'ordre du parcours, chacun avec un lien direct vers Instagram et « Modifier le @ ». Le nouveau @
- *  part au bot (onglet « Pseudos app »), qui l'applique sous 15 minutes avec la règle de `!pseudo` et dit « fait » ou pourquoi
- *  c'est refusé. */
-type Compte = { n: number; handle: string; etat: string; creatrice: string; followers: number | null; reels7: number | null; vues7: number | null };
+ *  bons ») : ses comptes, chacun avec un lien direct vers Instagram et « Modifier le @ ». Le nouveau @ part au bot (onglet
+ *  « Pseudos app »), qui l'applique sous 15 minutes avec la règle de `!pseudo` et dit « fait » ou pourquoi c'est refusé.
+ *  24/10 (Gaëtan : « on ne voit pas les comptes Instagram que le clipper gère ») : le 17/10, la liste avait été repliée sous
+ *  « Gérer mes comptes et Metricool », sous les statistiques. Elle revient en haut, dépliée : tous ses comptes (la route les
+ *  choisit avec comptesAffiches), l'état et le rôle de chacun, puis « Mon activité » en dessous. */
+type Compte = { n: number; handle: string; etat: string; creatrice: string; followers: number | null; reels7: number | null; vues7: number | null; role?: string };
 type Demande = { n: number; handle: string; statut: string; detail: string; date: string };
 const fmt = (n: number) => new Intl.NumberFormat("fr-FR").format(n);
-const NOMS = ["", "Compte 1", "Compte 2", "Compte 3"];
+const TONS: Record<Ton, string> = {
+  vert: "bg-emerald-400/10 text-emerald-200",
+  orange: "bg-amber-400/10 text-amber-200",
+  gris: "bg-white/[0.06] text-argent2",
+};
+const estPrive = (role?: string) => (role || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim() === "prive";
 
 type Metricool = { n: number; eligible: boolean; statut: "disponible" | "attente" | "pret" | "connecte" | "renouveler" };
 function MetricoolBouton({ jeton, n, etat, charger }: { jeton: string; n: number; etat?: Metricool; charger: () => Promise<void> }) {
@@ -56,19 +64,30 @@ function Ligne({ c, demande, jeton, recharger, metricool, rechargerMetricool }: 
       setEdition(false); setSaisie(""); recharger();
     } finally { setEnvoi(false); }
   };
+  const etat = etatAffiche(c.etat);
   return (
     <div className="carte p-4 apparait">
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <div className="text-[11px] font-bold tracking-widest uppercase text-argent2">{NOMS[c.n] || `Compte ${c.n}`}{c.etat ? ` · ${c.etat}` : ""}</div>
-          <a href={`https://www.instagram.com/${c.handle}/`} target="_blank" rel="noopener" onClick={() => signaler(jeton, "compte:instagram")}
-             className="block text-[18px] font-bold truncate mt-0.5 text-white">@{c.handle} <span className="text-accent text-[14px]">↗</span></a>
+          {etat.enLigne ? (
+            <a href={`https://www.instagram.com/${c.handle}/`} target="_blank" rel="noopener" onClick={() => signaler(jeton, "compte:instagram")}
+               className="block text-[18px] font-bold truncate text-white">@{c.handle} <span className="text-accent text-[14px]">↗</span></a>
+          ) : (
+            <div className="text-[18px] font-bold truncate text-white">@{c.handle}</div>
+          )}
+          <div className="mt-1.5 flex flex-wrap gap-1.5 text-[11.5px] font-semibold">
+            <span className={`rounded-full px-2.5 py-0.5 ${TONS[etat.ton]}`}>{etat.libelle}</span>
+            <span className={`rounded-full px-2.5 py-0.5 ${TONS.gris}`}>{estPrive(c.role) ? "Privé · ton lien en bio" : "Croissance"}</span>
+          </div>
         </div>
-        <div className="text-right shrink-0 text-[12px] text-argent2 leading-tight">
-          <div><b className="text-white text-[15px] tabular-nums">{c.followers !== null ? fmt(c.followers) : "–"}</b> followers</div>
-          <div>{c.reels7 !== null ? `${c.reels7} Reels en 7 j` : ""}</div>
-        </div>
+        {etat.enLigne ? (
+          <div className="text-right shrink-0 text-[12px] text-argent2 leading-tight">
+            <div><b className="text-white text-[15px] tabular-nums">{c.followers !== null ? fmt(c.followers) : "–"}</b> followers</div>
+            <div className="mt-0.5">{c.reels7 !== null ? `${fmt(c.reels7)} Reels en 7 j` : ""}</div>
+          </div>
+        ) : null}
       </div>
+      {!etat.enLigne ? <div className="mt-3 text-[12.5px] text-argent2">Pas encore créé. Tes accès sont dans ton salon Discord.</div> : null}
       {enAttente ? <div className="mt-3 text-[12.5px] rounded-xl px-3 py-2 bg-amber-400/10 text-amber-200">⏳ Changement vers @{demande!.handle} en cours : le bot le fait sous 15 minutes.</div> : null}
       {demande?.statut === "refusé" ? <div className="mt-3 text-[12.5px] rounded-xl px-3 py-2 bg-rose-400/10 text-rose-200">❌ @{demande.handle} refusé : {demande.detail}</div> : null}
       {edition ? (
@@ -109,18 +128,19 @@ export default function ComptesTab({ jeton }: { jeton: string }) {
   useEffect(() => { chargerMetricool(); const id = setInterval(chargerMetricool, 60_000); return () => clearInterval(id); }, [chargerMetricool]);
   return (
     <section className="space-y-3">
+      <div className="apparait px-1 pt-1">
+        <h2 className="text-[18px] font-bold">Mes comptes Instagram</h2>
+        <p className="text-argent2 text-[13px] mt-1 leading-relaxed">Touche un @ pour l'ouvrir dans Instagram.</p>
+      </div>
       {!d && !erreur ? [0, 1, 2].map((i) => <div key={i} className="squelette h-28" />) : null}
       {erreur && !d ? <div className="carte p-5 text-center text-argent2">Les comptes sont en cours de mise à jour. <button className="text-accent font-semibold" onClick={charger}>Réessayer</button></div> : null}
       {erreur && d ? <p className="text-[12px] text-amber-200" role="status">Actualisation indisponible : dernières données affichées. <button onClick={charger} className="underline">Réessayer</button></p> : null}
-      {d?.pilotage ? <PilotageClipper d={d.pilotage} /> : d ? <div className="carte p-4 text-[13px] text-argent2">Tes statistiques sont en cours de mise à jour. <button className="text-accent" onClick={charger}>Réessayer</button></div> : null}
-      {d && !d.comptes.length ? <div className="carte p-5 text-center text-argent2">Pas encore de compte : ton compte 1 arrive dans ton salon Discord.</div> : null}
-      {d?.comptes.length ? <details className="carte p-4">
-        <summary className="cursor-pointer text-[14px] font-semibold">Gérer mes comptes et Metricool</summary>
-        <p className="text-argent2 text-[13px] mt-3 leading-relaxed">Tu as changé un @ ? Corrige-le ici pour que tes Reels soient comptés sur le bon compte.</p>
-        <div className="space-y-3 mt-3">{d.comptes.map((c) => <Ligne key={c.n} c={c} demande={d.demandes.find((x) => x.n === c.n)} jeton={jeton} recharger={charger}
+      {d && !d.comptes.length ? <div className="carte p-5 text-center text-argent2">Pas encore de compte. Ton compte 1 arrive dans ton salon Discord.</div> : null}
+      {d?.comptes.map((c) => <Ligne key={`${c.n}-${c.handle}`} c={c} demande={d.demandes.find((x) => x.n === c.n)} jeton={jeton} recharger={charger}
         metricool={metricool.find(e => e.n === c.n)} rechargerMetricool={chargerMetricool} />)}
-        </div>
-      </details> : null}
+      {d ? <div className="pt-4">
+        {d.pilotage ? <PilotageClipper d={d.pilotage} /> : <div className="carte p-4 text-[13px] text-argent2">Tes statistiques sont en cours de mise à jour. <button className="text-accent" onClick={charger}>Réessayer</button></div>}
+      </div> : null}
     </section>
   );
 }
