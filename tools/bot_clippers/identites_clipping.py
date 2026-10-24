@@ -22,6 +22,7 @@ Le Gérant des lignes d'un trio devient « Prénom Clipping Créatrice ». Ses a
 sont rendues au stock (Gérant vidé). Une ligne « Metricool » n'entre jamais dans un trio et n'est jamais touchée.
 Le journal des places (process_store) reçoit l'historique des trios (reconcile) : trois places à vie par identité.
 """
+import asyncio
 import json
 import logging
 import os
@@ -33,6 +34,11 @@ import onboarding
 import parcours
 
 journal = logging.getLogger("bot.identites_clipping")
+
+
+class Passager(LookupError):
+    """24/10 : le classeur n'a pas répondu (quota Google au démarrage) : le dépôt n'est pas marqué fait, il repart au démarrage
+    suivant ; ce qui est déjà remis ne repart pas (« acces_remis » de la fiche)."""
 FICHIER = Path(__file__).parent / "identites_clipping.json"
 _deps: dict = {}
 
@@ -248,6 +254,11 @@ async def appliquer(entree: dict) -> list:
     return lignes
 
 
+ESSAIS_CLASSEUR = 3
+PAUSE_CLASSEUR_S = int(os.environ.get("IDENTITES_PAUSE_CLASSEUR_S", "30") or 30)
+DELAI_DEPOT_S = int(os.environ.get("IDENTITES_DELAI_DEPOT_S", "90") or 90)   # le démarrage lit beaucoup le classeur : on attend
+
+
 def _salon_de(uid: str, membre, creatrice: str, principale: str):
     """Le salon de CETTE identité : le salon principal pour la créatrice principale, son salon de clipping sinon."""
     registre = (_deps["lire_json"](_deps["FICHIER_EQUIPES"], {}).get(uid) or {}) if _deps.get("lire_json") else {}
@@ -285,14 +296,26 @@ async def _remettre_acces(uid: str, membre, prenom: str, creatrice: str, numeros
     gerant = f"{prenom} Clipping {creatrice}"
     admin_ids = parcours._deps.get("ADMIN_IDS") or set()
     est_staff = parcours._deps.get("est_staff") or (lambda m: False)
+    voulus = sorted({int(x) for x in numeros or [] if str(x).isdigit()})
+    deja = ((fiche.get("acces_remis") or {}).get(creatrice) or {}).get("numeros") or []
+    if voulus and set(voulus) <= {int(x) for x in deja}:
+        return f"= {creatrice} : accès des comptes {', '.join(map(str, voulus))} déjà remis"
     blocs, remis = [], []
-    for n in sorted({int(x) for x in numeros or [] if str(x).isdigit()}):
+    for n in voulus:
         if not 0 < n <= len(handles):
             return f"⚠️ {creatrice} : pas de compte {n} dans son trio, accès non remis"
         h = handles[n - 1]
-        acces = await remise_compte1.identifiants_compte(salon.guild, salon, uid, h, gerant, creatrice, admin_ids, est_staff)
+        acces = None
+        for essai in range(ESSAIS_CLASSEUR):
+            acces = await remise_compte1.identifiants_compte(salon.guild, salon, uid, h, gerant, creatrice, admin_ids, est_staff)
+            if acces or not str(remise_compte1.RAISONS.get(uid, "")).startswith("erreur technique"):
+                break
+            await asyncio.sleep(PAUSE_CLASSEUR_S * (essai + 1))         # quota Google : on laisse passer la minute
         if not acces:
-            return f"⚠️ {creatrice} : compte {n} `{h}` — {remise_compte1.RAISONS.get(uid, 'contrôle non passé')}, rien envoyé"
+            raison = remise_compte1.RAISONS.get(uid, "contrôle non passé")
+            if str(raison).startswith("erreur technique"):
+                raise Passager(f"{creatrice} : classeur indisponible ({raison})")
+            return f"⚠️ {creatrice} : compte {n} `{h}` — {raison}, rien envoyé"
         prive = n == len(handles) == 3
         bloc = (f"**Compte {n}{', le privé' if prive else ''} · @{h}**\n\nE-mail : `{acces[0]}`\n\nMot de passe : `{acces[1]}`")
         if prive and lien:
@@ -304,14 +327,16 @@ async def _remettre_acces(uid: str, membre, prenom: str, creatrice: str, numeros
     texte = (f"{membre.mention} 🔑 **Tes accès {creatrice}**\n\n" + "\n\n".join(blocs)
              + f"\n\nLes codes de connexion arrivent dans {parcours.mention_salon_codes()} : appuie sur « 📩 Mon code ».")
     await salon.send(texte[:1990])
+    etat = onboarding._lire_etat()
+    fiche_e = etat["clippers"].setdefault(uid, {})
+    fiche_e.setdefault("acces_remis", {})[creatrice] = {"numeros": sorted(set(remis) | {int(x) for x in deja}), "date": _maintenant()}
     if tel_cle is not None:
-        etat = onboarding._lire_etat()
-        t = ((etat["clippers"].get(uid) or {}).get("telephones") or {}).get(tel_cle)
+        t = (fiche_e.get("telephones") or {}).get(tel_cle)
         if isinstance(t, dict):
             t["donnes"] = max(int(t.get("donnes") or 0), max(remis))
             t["dernier"] = _maintenant()
             t.pop("remise_securisee", None)
-            onboarding._ecrire_etat(etat)
+    onboarding._ecrire_etat(etat)
     return f"🔑 {creatrice} : accès des comptes {', '.join(map(str, remis))} remis dans <#{salon.id}>"
 
 
@@ -330,6 +355,8 @@ async def demarrage(client) -> list:
     trace = _deps["DONNEES"] / "identites_clipping_faites.json"
     faits = _deps["lire_json"](trace, {})
     lignes = []
+    if any(str(e.get("id") or "") not in faits for e in entrees if isinstance(e, dict)) if isinstance(entrees, list) else False:
+        await asyncio.sleep(DELAI_DEPOT_S)                              # 24/10 : quota Google saturé à la minute du démarrage
     for e in entrees if isinstance(entrees, list) else []:
         ident = str(e.get("id") or "")
         if not ident or ident in faits:
