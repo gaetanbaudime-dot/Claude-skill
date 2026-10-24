@@ -56,14 +56,17 @@ export type Semaine = {
   parJour: boolean;               // la colonne jour par jour est publiée : le graphique peut s'afficher
 };
 
-/** Un compte dont le bot a vu au moins un Reel, ou dont « Reels 7 j » est relevé (0 compris). Sinon ses Reels sont inconnus :
- *  24/10 (après déploiement : 0 Reel affiché pour un clipper à 1 129 clics dont aucun compte n'était lu). */
-export const reelsMesures = (c: CompteActivite) => c.reels7 !== null || Object.keys(c.jours || {}).length > 0;
+/** Un compte dont les Reels sont connus sur la fenêtre qui commence `depuis` : « Reels 7 j » relevé (0 compris, le bot ne le
+ *  remplit que pour un compte relu dans les 36 h), ou au moins un Reel vu depuis `depuis`. Sinon ses Reels sont inconnus.
+ *  24/10 (après déploiement : 0 Reel affiché pour un clipper à 1 129 clics ; son seul compte « lu » avait des Reels du 12 et du
+ *  13/10, puis plus rien, et ses deux autres comptes ne sont pas lus du tout). */
+export const reelsMesures = (c: CompteActivite, depuis: string) =>
+  c.reels7 !== null || Object.keys(c.jours || {}).some((j) => j >= depuis);
 
 /** Les 7 derniers jours clos du clipper, sur tous les comptes qu'il gère (déjà triés par comptesAffiches). */
 export function semaine(comptes: CompteActivite[], aujourdhui: string, clicsParJour: Record<string, number> | null): Semaine {
   const jours = joursClos(aujourdhui, 7);
-  const lus = comptes.some(reelsMesures);
+  const lus = comptes.some((c) => reelsMesures(c, jours[0]));
   const parJour = lus && comptes.some((c) => c.jours !== undefined);
   const detail: JourActivite[] = jours.map((j) => ({
     jour: j,
@@ -103,7 +106,7 @@ export function reelsPrime(comptes: CompteActivite[], debut: string, fin: string
     debut, fin, joursEcoules: jours.length, reels,
     moyenne: jours.length ? Math.round((reels / jours.length / COMPTES_CROISSANCE) * 10) / 10 : null,
     comptes: croissance.length,
-    mesure: comptes.some((c) => c.jours !== undefined) && croissance.some(reelsMesures),
+    mesure: comptes.some((c) => c.jours !== undefined) && croissance.some((c) => reelsMesures(c, debut)),
   };
 }
 
