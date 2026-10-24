@@ -102,6 +102,16 @@ FUSEAU = "Europe/Paris"
 RELEVE_RECUL = int(os.environ.get("CLICS_RELEVE_RECUL", "15") or 15)     # jours relus en arrière pour un lien sans clipper
 RELEVE_ANCIENS_MAX = int(os.environ.get("CLICS_RELEVE_ANCIENS_MAX", "40") or 40)   # appels de rattrapage (jours anciens) par passage
 RELEVE_PAUSE = float(os.environ.get("CLICS_RELEVE_PAUSE", "2") or 2)      # secondes entre deux relevés (2 appels) : ≈ 45 appels/min
+# 24/10 (Gaëtan : « pourquoi le vertical s'arrête au 3 octobre ? Prends GAML et va chercher les six derniers mois ») : les pages des
+# créatrices n'étaient relues que sur RELEVE_RECUL jours, jamais avant CLICS_DEPUIS (le début de la paie au clic, 05/10), et les liens
+# des clippers sur 45 jours : le Cockpit ne pouvait pas comparer vertical et horizontal sur 30, 60 ou 90 jours. GAML garde tout
+# l'historique : chaque lien connu est maintenant relu jusqu'à HISTORIQUE_JOURS jours en arrière (jamais avant sa création, lue dans
+# son identifiant), du jour le plus récent au plus ancien, les pages des créatrices d'abord à date égale. Un seul appel par jour
+# (/analytics/countries : visites payables et hors robots ; le total robots compris n'est pas relu pour l'historique), au plus
+# HISTORIQUE_MAX appels par passage de 15 minutes, après le direct : la paie, la veille et le jour en cours passent toujours avant.
+# Ces jours anciens ne changent aucune paie (la paie au clic part du 05/10). CLICS_HISTORIQUE_JOURS=0 coupe.
+HISTORIQUE_JOURS = int(os.environ.get("CLICS_HISTORIQUE_JOURS", "183") or 0)
+HISTORIQUE_MAX = int(os.environ.get("CLICS_HISTORIQUE_MAX", "60") or 0)
 RELECTURE_HEURE = int(os.environ.get("CLICS_RELECTURE_HEURE", "6") or 6)  # J-1 lu avant cette heure (Paris) : relu après, puis figé
 DIRECT_MAX = int(os.environ.get("CLICS_DIRECT_MAX", "45") or 45)          # appels « aujourd'hui » au plus par passage de 15 min
 DIRECT_PAUSE = float(os.environ.get("CLICS_DIRECT_PAUSE", "4") or 4)      # secondes entre deux appels « aujourd'hui »
@@ -2373,6 +2383,97 @@ async def relever_jour(d: dict, lid: str, j: date, maintenant=None, visiteurs: d
     return "ok"
 
 
+def cree_le(lid: str):
+    """24/10 : la date (UTC) de création d'un lien GAML, lue dans son identifiant (UUID version 7 : les 48 premiers bits sont l'heure
+    de création en millisecondes) ; None pour un autre format. Avant cette date, le lien n'a aucune visite : rien à relire."""
+    h = str(lid or "").replace("-", "").lower()
+    if len(h) != 32 or h[12] != "7":
+        return None
+    try:
+        return datetime.fromtimestamp(int(h[:12], 16) / 1000, timezone.utc).date()
+    except (ValueError, OverflowError, OSError):
+        return None
+
+
+def _page_creatrice(info: dict) -> bool:
+    """24/10 : un lien sans détenteur, ni libéré ni Metricool : une page de créatrice (vertical), relue d'abord dans l'historique."""
+    return not str(info.get("uid") or "") and not info.get("libere") and not info.get("hors_clipping") and not info.get("suivi")
+
+
+def plan_historique(d: dict, maintenant, jours: int = None) -> list:
+    """24/10 : pur, testé. [(lien, jour)] des jours d'historique à relire, du plus récent au plus ancien, les pages des créatrices
+    d'abord à date égale : de l'avant-veille jusqu'à `jours` jours en arrière (HISTORIQUE_JOURS), jamais avant la création du lien,
+    seulement les jours absents (ou un vieux 0 d'erreur). La veille et le jour en cours restent à `rattraper` et au direct. Ni un lien
+    effacé de GAML, ni un lien introuvable aujourd'hui, ni un lien bloqué (4xx définitif), ni un jour en échec récent."""
+    jours = HISTORIQUE_JOURS if jours is None else jours
+    if not jours or jours <= 0:
+        return []
+    aujourdhui = maintenant.date()
+    jour_iso = aujourdhui.isoformat()
+    plancher = aujourdhui - timedelta(days=jours)
+    fin = aujourdhui - timedelta(days=2)
+    out = []
+    for lid, info in (d.get("liens") or {}).items():
+        if not isinstance(info, dict) or info.get("supprime_gaml") or str(info.get("introuvable") or "") == jour_iso:
+            continue
+        if _lien_bloque(info, maintenant):
+            continue
+        debut = max(plancher, cree_le(lid) or plancher)
+        js = (d.get("jours") or {}).get(lid) or {}
+        page = _page_creatrice(info)
+        j = fin
+        while j >= debut:
+            if _manque(js, j) and not _jour_en_echec(info, j.isoformat(), maintenant):
+                out.append((j, 0 if page else 1, lid))
+            j -= timedelta(days=1)
+    out.sort(key=lambda x: (-x[0].toordinal(), x[1], x[2]))
+    return [(lid, j) for j, _, lid in out]
+
+
+async def rattraper_historique(d: dict, maximum: int = None) -> int:
+    """24/10 : relit au plus `maximum` (HISTORIQUE_MAX) jours d'historique (plan_historique), un appel chacun (countries seul), avec la
+    pause des relevés. S'arrête sur une erreur globale (limite GAML, panne) ou sur des erreurs de suite (`_Suite`, comme rattraper).
+    Renvoie le nombre d'appels. Jamais d'exception."""
+    maximum = HISTORIQUE_MAX if maximum is None else maximum
+    if not maximum or maximum <= 0:
+        return 0
+    maintenant = _deps["heure_paris"]()
+    jour_iso = maintenant.date().isoformat()
+    appels, suite = 0, _Suite()
+    for lid, j in plan_historique(d, maintenant):
+        if appels >= maximum:
+            break
+        info = (d.get("liens") or {}).get(lid) or {}
+        if str(info.get("introuvable") or "") == jour_iso or _lien_bloque(info, maintenant) \
+                or not _manque((d.get("jours") or {}).get(lid, {}), j):
+            continue
+        if appels and RELEVE_PAUSE > 0:
+            await asyncio.sleep(RELEVE_PAUSE)
+        sain = _sain(d, lid, maintenant, "echec") and j.isoformat() not in (info.get("echecs_jours") or {})
+        try:
+            r = await relever_jour(d, lid, j, maintenant, {"ko": [], "coupe": True})   # countries seul : un appel
+        except Exception as erreur:                                     # noqa: BLE001 — jamais tuer la boucle
+            journal.warning("Historique GAML %s %s : %s", lid, j, erreur)
+            break
+        appels += 1
+        if r == "global":
+            break
+        if r == "erreur":
+            if suite.erreur(lid, (((d.get("liens") or {}).get(lid) or {}).get("echec") or {}).get("erreur"), sain):
+                break
+            continue
+        suite.succes()
+    return appels
+
+
+def historique_restant(d: dict, maintenant=None) -> int:
+    """24/10 : le nombre de jours d'historique encore à relire (journal du bot)."""
+    try:
+        return len(plan_historique(d, maintenant or _deps["heure_paris"]()))
+    except Exception:                                                   # noqa: BLE001
+        return -1
+
+
 async def rattraper(d: dict, limite_appels: int = 110) -> int:
     """Complète les jours manquants (depuis `depuis`, jusqu'à hier) de chaque lien relevé (`a_relever`). Borné par appel pour
     respecter la limite GAML ; la boucle repasse un quart d'heure plus tard.
@@ -3217,6 +3318,15 @@ async def boucle(client, deps: dict):
                         journal.info("Clics du jour : %s lien(s) relu(s)", n_direct)
                 except Exception as erreur:                         # noqa: BLE001
                     journal.warning("Clics du jour : %s", erreur)
+            # 24/10 : l'historique (jusqu'à HISTORIQUE_JOURS jours), en tout dernier : seulement quand le passage n'a pas déjà pris la
+            # minute GAML (rattrapage chargé de minuit ou de 6 h)
+            if appels < DIRECT_SI_RATTRAPAGE and HISTORIQUE_MAX > 0:
+                try:
+                    n_hist = await rattraper_historique(d)
+                    if n_hist:
+                        journal.info("Historique GAML : %s jour(s) relu(s), %s encore à relire", n_hist, historique_restant(d))
+                except Exception as erreur:                         # noqa: BLE001
+                    journal.warning("Historique GAML : %s", erreur)
         except Exception as erreur:                                  # la boucle ne meurt jamais
             journal.warning("Boucle clics : %s", erreur)
         await asyncio.sleep(900)

@@ -1296,10 +1296,12 @@ def _entete(ctx: _Ctx) -> list:
 # Gaëtan (12/10) : « une app Vercel pour tracker au quotidien les clics de toute la team : un onglet vertical, un horizontal, un
 # subs ; vertical avec les stats des créatrices et de leurs gros comptes ». Les mêmes chiffres que le Dashboard, rangés en tables
 # (pilotage.py les publie dans le tableur « App clippers · usage », l'app les lit) : aucun appel Apify, GAML ni Metricool de plus.
+# 24/10 (Gaëtan : « les six derniers mois ») : 183 jours publiés (avant : 62) — le Cockpit montre 90 et 180 jours, et l'historique GAML
+# (paie_clics.HISTORIQUE_JOURS) remonte autant
 try:
-    PILOTAGE_JOURS = max(2, int(os.environ.get("PILOTAGE_JOURS", "62") or 62))   # 2 × 30 j + aujourd'hui : « 30 j contre les 30 d'avant »
+    PILOTAGE_JOURS = max(2, int(os.environ.get("PILOTAGE_JOURS", "183") or 183))
 except ValueError:
-    PILOTAGE_JOURS = 62
+    PILOTAGE_JOURS = 183
 AXE_TYPE = {"creatrice": "Vertical", "clipper": "Horizontal", "metricool": "Horizontal"}
 LIBELLE_TYPE = {"creatrice": "Compte de la créatrice", "clipper": "Clipper", "metricool": "Metricool"}
 
@@ -1308,7 +1310,8 @@ def _texte(v) -> str:
     return "" if v is None or isinstance(v, bool) else str(v)
 
 
-_RE_COMPTE_CREATRICE = re.compile(r"compte\s+(?:de\s+la\s+)?cr[ée]atrice", re.I)
+# 24/10 : « Compte de Créatrice » (note du lien /3 de Sophie depuis le 16/10) n'était pas reconnu : sa bio partait en horizontal
+_RE_COMPTE_CREATRICE = re.compile(r"compte\s+(?:de\s+(?:la\s+)?)?cr[ée]atrice", re.I)
 # 13/10 (Gaëtan : « Maddie avec un Y, avec un I, c'est exactement la même chose ») : une créatrice, un nom dans le pilotage
 ALIAS_CREATRICES = {"maddy": "maddie"}
 
