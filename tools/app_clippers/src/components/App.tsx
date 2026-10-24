@@ -5,13 +5,13 @@ import DriveTab from "./DriveTab";
 import ReelsTab from "./ReelsTab";
 import VersementsTab from "./VersementsTab";
 import ComptesTab from "./ComptesTab";
-import EquipeTab from "./EquipeTab";
 import Installer from "./Installer";
 import { modeApp, signaler } from "@/lib/signal";
 
-type Onglet = "drive" | "reels" | "comptes" | "equipe" | "versements";
+type Onglet = "drive" | "reels" | "comptes" | "versements";
 
-/** Les trois onglets, dans l'ordre du dessin de Gaëtan : nuage (Drive), flèche (Reels), dollar (Versements). */
+/** Les onglets, dans l'ordre du dessin de Gaëtan : nuage (Drive), flèche (Reels), comptes, dollar (Versements). 24/10 : l'ancien
+ *  onglet Équipe des TL est rangé dans Comptes (« Mes comptes » / « Mon équipe »), tout le monde a les quatre mêmes onglets. */
 const ONGLETS: { cle: Onglet; libelle: string; icone: (actif: boolean) => JSX.Element }[] = [
   { cle: "drive", libelle: "Drive", icone: (a) => (
     <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={a ? 2.2 : 1.8} strokeLinecap="round" strokeLinejoin="round">
@@ -28,11 +28,6 @@ const ONGLETS: { cle: Onglet; libelle: string; icone: (actif: boolean) => JSX.El
       <rect x="3.5" y="3.5" width="17" height="17" rx="5" fill={a ? "currentColor" : "none"} fillOpacity={a ? 0.18 : 0} />
       <circle cx="12" cy="12" r="3.8" /><circle cx="17" cy="7" r="0.9" fill="currentColor" />
     </svg>) },
-  { cle: "equipe", libelle: "Équipe", icone: (a) => (
-    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={a ? 2.2 : 1.8} strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="7.5" r="3" fill={a ? "currentColor" : "none"} fillOpacity={a ? 0.18 : 0} /><circle cx="5.5" cy="10" r="2.2" /><circle cx="18.5" cy="10" r="2.2" />
-      <path d="M6.5 20a5.5 5.5 0 0 1 11 0M1.8 18.5a3.8 3.8 0 0 1 4-3.3M22.2 18.5a3.8 3.8 0 0 0-4-3.3" />
-    </svg>) },
   { cle: "versements", libelle: "Versements", icone: (a) => (
     <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={a ? 2.2 : 1.8} strokeLinecap="round" strokeLinejoin="round">
       <circle cx="12" cy="12" r="9.5" fill={a ? "currentColor" : "none"} fillOpacity={a ? 0.18 : 0} />
@@ -41,10 +36,14 @@ const ONGLETS: { cle: Onglet; libelle: string; icone: (actif: boolean) => JSX.El
 ];
 
 export default function App({ prenom, creatrice, jeton, tl = false }: { prenom: string; creatrice: string; jeton: string; tl?: boolean }) {
-  const [onglet, setOnglet] = useState<Onglet>(tl ? "equipe" : "drive");
-  const onglets = ONGLETS.filter((o) => o.cle !== "equipe" || tl);         // 12/10 : l'onglet Équipe, pour un Team Leader seulement
+  const [onglet, setOnglet] = useState<Onglet>(tl ? "comptes" : "drive");   // un TL arrive sur Comptes, où est son équipe
+  const onglets = ONGLETS;
   useEffect(() => {
-    try { const m = localStorage.getItem("gm-clipper-onglet") as Onglet | null; if (m && ONGLETS.some((o) => o.cle === m) && (m !== "equipe" || tl)) setOnglet(m); } catch { /* privé */ }
+    try {
+      const brut = localStorage.getItem("gm-clipper-onglet");
+      const m = (brut === "equipe" ? "comptes" : brut) as Onglet | null;       // 24/10 : l'ancien onglet Équipe vit dans Comptes
+      if (m && ONGLETS.some((o) => o.cle === m)) setOnglet(m);
+    } catch { /* privé */ }
     signaler(jeton, "ouverture", modeApp());
     // Le service worker rend l'app installable d'un geste sur Android (Chrome, Samsung Internet) et donne une page hors ligne.
     try { if ("serviceWorker" in navigator && location.protocol === "https:") navigator.serviceWorker.register("/sw.js").catch(() => undefined); } catch { /* rien */ }
@@ -65,8 +64,7 @@ export default function App({ prenom, creatrice, jeton, tl = false }: { prenom: 
         <Installer jeton={jeton} />
         {onglet === "drive" && <DriveTab jeton={jeton} creatrice={creatrice} />}
         <ReelsTab actif={onglet === "reels"} jeton={jeton} />
-        {onglet === "comptes" && <ComptesTab jeton={jeton} />}
-        {onglet === "equipe" && tl && <EquipeTab key={jeton} jeton={jeton} />}
+        {onglet === "comptes" && <ComptesTab jeton={jeton} tl={tl} />}
         {onglet === "versements" && <VersementsTab jeton={jeton} />}
       </main>
       <nav className={`barre fixed bottom-0 inset-x-0 ${onglets.length > 4 ? "px-1" : "px-4"} pt-2`} style={{ paddingBottom: "calc(var(--safe-bas) + 10px)" }} aria-label="Onglets">
