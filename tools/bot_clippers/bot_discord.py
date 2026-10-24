@@ -480,8 +480,9 @@ que tu ne l'as PAS vue (01/10, Gaëtan, après Daniella : « c'est bon » sur un
 d'une vidéo, c'est le bot qui la fait tout seul, à part, quand un clipper déjà dans son parcours l'envoie dans son salon \
 (01/10) : s'il demande s'il peut montrer son Reel avant de le publier, tu dis « Oui : envoie la vidéo ici, je te réponds en 1 minute. »
 32. Règle des comptes (23/10, Gaëtan : « on donne le premier compte, on attend 48 heures, on donne le deuxième, on attend 48 heures, \
-on donne le troisième ») : « {TEXTE_COMPTES} » Un clipper arrivé AVANT le 23/10/2026 garde sa règle d'avant, « 4 Reels publiés sur \
-son dernier compte de croissance » : la règle de CE clipper est dans sa mémoire, tu la recopies mot pour mot. Jamais « un compte \
+on donne le troisième » ; 24/10 : « dans tous les cas… on arrête ce truc de quatre posts ») : « {TEXTE_COMPTES} » C'est la règle de \
+TOUS les clippers, arrivés avant le 23/10/2026 compris : jamais « 4 Reels pour avoir le compte suivant ». 4 Reels par compte restent \
+l'objectif, jamais une condition. La règle de CE clipper est dans sa mémoire, tu la recopies mot pour mot. Jamais « un compte \
 par jour », jamais « 5 Reels en 72 h », jamais de « période d'essai ». Tu ne donnes jamais de date ni d'heure pour le compte \
 suivant de ta tête ; les dates et les heures de la mémoire (fin du warm-up, ouverture du compte), tu les recopies telles quelles. \
 Tu ne pousses jamais le clipper à créer un compte que le bot n'a pas encore ouvert.
@@ -490,7 +491,7 @@ et tu ne réponds pas à sa place.
 34. Le parcours (09/10, Gaëtan : « on va ouvrir les vannes ») : formulaire du site → vidéo de formation → quizz (8/10) → \
 Discord → un seul message de bienvenue : sa créatrice, le salon ℹ️ avec ses vidéos et son Drive, et le compte 1 → 48 h → compte 2 → \
 48 h → compte 3, le privé, avec son lien → la story à la une et son app de clippeur, ensemble, au « ✅ Profil fait » du privé (23/10 ; \
-avant le 23/10, 4 Reels publiés ouvraient le compte suivant). Le TL crée le groupe WhatsApp, avec le numéro du clipper. Le compte 1 \
+depuis le 24/10, plus aucun Reel à compter pour personne). Le TL crée le groupe WhatsApp, avec le numéro du clipper. Le compte 1 \
 arrive juste sous la bienvenue, sans attendre ; plus aucun message à J+7 : 2 Reels par jour, toujours. Il n'y a PLUS \
 de test vidéo à rendre ni de note de montage pour entrer : tu n'en parles jamais, même à un ancien candidat. Quizz réussi = sa \
 créatrice et son compte 1 arrivent dans son salon perso. Une étape à la fois : tu ne parles que de l'étape où il est.
@@ -9777,7 +9778,7 @@ async def on_ready():
                                   "clics_7j": _clics_7j,                                           # 26/09 : tableau de bord
                                   "reconcilier": lambda e, p=None, r=None, h=None: parcours.reconcilier(client, e, p, r, h),
                                   "controler_bios": lambda b: parcours.controler_liens_bio(client, b),   # 08/10 : lien du privé
-                                  "compte_retrouve": lambda a, n: parcours.compte_retrouve(client, a, n),   # 09/10 : @ changés
+                                  "compte_retrouve": lambda a, n, **kw: parcours.compte_retrouve(client, a, n, **kw),   # 09/10 : @ changés
                                   "compte_introuvable": lambda h: parcours.compte_introuvable(client, h),
                                   "reservations_expirees": expirer_reservations,               # 28/09 : réservation qui expire
                                   "premier_reel": premier_reel_dopamine if DOPAMINE_PREMIER_REEL else None})   # 30/09 : premier Reel fêté · 03/10 (Gaëtan : « désactive ») : éteint, DOPAMINE_PREMIER_REEL=1 pour rallumer

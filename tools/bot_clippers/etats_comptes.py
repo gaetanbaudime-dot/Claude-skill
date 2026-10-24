@@ -389,6 +389,19 @@ async def _scanner_sans_cache(handles: list, priorite: str = "releve") -> dict:
     return out
 
 
+async def _variantes_rapidapi(variantes_: list):
+    """24/10 : les @ proches cherchés par le suivi RapidAPI (« IG · Variantes ») au format du scan ; None si les onglets sont
+    illisibles. Une variante pas encore cherchée est non lue : la ligne n'est ni renommée ni déclarée introuvable."""
+    import source_rapidapi
+    onglets = await source_rapidapi.lire_onglets()
+    if onglets is None:
+        return None
+    out = source_rapidapi.variantes(onglets[2] if len(onglets) > 2 else [], variantes_)
+    journal.info("Suivi RapidAPI (variantes) : %d demandées, %d cherchées, %d existantes", len(out),
+                 sum(1 for m in out.values() if m.get("lu")), sum(1 for m in out.values() if m.get("lu") and m.get("existe")))
+    return out
+
+
 async def _scanner_rapidapi(cles: list) -> dict:
     """24/10 : les fiches du suivi RapidAPI (source_rapidapi), au format de _scanner_sans_cache ; None si les onglets sont
     illisibles (on ne conclut rien). Un @ que le suivi ne relit pas est `hors_suivi` (non lu, jamais compté comme un passage
@@ -736,7 +749,7 @@ async def chercher_variantes(lignes: list, exclus=()) -> tuple:
     tous = sorted({v for vs in cands.values() for v in vs})
     if not tous:
         return [], list(lignes)
-    mesures = await scanner(tous)
+    mesures = await (_variantes_rapidapi(tous) if _rapidapi() else scanner(tous))   # 24/10 : les variantes cherchées par RapidAPI
     if mesures is None:
         return [], []                                                   # Apify en panne : on ne conclut rien
     trouves, perdus = [], []
@@ -1660,9 +1673,9 @@ async def _executer(ecrire: bool = True, priorite: str = "matin") -> dict:
     limite_vu = (date.fromisoformat(jour) - timedelta(days=JOURS_HISTORIQUE)).isoformat()
     for k in [k for k, v in vu_sous.items() if not isinstance(v, str) or v < limite_vu]:
         vu_sous.pop(k, None)
-    # 24/10 : avec le suivi RapidAPI, un compte est relu par son ID (un @ changé reste suivi, « Renommé en ») et les variantes d'un
-    # @ ne sont pas dans les onglets : pas de recherche
-    if ecrire and a_chercher and not _rapidapi():                       # 09/10 : les @ légèrement changés
+    # 24/10 : avec le suivi RapidAPI, les @ proches sont cherchés par le workflow « Suivi Instagram » (« IG · Variantes ») et lus
+    # ici par chercher_variantes ; un compte renommé sur Instagram (même ID sous un autre @) est renommé plus bas
+    if ecrire and a_chercher:                                           # 09/10 : les @ légèrement changés
         # 09/10 (revue) : les comptes créés d'abord (WARMUP, PRIVE), les BAN récents ensuite ; une fois par jour et par compte
         # (`!dashboard` relance le scan), noté seulement pour ceux vraiment cherchés ; le reste attend le passage suivant.
         # 10/10 (passe 3) : parmi les comptes créés, ceux dont le BAN attend cette recherche passent en premier — après les autres,
@@ -1735,6 +1748,26 @@ async def _executer(ecrire: bool = True, priorite: str = "matin") -> dict:
                     await _deps["compte_introuvable"](c["handle"])
                 except Exception as erreur:                             # noqa: BLE001
                     journal.warning("Compte introuvable %s : %s", c["handle"], erreur)
+    if ecrire and _rapidapi() and _deps.get("compte_retrouve"):
+        # 24/10 : le suivi RapidAPI relit chaque compte par son ID Instagram ; un compte suivi sous un autre @ (« Renommé en ») a été
+        # renommé sur Instagram par son clipper : la ligne, la fiche et la série passent au nouvel @ (parcours.compte_retrouve),
+        # jamais vers un @ qui est déjà une autre ligne ou le compte d'une autre fiche
+        pris_ailleurs = {_cle(x.get("handle")) for x in comptes if x.get("handle")} | _comptes_onboarding()
+        for c in lignes:
+            h_c = _cle(c["handle"])
+            nouveau = _cle((mesures.get(h_c) or {}).get("renomme_en") or "")
+            if not nouveau or nouveau == h_c or nouveau in pris_ailleurs or h_c in renommes_passe or id(c) in ids_non_lus \
+                    or not (c.get("gerant") and _en_gestion(c)):
+                continue
+            try:
+                rep_r = await _deps["compte_retrouve"](c["handle"], nouveau, renomme=True)
+            except Exception as erreur:                                 # noqa: BLE001
+                journal.warning("Compte renommé %s → %s : %s", c["handle"], nouveau, erreur)
+                rep_r = None
+            if rep_r:
+                renommes_passe[h_c] = nouveau
+                pris_ailleurs.add(nouveau)
+                changements.append((c["handle"], c["gerant"], c["etat"], f"renommé sur Instagram en {nouveau}", c["ligne"]))
     for c, apres in list(differes.values()):                            # 09/10 (revue) : pas retrouvé → le BAN différé est écrit
         h_d = _cle(c["handle"])
         if ecrire and (d.get("cherches") or {}).get(h_d) != jour:

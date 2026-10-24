@@ -60,11 +60,37 @@ WARMUP_H = int(os.environ.get("PARCOURS_WARMUP_H", "24") or 24)
 # route gardent « 4 Reels » : la règle ne change pas sous leurs pieds, et leurs comptes en attente ne partent pas tous au déploiement.
 ARRIVEE_SIMPLE_DEPUIS = os.environ.get("ARRIVEE_SIMPLE_DEPUIS", "2026-10-23T11:00:00+00:00")
 ATTENTE_SIMPLE_H = int(os.environ.get("PARCOURS_ATTENTE_SIMPLE_H", "48") or 48)
+# 24/10 (Gaëtan : « dans tous les cas, on leur donne un compte Instagram toutes les 48 heures, on arrête ce truc de quatre posts…
+# comme ça on est sûr que le clipper ait vraiment tous ses comptes ») : la règle du 23/10 vaut pour TOUS les parcours, ceux d'avant
+# compris. Leur compte suivant, programmé sans délai quand les 4 Reels le retenaient, part 48 h après la création du compte d'avant
+# (quand_etape). Les 4 Reels restent l'objectif dit au clipper à l'ouverture du compte suivant (ligne_publication), jamais une
+# condition. PARCOURS_SIMPLE_TOUS=0 remet la règle du 23/10 (seulement les fiches marquées « simple »).
+SIMPLE_POUR_TOUS = os.environ.get("PARCOURS_SIMPLE_TOUS", "1").strip() != "0"
 
 
 def simple(fiche_p) -> bool:
-    """Parcours des arrivées du 23/10 : 48 h entre les comptes, aucune condition de Reels."""
+    """48 h entre les comptes, aucune condition de Reels : les arrivées du 23/10, et depuis le 24/10 tout parcours."""
+    if SIMPLE_POUR_TOUS and isinstance(fiche_p, dict):
+        return True
     return bool((fiche_p or {}).get("simple"))
+
+
+def quand_etape(fiche_p: dict, item: dict):
+    """L'heure (UTC) où un élément du programme est dû ; None si illisible. 24/10 : le compte 2 ou 3 d'un parcours simple jamais
+    avant ATTENTE_SIMPLE_H h après la création du compte d'avant — une fiche d'avant le 24/10 l'avait programmé sans délai (les
+    4 Reels le retenaient). Un compte retenu faute de ligne (« ligne ») garde son heure de nouvel essai."""
+    try:
+        q = datetime.fromisoformat(str(item.get("quand")))
+        q = q if q.tzinfo else q.replace(tzinfo=timezone.utc)
+    except (TypeError, ValueError):
+        q = None
+    n = int(item.get("n") or 0) if str(item.get("n") or "").isdigit() else 0
+    if item.get("type") == "etape" and n in (2, 3) and not item.get("ligne") and simple(fiche_p):
+        base = _date_creation(fiche_p or {}, n - 1)
+        if base is not None:
+            mini = base + timedelta(hours=ATTENTE_SIMPLE_H)
+            q = mini if q is None or q < mini else q
+    return q
 
 
 def _marque_simple() -> dict:
@@ -513,6 +539,31 @@ def reels_vus(uid, fiche_p: dict, n: int) -> int:
         return int((suivis.get(h.lower()) or {}).get("vus", 0) or 0) + _reels_soir(fiche_p, h)
     return sum(int((suivis.get(x.lower()) or {}).get("vus", 0) or 0) for i, x in enumerate(comptes[:3], start=1)
                if _cree(fiche_p, i) and i != n_prive(fiche_p) and not _est_ban(x, fiche_p))   # 08/10 : jamais le privé
+
+
+def reels_verifies(uid, fiche_p: dict, src: int) -> int:
+    """24/10 : les Reels vérifiés (publiés après sa création) du compte `src` ; 0 sans compte ni preuve."""
+    comptes = _comptes_ordonnes(uid, fiche_p=fiche_p)
+    if not 0 < src <= len(comptes) or not comptes[src - 1]:
+        return 0
+    suivi = (fiche_p.get("reels") or {}).get(comptes[src - 1].lower()) or {}
+    return len(process_clippeur.cumuler_reels_verifies(suivi, [], _date_creation(fiche_p, src), datetime.now(timezone.utc)))
+
+
+def ligne_publication(uid, fiche_p: dict, n: int) -> str:
+    """24/10 (Gaëtan : « c'est quand même cool de s'assurer aussi que le clipper poste bien sur les comptes ») : à l'ouverture du
+    compte n (2 ou 3), ce que le compte de croissance d'avant a publié, quand il n'a pas encore ses REELS_OUVERTURE Reels. Le
+    compte suivant part quand même : l'objectif est dit, il ne retient rien. '' sinon (compte d'avant privé, objectif tenu)."""
+    src = n - 1
+    if n not in (2, 3) or src == n_prive(fiche_p):
+        return ""
+    k = reels_verifies(uid, fiche_p, src)
+    if k >= REELS_OUVERTURE:
+        return ""
+    vus = "aucun Reel vu" if k == 0 else f"{k} Reel{'s' if k > 1 else ''} vu{'s' if k > 1 else ''}"
+    return (f"\n\n📌 Compte {src} : {vus} pour l'instant.\n"
+            f"L'objectif reste {REELS_OUVERTURE} Reels par compte.\n"
+            "Continue de publier sur chaque compte.")
 
 
 def _de_plus(fiche_p: dict, n: int, src: int = 1) -> str:
@@ -1100,11 +1151,12 @@ async def _dire_au_clipper(client, uid: str, texte: str) -> bool:
 RAISONS_PASSAGERES = ("le classeur est indisponible", "le classeur ne répond pas", "je ne trouve pas ce compte dans le classeur")
 
 
-async def compte_retrouve(client, ancien: str, nouveau: str):
+async def compte_retrouve(client, ancien: str, nouveau: str, renomme: bool = False):
     """09/10 : le scan a retrouvé le compte sous un @ proche (nom et bio du bot) → renommé partout, le clipper est prévenu.
     10/10 (dashboard, lot SCAN passe 3, M1 : un refus définitif était retenté à chaque passage, Apify payé à chaque fois, la ligne
     jamais BAN) : True si renommé ; False si refusé pour de bon (compte hors fiche, @ d'un autre compte, @ refusé) ; None si le
-    classeur n'a pas répondu (RAISONS_PASSAGERES : à retenter au passage suivant). None et False restent faux pour un `bool()`."""
+    classeur n'a pas répondu (RAISONS_PASSAGERES : à retenter au passage suivant). None et False restent faux pour un `bool()`.
+    24/10 : `renomme` = le suivi RapidAPI a vu le même compte (même ID Instagram) sous ce nouvel @ : le clipper l'a renommé."""
     uid, n = proprietaire(ancien)
     if not uid:
         return False
@@ -1118,6 +1170,11 @@ async def compte_retrouve(client, ancien: str, nouveau: str):
     if raison:
         journal.warning("Compte retrouvé %s → %s pour %s non renommé : %s", ancien, nouveau, uid, raison)
         return None if any(str(raison).startswith(r) for r in RAISONS_PASSAGERES) else False
+    if renomme:
+        await _dire_au_clipper(client, uid, f"🔎 Ton compte {n} s'appelle maintenant `{nouveau}` sur Instagram.\n\n"
+                                            "Je l'ai mis à jour partout.\n\n"
+                                            f"Ce n'est pas le tien ? Tape `!pseudo {n}` puis ton vrai @.")
+        return True
     await _dire_au_clipper(client, uid, f"🔎 J'ai trouvé ton compte {n} sous `{nouveau}`. Le @ prévu, `{ancien}`, était pris.\n\n"
                                         f"Ce n'est pas le tien ? Tape `!pseudo {n}` puis ton vrai @.")
     return True
@@ -1441,7 +1498,10 @@ async def envoyer_etape(salon, membre, n: int, pointer: bool = True) -> bool:
     if n in (2, 3):
         # 09/10 : « 🎯 4 Reels vus sur ton compte 1. Voici ton compte 2. » — seulement quand ce sont bien les Reels qui l'ouvrent
         try:
-            if reels_pour(uid, fiche_p, n) >= REELS_OUVERTURE:
+            if simple(fiche_p):                                         # 24/10 : le bravo quand l'objectif est tenu, jamais une condition
+                if n - 1 != n_prive(fiche_p) and reels_verifies(uid, fiche_p, n - 1) >= REELS_OUVERTURE:
+                    ctx["palier"] = f"{REELS_OUVERTURE} Reels vus sur ton compte {n - 1}. "
+            elif reels_pour(uid, fiche_p, n) >= REELS_OUVERTURE:
                 ctx["palier"] = f"{REELS_OUVERTURE} Reels vus" + (" sur ton compte 1" if n == 2 else "") + ". "
         except Exception as erreur:                                     # noqa: BLE001 — le titre sans le palier
             journal.info("Palier du compte %s de %s : %s", n, uid, erreur)
@@ -1461,6 +1521,14 @@ async def envoyer_etape(salon, membre, n: int, pointer: bool = True) -> bool:
         texte = f"{membre.mention} " + _rendre(gabarit, ctx) + "\n\n" + texte.removeprefix(membre.mention).lstrip()
     if n == 5:                                                          # 01/10 : il publie sur ses comptes, la relecture est proposée
         texte += _ligne_review(uid)
+    if n in (2, 3) and simple(fiche_p):                                 # 24/10 : les 4 Reels, un objectif dit, jamais une condition
+        try:
+            ligne_p = ligne_publication(uid, fiche_p, n)
+            if ligne_p:
+                texte += ligne_p
+                journal.info("Compte %s ouvert pour %s : compte %s sous les %s Reels (objectif rappelé)", n, uid, n - 1, REELS_OUVERTURE)
+        except Exception as erreur:                                     # noqa: BLE001 — le compte part quand même
+            journal.info("Publication du compte %s de %s : %s", n - 1, uid, type(erreur).__name__)
     try:
         vue = _vue(getattr(salon, "guild", None), uid, n, ctx, fiche_p)
         if n == 1 and not (fiche_avant.get("messages") or {}).get("1"):
@@ -3020,8 +3088,11 @@ def _a_traiter(fiche_p: dict, item: dict, maintenant) -> bool:
     """10/10 : l'élément du programme est à traiter maintenant. Échu (_echu), ou :
     - « routine2 » : plus programmée depuis le 11/10 ; reste retirée sans message sur les fiches d'avant le déploiement ;
     - le compte 1 : jamais plus de BIENVENUE_H h après la bienvenue (celles d'avant le 10/10 l'avaient programmé à 3 h)."""
-    if item.get("type") == "etape" and int(item.get("n") or 0) in (2, 3) and not item.get("ligne") and not simple(fiche_p):
-        return True  # 15/10 : les anciens délais ne retardent plus les paliers. 23/10 : sauf le parcours simple, qui attend ses 48 h.
+    if item.get("type") == "etape" and int(item.get("n") or 0) in (2, 3) and not item.get("ligne"):
+        if not simple(fiche_p):
+            return True  # 15/10 : les anciens délais ne retardent plus les paliers. 23/10 : sauf le parcours simple, qui attend ses 48 h.
+        q = quand_etape(fiche_p, item)                                  # 24/10 : 48 h après la création du compte d'avant
+        return q is None or q <= maintenant
     if item.get("type") == "routine2":
         return True
     # 11/10 (revue du lot W) : un compte 1 retenu faute de ligne (« ligne ») suit son heure de nouvel essai, pas la bienvenue
@@ -3041,10 +3112,8 @@ def attente(fiche_p: dict):
     for item in fiche_p.get("programme") or []:
         if item.get("type") == "etape" and int(item.get("n") or 0) in (2, 3) and int(fiche_p.get("etape", 0)) == int(item.get("n") or 0) \
                 and not (fiche_p.get("dates") or {}).get(str(item.get("n"))):
-            try:
-                return int(item["n"]), datetime.fromisoformat(str(item["quand"]))
-            except (KeyError, ValueError):
-                return None
+            q = quand_etape(fiche_p, item)                              # 24/10 : jamais avant ses 48 h
+            return (int(item["n"]), q) if q is not None else None
     return None
 
 

@@ -36,7 +36,8 @@ class PreuvesReelsTests(unittest.TestCase):
         proofs={str(i):'2026-10-15T10:00:00Z' for i in range(4)}
         fiche={'ordre':'prive3','profils':{'1':CREATION.isoformat(),'2':CREATION.isoformat()},
                'reels':{'a':{'reels_verifies_v2':proofs},'b':{'reels_verifies_v2':dict(list(proofs.items())[:3])}}}
-        with patch.object(p,'_comptes_ordonnes',return_value=['a','b','c']):
+        # 24/10 : les paliers ne comptent plus que sous PARCOURS_SIMPLE_TOUS=0 (l'ancienne règle, gardée derrière l'interrupteur)
+        with patch.object(p,'_comptes_ordonnes',return_value=['a','b','c']), patch.object(p,'SIMPLE_POUR_TOUS',False):
             self.assertEqual(4,p.reels_pour('42',fiche,2));self.assertEqual(3,p.reels_pour('42',fiche,3))
             fiche['reels']['a']={};fiche['reels']['b']['reels_verifies_v2']=proofs
             self.assertEqual(4,p.reels_pour('42',fiche,3))
