@@ -176,6 +176,13 @@ def lire_profil(corps) -> dict:
             "prive": chercher(base, ["is_private"])}
 
 
+def nom_propre(nom) -> str:
+    """24/10 (premier passage) : FlashAPI masque parfois le nom du profil (« Access delayed. Only the owner of the page can access
+    this information ») : ce texte n'est pas un nom, il est vidé."""
+    t = str(nom or "").strip()
+    return "" if any(m in t.lower() for m in ("access delayed", "only the owner of the page")) else t[:120]
+
+
 def lire_bio(corps) -> dict:
     """24/10 : réponse de /ig/info/ (objet `user`) → {lu, nom, bio, liens}. `lu` faux si la réponse ne porte ni bio ni lien (champ
     absent : rien n'est conclu) ; une bio vide relue est "" (vraiment vide)."""
@@ -187,7 +194,7 @@ def lire_bio(corps) -> dict:
     for l in liens:
         if isinstance(l, str) and l.strip() and l.strip() not in vus:
             vus.append(l.strip())
-    return {"lu": lu, "nom": str(u.get("full_name") or "")[:120], "bio": str(u.get("biography") or "")[:BIO_MAX], "liens": vus[:5]}
+    return {"lu": lu, "nom": nom_propre(u.get("full_name")), "bio": str(u.get("biography") or "")[:BIO_MAX], "liens": vus[:5]}
 
 
 def suspect(suivi: list, followers) -> bool:
@@ -369,7 +376,7 @@ def lignes_comptes(suivis: list, store: dict, maintenant: datetime) -> list:
                     *[(str(f[f"vues{j}"]) if lu_reels else "") for j in (7, 15, 30, 60)],
                     f["dernier"], e.get("profil_le") or "", e.get("reels_le") or "", e.get("renomme_en") or "",
                     # 24/10 : vide tant que la bio n'a pas été relue ; « aucun » = bio relue, sans lien
-                    e.get("nom") or "", e.get("bio") or "", (" ".join(e.get("liens") or []) or "aucun") if e.get("bio_le") else ""])
+                    nom_propre(e.get("nom")), e.get("bio") or "", (" ".join(e.get("liens") or []) or "aucun") if e.get("bio_le") else ""])
     return out
 
 
