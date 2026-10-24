@@ -1,9 +1,12 @@
 /** 12/10 : les comptes Instagram du clipper (onglet « Comptes app » publié par le bot) et ses demandes de changement de @.
  *  GET : { comptes, demandes, tl } ; POST { n, handle } : ajoute la demande à « Pseudos app », le bot l'applique sous 15 minutes
- *  avec la règle de `!pseudo`. 5 demandes par minute et par clipper au plus. */
+ *  avec la règle de `!pseudo`. 5 demandes par minute et par clipper au plus.
+ *  24/10 : `comptes` = tous les comptes qu'il gère (comptesAffiches : n° 4+ compris, sans BAN ni ancien @) ; le pilotage
+ *  personnel garde sa règle des n° 1 à 3. Un @ se corrige sur n'importe lequel de ses comptes, le bot vérifie qu'il est à lui. */
 import { NextRequest, NextResponse } from "next/server";
 import { clipperParJeton } from "@/lib/clippers";
 import { demanderPseudo, mesComptes, mesDemandes, nettoyerHandle } from "@/lib/comptesApp";
+import { comptesAffiches } from "@/lib/comptesVisibles";
 import { pilotage } from "@/lib/pilotage";
 import { pilotageEquipe } from "@/lib/classement";
 
@@ -16,9 +19,9 @@ export async function GET(_req: Request, { params }: { params: { token: string }
   if (!c) return NextResponse.json({ erreur: "lien invalide" }, { status: 404 });
   try {
     const [m, demandes, stats] = await Promise.all([mesComptes(c.cle), mesDemandes(c.cle), pilotage().catch(() => null)]);
-    const comptes = m.comptes.filter(x => x.n >= 1 && x.n <= 3);
-    const personnel = stats ? pilotageEquipe(stats, [{ prenom: c.prenom, creatrice: c.creatrice, comptes }]) : null;
-    return NextResponse.json({ comptes, tl: m.tl, demandes, pilotage: personnel }, { headers: ENTETES });
+    const parcours = m.comptes.filter(x => x.n >= 1 && x.n <= 3);
+    const personnel = stats ? pilotageEquipe(stats, [{ prenom: c.prenom, creatrice: c.creatrice, comptes: parcours }]) : null;
+    return NextResponse.json({ comptes: comptesAffiches(m.comptes), tl: m.tl, demandes, pilotage: personnel }, { headers: ENTETES });
   } catch (e) {
     return NextResponse.json({ erreur: "comptes en cours de mise à jour", detail: (e as Error).message }, { status: 503, headers: ENTETES });
   }
@@ -34,7 +37,7 @@ export async function POST(req: NextRequest, { params }: { params: { token: stri
   try { corps = await req.json(); } catch { /* corps vide */ }
   const n = Number(corps.n);
   const handle = nettoyerHandle(String(corps.handle || ""));
-  if (!Number.isInteger(n) || n < 1 || n > 3) return NextResponse.json({ erreur: "Numéro de compte invalide." }, { status: 400, headers: ENTETES });
+  if (!Number.isInteger(n) || n < 1 || n > 20) return NextResponse.json({ erreur: "Numéro de compte invalide." }, { status: 400, headers: ENTETES });
   if (!handle) return NextResponse.json({ erreur: "Ce @ n'est pas valide : lettres, chiffres, points et tirets bas seulement." }, { status: 400, headers: ENTETES });
   try {
     const { comptes } = await mesComptes(c.cle);
