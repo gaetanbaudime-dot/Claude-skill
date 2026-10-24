@@ -152,6 +152,10 @@ def valeurs_ligne(ligne, onb, fiche) -> list:
             or onboarding._norm(ligne.get('creatrice', '')) != onboarding._norm(fiche.get('creatrice', ''))
             or onboarding._norm(ligne.get('etat', '')) not in onboarding.A_CREER):
         raise Retenue('Affectation ou état à créer du classeur non confirmé.')
+    return _mail_mdp(ligne)
+
+
+def _mail_mdp(ligne) -> list:
     valeurs = [ligne.get('mail'), ligne.get('mdp')]
     if any(not isinstance(v, str) or not v.strip() or any(c in v for c in ('`', '\n', '\r')) for v in valeurs):
         raise Retenue('Champs existants incomplets ou format incompatible.')
@@ -160,6 +164,17 @@ def valeurs_ligne(ligne, onb, fiche) -> list:
     if not re.fullmatch(r"[^@\s]+@[^@\s]+\.[A-Za-z]{2,}", valeurs[0].strip()):
         raise Retenue("Colonne Mail du classeur invalide pour ce compte (pas une adresse e-mail) : corrige la ligne.")
     return [v.strip() for v in valeurs]
+
+
+def valeurs_compte(ligne, gerant, creatrice) -> list:
+    """24/10 : [mail, mdp] d'un compte 2 ou 3. La ligne est bien la sienne (Gérant, créatrice) et pas BAN ; un compte qui existe
+    déjà (GOOD) donne aussi ses accès — c'est pour s'y connecter. Pas d'exigence « à créer », contrairement au compte 1."""
+    if (not str(gerant or '').strip() or onboarding._norm(ligne.get('gerant', '')) != onboarding._norm(gerant)
+            or (creatrice and onboarding._norm(ligne.get('creatrice', '')) != onboarding._norm(creatrice))):
+        raise Retenue('Affectation du classeur non confirmée (Gérant ou créatrice).')
+    if onboarding._norm(ligne.get('etat', '')).strip() == 'ban':
+        raise Retenue('Compte BAN au classeur.')
+    return _mail_mdp(ligne)
 
 
 async def identifiants_surs(guild, salon, uid, handle, fiche, admin_ids, est_staff):
@@ -180,6 +195,27 @@ async def identifiants_surs(guild, salon, uid, handle, fiche, admin_ids, est_sta
     except Exception as erreur:                                         # noqa: BLE001 — jamais de secret ni de blocage
         RAISONS[str(uid)] = f"erreur technique ({type(erreur).__name__})"
         parcours.journal.warning("Compte 1 de %s sans identifiants (%s)", uid, type(erreur).__name__)
+    return None
+
+
+async def identifiants_compte(guild, salon, uid, handle, gerant, creatrice, admin_ids, est_staff):
+    """24/10 (Gaëtan : « le compte deux avec identifiant, username, mail et mot de passe ») : (mail, mdp) d'un compte 2 ou 3 pour son
+    message d'étape, ou pour un salon de clipping (gerant « Prénom Clipping Créatrice »). Mêmes contrôles de lecteurs que le compte 1 ;
+    la ligne du classeur doit être unique et à ce Gérant (valeurs_compte). Sinon None, la raison dans RAISONS. Jamais de secret au
+    journal."""
+    RAISONS.pop(str(uid), None)
+    try:
+        verifier_lecteurs(guild, salon, str(uid), creatrice or '', admin_ids, est_staff)
+        lignes = [c for c in await onboarding.lire_comptes() if c.get('handle', '').lower().lstrip('@') == str(handle).lower().lstrip('@')]
+        if len(lignes) != 1:
+            raise Retenue('Ligne unique du classeur non confirmée.')
+        return tuple(valeurs_compte(lignes[0], gerant, creatrice))
+    except Retenue as erreur:
+        RAISONS[str(uid)] = str(erreur)
+        parcours.journal.warning("Accès de %s pour %s non remis : %s", handle, uid, erreur)
+    except Exception as erreur:                                         # noqa: BLE001
+        RAISONS[str(uid)] = f"erreur technique ({type(erreur).__name__})"
+        parcours.journal.warning("Accès de %s pour %s non remis (%s)", handle, uid, type(erreur).__name__)
     return None
 
 

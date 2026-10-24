@@ -14,7 +14,9 @@ Dépôt dans la variable Railway IDENTITES_CLIPPING_JSON (les @ des comptes ne v
   "remis": {créatrice: n},                            # autre créatrice : comptes déjà sur son téléphone
   "ban": [@…],                                        # cramés : ETAT BAN, rendus (Gérant vidé)
   "lien": {créatrice: url},                           # son lien : imposé pour la principale, noté pour une autre
-  "simple": true}]                                    # son parcours principal passe à la règle des 48 h
+  "simple": true,                                     # son parcours principal passe à la règle des 48 h
+  "acces": {créatrice: [2, 3]}}]                      # 24/10 : @, e-mail, mot de passe de ces comptes dans le salon de
+                                                      # cette créatrice, lus au classeur à l'envoi (jamais dans le dépôt)
 
 Le Gérant des lignes d'un trio devient « Prénom Clipping Créatrice ». Ses autres lignes « Prénom Clipping Créatrice » de l'onglet
 sont rendues au stock (Gérant vidé). Une ligne « Metricool » n'entre jamais dans un trio et n'est jamais touchée.
@@ -241,7 +243,76 @@ async def appliquer(entree: dict) -> list:
         lignes.append(_parcours_simple(uid))
     if entree.get("salons") and _deps.get("ouvrir_salons"):
         lignes += await _deps["ouvrir_salons"](membre, list(entree["salons"]), "depot")
+    for creatrice, numeros in (entree.get("acces") or {}).items():
+        lignes.append(await _remettre_acces(uid, membre, prenom, creatrice, numeros, principale))
     return lignes
+
+
+def _salon_de(uid: str, membre, creatrice: str, principale: str):
+    """Le salon de CETTE identité : le salon principal pour la créatrice principale, son salon de clipping sinon."""
+    registre = (_deps["lire_json"](_deps["FICHIER_EQUIPES"], {}).get(uid) or {}) if _deps.get("lire_json") else {}
+    if _n(creatrice) == _n(principale):
+        sid = (parcours._lire().get(uid) or {}).get("salon_id") or registre.get("salon_id")
+    else:
+        salons = registre.get("salons_clipping") or {}
+        sid = next((v for k, v in salons.items() if _n(k) == _n(creatrice)), None)
+    guild = getattr(membre, "guild", None)
+    return guild.get_channel(int(sid)) if guild is not None and str(sid or "").isdigit() else None
+
+
+async def _remettre_acces(uid: str, membre, prenom: str, creatrice: str, numeros, principale: str) -> str:
+    """24/10 (Gaëtan : « donne les codes du compte deux et du compte trois de Chloé et de Sarah à Rianah, dans ses salons de clipping :
+    username, mail et mot de passe, tu balances tout ») : un message par salon, @ + e-mail + mot de passe de chaque compte demandé,
+    lus dans le classeur à l'envoi (Gérant « Prénom Clipping Créatrice », remise_compte1.identifiants_compte : salon lu par les seules
+    personnes autorisées). Le privé porte son lien. Autre créatrice : ces comptes comptent comme remis (pas de second envoi à 48 h)."""
+    import remise_compte1
+    salon = _salon_de(uid, membre, creatrice, principale)
+    if salon is None:
+        return f"⚠️ {creatrice} : salon introuvable, accès non remis"
+    etat = onboarding._lire_etat()
+    fiche = etat["clippers"].get(uid) or {}
+    if _n(creatrice) == _n(principale):
+        handles, lien = parcours._comptes_ordonnes(uid), str(fiche.get("lien_impose") or fiche.get("lien") or "")
+        tel_cle = None
+    else:
+        tel = fiche.get("telephones") or {}
+        tel_cle = next((k for k in tel if _n(k) == _n(creatrice)), None)
+        t = tel.get(tel_cle) if tel_cle else None
+        if not isinstance(t, dict):
+            return f"⚠️ {creatrice} : aucun compte {creatrice} dans sa fiche, accès non remis"
+        handles = [a.get("handle") for a in t.get("acces") or [] if isinstance(a, dict) and a.get("handle")]
+        lien = str(t.get("lien") or "")
+    gerant = f"{prenom} Clipping {creatrice}"
+    admin_ids = parcours._deps.get("ADMIN_IDS") or set()
+    est_staff = parcours._deps.get("est_staff") or (lambda m: False)
+    blocs, remis = [], []
+    for n in sorted({int(x) for x in numeros or [] if str(x).isdigit()}):
+        if not 0 < n <= len(handles):
+            return f"⚠️ {creatrice} : pas de compte {n} dans son trio, accès non remis"
+        h = handles[n - 1]
+        acces = await remise_compte1.identifiants_compte(salon.guild, salon, uid, h, gerant, creatrice, admin_ids, est_staff)
+        if not acces:
+            return f"⚠️ {creatrice} : compte {n} `{h}` — {remise_compte1.RAISONS.get(uid, 'contrôle non passé')}, rien envoyé"
+        prive = n == len(handles) == 3
+        bloc = (f"**Compte {n}{', le privé' if prive else ''} · @{h}**\n\nE-mail : `{acces[0]}`\n\nMot de passe : `{acces[1]}`")
+        if prive and lien:
+            bloc += f"\n\nLien à mettre dans sa bio : {lien}"
+        blocs.append(bloc)
+        remis.append(n)
+    if not blocs:
+        return f"⚠️ {creatrice} : aucun compte demandé"
+    texte = (f"{membre.mention} 🔑 **Tes accès {creatrice}**\n\n" + "\n\n".join(blocs)
+             + f"\n\nLes codes de connexion arrivent dans {parcours.mention_salon_codes()} : appuie sur « 📩 Mon code ».")
+    await salon.send(texte[:1990])
+    if tel_cle is not None:
+        etat = onboarding._lire_etat()
+        t = ((etat["clippers"].get(uid) or {}).get("telephones") or {}).get(tel_cle)
+        if isinstance(t, dict):
+            t["donnes"] = max(int(t.get("donnes") or 0), max(remis))
+            t["dernier"] = _maintenant()
+            t.pop("remise_securisee", None)
+            onboarding._ecrire_etat(etat)
+    return f"🔑 {creatrice} : accès des comptes {', '.join(map(str, remis))} remis dans <#{salon.id}>"
 
 
 async def demarrage(client) -> list:

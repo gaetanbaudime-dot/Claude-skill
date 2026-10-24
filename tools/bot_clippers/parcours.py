@@ -66,6 +66,11 @@ ATTENTE_SIMPLE_H = int(os.environ.get("PARCOURS_ATTENTE_SIMPLE_H", "48") or 48)
 # (quand_etape). Les 4 Reels restent l'objectif dit au clipper à l'ouverture du compte suivant (ligne_publication), jamais une
 # condition. PARCOURS_SIMPLE_TOUS=0 remet la règle du 23/10 (seulement les fiches marquées « simple »).
 SIMPLE_POUR_TOUS = os.environ.get("PARCOURS_SIMPLE_TOUS", "1").strip() != "0"
+# 24/10 (Gaëtan, 13 h 48 : « assure-toi que le compte deux soit bien délivré 48 heures après le compte un pour tous les clippers ; si ce
+# n'est pas le cas, envoie dans le salon personnel le deuxième compte directement ») : pour TOUS les parcours, anciens compris, le
+# compte 2 part au plus tard FORCE_COMPTE2_H h après l'ENVOI du compte 1 — sans Reels, sans attendre « ✅ Compte 1 créé » (Mouhsinou
+# avait écrit « compte 1 créé » au lieu d'appuyer : son compte 2 n'était jamais programmé). Remplace la réserve du 23/10 ci-dessus.
+FORCE_COMPTE2_H = int(os.environ.get("PARCOURS_FORCE_COMPTE2_H", str(ATTENTE_SIMPLE_H)) or ATTENTE_SIMPLE_H)
 
 
 def simple(fiche_p) -> bool:
@@ -91,6 +96,9 @@ def quand_etape(fiche_p: dict, item: dict):
             mini = base + timedelta(hours=ATTENTE_SIMPLE_H)
             q = mini if q is None or q < mini else q
     return q
+def _sans_reels(fiche_p, n: int) -> bool:
+    """Le compte n part sans condition de Reels : parcours simple, ou compte 2 dû à 48 h (« force_2 », 24/10)."""
+    return simple(fiche_p) or (int(n) == 2 and bool((fiche_p or {}).get("force_2")))
 
 
 def _marque_simple() -> dict:
@@ -280,8 +288,16 @@ LIGNE_48H = "⏳ Ton compte 2 arrive 48 h après la création du compte 1. Puis 
 LIEN_REPORTING = os.environ.get("LIEN_REPORTING", "https://forms.gle/uhPewryox7R4jifv5").strip()   # formulaire du dimanche
 
 
+ACCES_A_CONFIRMER = "Accès : à confirmer auprès de ton responsable."
+# 24/10 (Gaëtan : « le compte deux avec identifiant, username, mail et mot de passe ») : les comptes 2 et 3 portent leur e-mail et
+# leur mot de passe, avec les contrôles du compte 1 (salon lu par les seules personnes autorisées, ligne du classeur bien la sienne) ;
+# sinon la ligne ACCES_A_CONFIRMER reste. Dernier résultat par (uid, n) : « inclus » ou la raison, jamais un secret.
+ACCES_ETAPE = {}
+
+
 def _identifiants(n: int) -> str:
-    """Les secrets sont remis par le responsable, jamais dans le message automatique."""
+    """La ligne d'accès par défaut (ACCES_A_CONFIRMER, écrite en toutes lettres : des tests extraient cette fonction seule) ;
+    remplacée par l'e-mail et le mot de passe quand les contrôles passent (24/10, ACCES_ETAPE)."""
     return f"Identifiant prévu : @{{compte{n}}}\n\nAccès : à confirmer auprès de ton responsable."
 
 
@@ -1391,6 +1407,33 @@ def _garder_au_programme(uid: str, n: int, noter: bool = False) -> bool:
     return nouveau
 
 
+async def _avec_acces(salon, uid: str, n: int, fiche_p: dict, texte: str) -> str:
+    """24/10 : l'e-mail et le mot de passe du compte n (2 ou 3) à la place de ACCES_A_CONFIRMER, lus dans le classeur au moment de
+    l'envoi (remise_compte1.identifiants_compte : mêmes contrôles que le compte 1). Échec : le texte tel quel, la raison dans
+    ACCES_ETAPE et au journal, jamais un secret."""
+    cle = (str(uid), int(n))
+    try:
+        handles = _comptes_ordonnes(uid, fiche_p=fiche_p)
+        if len(handles) < n:
+            ACCES_ETAPE[cle] = "compte introuvable dans la fiche"
+            return texte
+        import remise_compte1
+        onb = _onb(uid)
+        acces = await remise_compte1.identifiants_compte(
+            getattr(salon, "guild", None), salon, uid, handles[n - 1], onb.get("gerant") or "", fiche_p.get("creatrice") or "",
+            _deps.get("ADMIN_IDS") or set(), _deps.get("est_staff") or (lambda m: False))
+    except Exception as erreur:                                         # noqa: BLE001 — jamais de secret ni de blocage
+        ACCES_ETAPE[cle] = f"erreur technique ({type(erreur).__name__})"
+        journal.warning("Accès du compte %s de %s : %s", n, uid, ACCES_ETAPE[cle])
+        return texte
+    if not acces:
+        import remise_compte1
+        ACCES_ETAPE[cle] = remise_compte1.RAISONS.get(str(uid), "") or "contrôle non passé"
+        return texte
+    ACCES_ETAPE[cle] = "inclus"
+    return texte.replace(ACCES_A_CONFIRMER, f"E-mail : `{acces[0]}`\n\nMot de passe : `{acces[1]}`")
+
+
 # ------------------------------------------------------------------ déroulé
 async def envoyer_etape(salon, membre, n: int, pointer: bool = True) -> bool:
     """Envoie l'étape n et en fait l'étape en cours (`pointer=False` : 08/10, le message du lien envoyé à côté du parcours, en
@@ -1404,7 +1447,7 @@ async def envoyer_etape(salon, membre, n: int, pointer: bool = True) -> bool:
     pseudo_propose = None
     if n == 1 and pointer and (fiche_avant.get("messages") or {}).get("1"):
         return True
-    if n in (2, 3) and not (fiche_avant.get("messages") or {}).get(str(n)) and not simple(fiche_avant) \
+    if n in (2, 3) and not (fiche_avant.get("messages") or {}).get(str(n)) and not _sans_reels(fiche_avant, n) \
             and reels_pour(uid, fiche_avant, n) < REELS_OUVERTURE:
         return False                                                    # 23/10 : un parcours simple n'attend que ses 48 h (programme)
     if n >= 2:                                                          # 08/10 : l'ordre des comptes est figé ici, pour de bon (revue : dès 2)
@@ -1529,6 +1572,8 @@ async def envoyer_etape(salon, membre, n: int, pointer: bool = True) -> bool:
                 journal.info("Compte %s ouvert pour %s : compte %s sous les %s Reels (objectif rappelé)", n, uid, n - 1, REELS_OUVERTURE)
         except Exception as erreur:                                     # noqa: BLE001 — le compte part quand même
             journal.info("Publication du compte %s de %s : %s", n - 1, uid, type(erreur).__name__)
+    if n in (2, 3) and ACCES_A_CONFIRMER in texte:
+        texte = await _avec_acces(salon, uid, n, fiche_p, texte)
     try:
         vue = _vue(getattr(salon, "guild", None), uid, n, ctx, fiche_p)
         if n == 1 and not (fiche_avant.get("messages") or {}).get("1"):
@@ -1905,6 +1950,15 @@ async def valider_etape(salon, uid: str, n: int, par: str = "", creation: bool =
     le passage en privé) ; à cet appui partent la story à la une (TEXTE_STORY, sans bouton) puis la routine et l'app (étape 7)."""
     d = _lire()
     fiche_p = d.get(str(uid))
+    if (fiche_p and int(n) == 1 and fiche_p.get("force_2") and int(fiche_p.get("etape", 0) or 0) >= 2
+            and (fiche_p.get("dates") or {}).get("1") and not (fiche_p.get("dates") or {}).get("1_fait")):
+        # 24/10 : le compte 2 est parti à 48 h sans que le compte 1 soit confirmé. L'appui tardif sur « ✅ Compte 1 créé » (ou le
+        # scan qui le voit) le note encore — classeur et journal des places — sans toucher au parcours, déjà au compte 2.
+        fiche_p.setdefault("dates", {})["1_fait"] = _maintenant()
+        _ecrire(d)
+        await _retirer_bouton(salon, (fiche_p.get("messages") or {}).get("1"))
+        await _classeur_etat(uid, 1)
+        return True
     if (fiche_p and int(n) == 6 and ordre(fiche_p) == "prive2" and int(fiche_p.get("etape", 0)) != 6
             and (fiche_p.get("dates") or {}).get("6")):
         # 08/10 (privé en 2) : le message du lien part à côté du parcours (le compte 3 attend) ; son bouton note que c'est fait
@@ -2939,7 +2993,120 @@ async def programme_du_jour(client, maintenant=None) -> list:
     01/10 (relecture) : un seul passage à la fois (la boucle horaire et la fin du scan se chevauchaient), et le clipper
     bloqué par un BAN sans aucun compte vivant (_bloque_ban) est signalé une fois au salon admin."""
     async with _verrou_programme():
-        return await _programme_du_jour(client, maintenant)
+        faits = await _programme_du_jour(client, maintenant)
+        try:                                                            # 24/10 : le compte 2 à 48 h, pour tous, sous le même verrou
+            faits += await forcer_comptes2(client, maintenant)
+        except Exception as erreur:                                     # noqa: BLE001
+            journal.warning("Compte 2 à 48 h : %s", erreur)
+        return faits
+
+
+def _instant_iso(valeur):
+    try:
+        x = datetime.fromisoformat(str(valeur))
+    except (TypeError, ValueError):
+        return None
+    return x if x.tzinfo else x.replace(tzinfo=timezone.utc)
+
+
+def au_compte_1(d: dict, maintenant) -> list:
+    """24/10 : les parcours au compte 1 sans compte 2 — [(uid, prénom, heures depuis l'envoi du compte 1, simple, compte 1 confirmé)],
+    le plus ancien d'abord."""
+    out = []
+    for uid, f in (d or {}).items():
+        if not isinstance(f, dict):
+            continue
+        dates = f.get("dates") or {}
+        if not dates.get("1") or dates.get("2") or (f.get("messages") or {}).get("2") or int(f.get("etape", 0) or 0) not in (1, 2):
+            continue
+        depuis = _instant_iso(dates["1"])
+        if depuis is None:
+            continue
+        out.append((str(uid), f.get("prenom") or "?", round((maintenant - depuis).total_seconds() / 3600, 1), simple(f),
+                    bool(dates.get("1_fait"))))
+    return sorted(out, key=lambda x: -x[2])
+
+
+_COMPTE1_LISTE = {"dite": False}
+
+
+async def forcer_comptes2(client, maintenant=None) -> list:
+    """24/10 (Gaëtan : « le compte deux 48 heures après le compte un pour tous les clippers ; sinon, envoie-le directement ») : tout
+    parcours dont le compte 1 est parti depuis FORCE_COMPTE2_H h sans compte 2 reçoit son compte 2 maintenant, par envoyer_etape (ligne
+    réservée, journal des places, lien, accès), marqué « force_2 » (plus de condition de Reels pour ce compte). Sans « ✅ Compte 1
+    créé », la consigne « ton compte 1 peut publier » part d'abord, une fois. Départ enregistré, membre ou salon introuvable : rien.
+    Retenu (pas de ligne libre, journal) : programme_du_jour retente à son heure ; autre échec : nouvel essai LIGNE_REESSAI_MIN min
+    plus tard. Le salon admin reçoit une ligne par clipper, une fois. Renvoie [(uid, "etape", 2)] envoyés."""
+    maintenant = maintenant or datetime.now(timezone.utc)
+    d0 = _lire()
+    liste = au_compte_1(d0, maintenant)
+    if not _COMPTE1_LISTE["dite"]:                                      # une fois par démarrage : vérifiable dans les logs
+        _COMPTE1_LISTE["dite"] = True
+        journal.info("Clippers au compte 1 sans compte 2 (%s) : %s", len(liste), " · ".join(
+            f"{p} ({u}) {h} h{' simple' if s else ''}{' confirmé' if c else ''}" for u, p, h, s, c in liste) or "aucun")
+    faits, bilan = [], []
+    for uid, prenom, heures, _, confirme in liste:
+        if heures < FORCE_COMPTE2_H:
+            continue
+        f = d0.get(uid) or {}
+        if any(x.get("type") == "etape" and int(x.get("n") or 0) == 2 and x.get("ligne") for x in f.get("programme") or []):
+            continue                                                    # retenu faute de ligne : programme_du_jour retente
+        essai = _instant_iso(f.get("force_2_essai"))
+        if essai and maintenant - essai < timedelta(minutes=LIGNE_REESSAI_MIN):
+            continue
+        try:
+            if onboarding.process_adapters.store().get("sortie:" + uid):
+                continue                                                # départ enregistré : aucune nouvelle allocation
+        except Exception:                                               # noqa: BLE001 — journal illisible : reserve() tranchera
+            pass
+        salon = client.get_channel(int(f.get("salon_id", 0) or 0))
+        membre = _deps["membre_par_id"](uid) if _deps.get("membre_par_id") else None
+        if salon is None or membre is None:
+            continue
+        d = _lire()
+        if uid not in d:
+            continue
+        d[uid]["force_2"] = d[uid].get("force_2") or _maintenant()
+        d[uid]["force_2_essai"] = _maintenant()
+        publier_1 = not confirme and not d[uid].get("publier_1_force")
+        if publier_1:
+            d[uid]["publier_1_force"] = _maintenant()
+        dire = not d[uid].get("force_2_dit")
+        _ecrire(d)
+        if publier_1:
+            try:
+                await _envoyer_publier(salon, membre, uid, 1)
+            except (discord.Forbidden, discord.HTTPException) as erreur:
+                journal.warning("Compte 1 peut publier, pour %s : %s", uid, erreur)
+        ok = await envoyer_etape(salon, membre, 2)
+        acces = ACCES_ETAPE.get((uid, 2), "")
+        journal.info("Compte 2 à 48 h pour %s (%s, %s h après le compte 1) : %s%s", prenom, uid, heures,
+                     "envoyé" if ok else "retenu", f", accès : {acces}" if ok else "")
+        if ok:
+            faits.append((uid, "etape", 2))
+        if dire or ok:
+            d = _lire()
+            if uid in d:
+                d[uid]["force_2_dit"] = _maintenant()
+                _ecrire(d)
+            etat = (("compte 2 envoyé, accès inclus" if acces == "inclus" else f"compte 2 envoyé, accès à remettre ({acces or '?'})")
+                    if ok else "retenu : pas de ligne libre, journal des places ou salon, nouvel essai automatique")
+            bilan.append(f"{'✅' if ok else '⏸️'} **{prenom}** (<@{uid}>) · {int(heures)} h après son compte 1 · {etat}")
+    if bilan and _deps.get("canal_admin"):
+        try:
+            canal = await _deps["canal_admin"]()
+            if canal is not None:
+                bloc = "📦 **Compte 2 à 48 h** (règle du 24/10, pour tous les clippers)"
+                for ligne in bilan:
+                    if len(bloc) + len(ligne) + 2 > 1900:
+                        await canal.send(bloc)
+                        bloc = ""
+                    bloc = f"{bloc}\n\n{ligne}" if bloc else ligne
+                if bloc:
+                    await canal.send(bloc)
+        except Exception as erreur:                                     # noqa: BLE001
+            journal.warning("Bilan du compte 2 à 48 h : %s", erreur)
+    return faits
 
 
 _verrou_prog = (None, None)
@@ -3019,7 +3186,8 @@ async def _programme_du_jour(client, maintenant=None) -> list:
                 partants.append(x)
             elif not _etape_attendue(fiche_p, x):
                 continue                                                # déjà envoyée (`!etape` du staff) : retirée, sans message
-            elif int(x.get("n") or 0) not in (2, 3) or simple(fiche_p) or reels_pour(uid, fiche_p, int(x.get("n") or 0)) >= REELS_OUVERTURE:
+            elif int(x.get("n") or 0) not in (2, 3) or _sans_reels(fiche_p, int(x.get("n") or 0)) \
+                    or reels_pour(uid, fiche_p, int(x.get("n") or 0)) >= REELS_OUVERTURE:
                 partants.append(x)                                      # 08/10 : la routine (7), 11/10 : « ligne », sans Reels
             else:
                 gardes.append(x)                                        # 48 h passées, Reels pas encore là : on attend
