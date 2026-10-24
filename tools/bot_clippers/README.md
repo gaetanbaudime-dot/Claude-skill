@@ -165,7 +165,7 @@ Ma recommandation : ne nomme aucun manager avant que deux équipes aient fait 3 
 À poser ou vérifier (facultatives, défaut entre parenthèses) :
 
 - `PLACES_GAML_ATTRIBUTION` (0) : je recommande 1 tant que le forfait GAML de 50 liens n'est pas monté ;
-- `ATTRIBUTION_LIGNES_MIN` (3), `GAML_FORFAIT_LIENS` (50) ;
+- `ATTRIBUTION_LIGNES_MIN` (3), `GAML_FORFAIT_LIENS` (50 liens ACTIFS), `GAML_LISTE_MAX` (plafond supposé de la liste GAML, désactivés inclus ; défaut forfait + 50, au moins 100) ;
 - `PARCOURS_TICK_MIN` (10), `PARCOURS_LIGNE_REESSAI_MIN` (30) ;
 - `DIGEST` (1), `DIGEST_HEURE` (9 ; 10 pour la même heure toute l'année), `DIGEST_HEURE_MAX` (11) ;
 - `TL_PRIME_VA_USD` (10), `TL_SEUIL_VA` (500), `MANAGER_PRIME_USD` (75), `MANAGER_SEUIL_EQUIPE` (3000), `EQUIPE_COMPTE_TL` (0), `PRIMES_EQUIPES_DEPUIS` (2026-10-20) ;
