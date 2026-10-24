@@ -25,7 +25,7 @@ le circuit reprenant son travail déjà fait.
 import json
 import re
 import unicodedata
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from pathlib import Path
 
 import discord
@@ -147,6 +147,53 @@ async def resoudre(client, entree: dict):
     return None, "admin"
 
 
+ECHEC_RAPPEL_H = 24
+
+
+async def _dire_echec(admin, ident: str, texte: str):
+    """24/10 (« lien-esperance-2310 » : neuf lignes « non envoyé » en 24 h, une par redémarrage, la raison changeant à chaque fois) :
+    une ligne admin par message déposé et par ECHEC_RAPPEL_H heures, avec le nombre d'essais ; les autres essais vont au journal.
+    Sans FICHIER_ECHECS (tests anciens), chaque échec est dit comme avant."""
+    f = _deps.get("FICHIER_ECHECS")
+    if f:
+        echecs = dict(_deps["lire_json"](f, {}) or {})
+        e = dict(echecs.get(ident) or {})
+        e["n"] = int(e.get("n") or 0) + 1
+        maintenant = datetime.now(timezone.utc)
+        try:
+            dernier = datetime.fromisoformat(str(e.get("t")))
+        except ValueError:
+            dernier = None
+        recent = dernier is not None and maintenant - dernier < timedelta(hours=ECHEC_RAPPEL_H)
+        if not recent:
+            e["t"] = maintenant.isoformat(timespec="seconds")
+        echecs[ident] = e
+        _deps["ecrire_json"](f, echecs)
+        if recent:
+            journal.info("Message déposé « %s » : essai %d sans succès, déjà signalé", ident, e["n"])
+            return
+        if e["n"] > 1:
+            texte += f" ({e['n']}ᵉ essai ; prochain rappel dans {ECHEC_RAPPEL_H} h au plus tôt)"
+    if admin is not None:
+        try:
+            await admin.send(texte)
+        except (discord.Forbidden, discord.HTTPException):
+            pass
+
+
+def _essais_reussis(ident: str) -> str:
+    """« (après N essais) » quand le message avait échoué avant ; l'entrée des échecs est retirée."""
+    f = _deps.get("FICHIER_ECHECS")
+    if not f:
+        return ""
+    echecs = dict(_deps["lire_json"](f, {}) or {})
+    e = echecs.pop(ident, None)
+    if e is None:
+        return ""
+    _deps["ecrire_json"](f, echecs)
+    return f" (après {int(e.get('n') or 0) + 1} essais)"
+
+
 async def envoyer_au_demarrage(client) -> list:
     """Poste chaque message déposé pas encore envoyé. Renvoie les identifiants envoyés."""
     deposes = lire_deposes()
@@ -182,22 +229,15 @@ async def envoyer_au_demarrage(client) -> list:
             salon = admin
         if salon is None:
             journal.warning("Message déposé « %s » non envoyé : %s", ident, raison)
-            if admin is not None:
-                try:
-                    await admin.send(f"📨 Message déposé « {ident} » non envoyé : {raison}. Je réessaie au prochain démarrage.")
-                except (discord.Forbidden, discord.HTTPException):
-                    pass
+            await _dire_echec(admin, ident, f"📨 Message déposé « {ident} » non envoyé : {raison}. Je réessaie au prochain démarrage.")
             continue
         membre = _deps["chercher_membre"](str(entree["pour"]), exact=True) if entree.get("pour") else None
         if entree.get("lien_nouveau") and membre is not None and _deps.get("lien_pour"):
             url, raison_lien = await _lien_du_membre(membre)
             if not url:
                 journal.warning("Message déposé « %s » non envoyé : lien non prêt (%s)", ident, raison_lien)
-                if admin is not None:
-                    try:
-                        await admin.send(f"📨 Message déposé « {ident} » non envoyé : lien non prêt ({raison_lien}). Je réessaie au prochain démarrage.")
-                    except (discord.Forbidden, discord.HTTPException):
-                        pass
+                await _dire_echec(admin, ident, f"📨 Message déposé « {ident} » non envoyé : lien non prêt ({raison_lien}). "
+                                                "Je réessaie au prochain démarrage.")
                 continue
             entree = {**entree, "texte": str(entree.get("texte") or "").replace("{lien}", url)}
         if not await _envoyer_dans(client, salon, membre, entree, ident):
@@ -206,9 +246,10 @@ async def envoyer_au_demarrage(client) -> list:
         _deps["ecrire_json"](_deps["FICHIER"], envoyes)
         faits.append(ident)
         journal.info("Message déposé « %s » envoyé dans #%s", ident, getattr(salon, "name", salon.id))
+        essais = _essais_reussis(ident)
         if admin is not None and admin is not salon:
             try:
-                await admin.send(f"📨 Message déposé « {ident} » envoyé dans {getattr(salon, 'mention', '#' + getattr(salon, 'name', '?'))}.")
+                await admin.send(f"📨 Message déposé « {ident} » envoyé dans {getattr(salon, 'mention', '#' + getattr(salon, 'name', '?'))}{essais}.")
             except (discord.Forbidden, discord.HTTPException):
                 pass
     return faits

@@ -111,6 +111,11 @@ def en_route() -> list:
             avec_lien = {str(i.get("uid") or "") for i in (paie_clics._lire().get("liens") or {}).values() if isinstance(i, dict)}
     except Exception:                                                   # noqa: BLE001 — sans clics.json : la fiche d'onboarding seule
         avec_lien = set()
+    try:                                                                # 24/10 : un sorti de l'équipe n'est plus en route
+        f_eq = parcours._deps.get("FICHIER_EQUIPES")
+        registre = parcours._deps["lire_json"](f_eq, {}) if f_eq and parcours._deps.get("lire_json") else None
+    except Exception:                                                   # noqa: BLE001 — registre illisible : personne n'est écarté
+        registre = None
     out = []
     for uid, f in fiches_p.items():
         if not isinstance(f, dict):
@@ -121,14 +126,21 @@ def en_route() -> list:
             continue
         if not 1 <= etape <= 3:
             continue
+        if isinstance(registre, dict) and registre and str(uid) not in registre:
+            continue
         onb = clippers.get(str(uid)) or {}
+        if onb.get("sorti"):
+            continue
         creatrice = f.get("creatrice") or onb.get("creatrice") or ""
         np_ = parcours.n_prive(f)
         prive_ouvert = etape > np_ or bool((f.get("dates") or {}).get(str(np_)))
         a_un_lien = bool(onb.get("lien")) or str(uid) in avec_lien
         out.append({"uid": str(uid), "cle": _cle(creatrice),
                     "lignes_dues": max(0, int(onboarding.COMPTES_PAR_CLIPPER) - len([h for h in onb.get("comptes") or [] if h])),
-                    "lien_du": not prive_ouvert and not a_un_lien})
+                    # 24/10 (« ⛔ 0 place » : 15 liens promis, dont 11 clippers qui n'avaient pas créé leur compte 1 depuis 3 à
+                    # 11 jours et 6 avertis pour une sortie) : le lien n'arrive qu'au compte 3, 96 h après le compte 1 au plus tôt.
+                    # Il n'est promis qu'une fois le compte 1 créé ; l'alerte du forfait plein reste là si tous reprennent.
+                    "lien_du": not prive_ouvert and not a_un_lien and bool((f.get("dates") or {}).get("1_fait"))})
     return out
 
 

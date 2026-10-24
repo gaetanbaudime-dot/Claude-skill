@@ -149,3 +149,29 @@ class EntreeDuDepot(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class EchecsRegroupes(unittest.TestCase):
+    """24/10 (« lien-esperance-2310 » : neuf lignes « non envoyé » en 24 h) : une ligne admin par message et par 24 h."""
+    def test_deux_redemarrages_une_seule_ligne_puis_succes_avec_le_compte(self):
+        m = Monde(lien=("", "inventaire GAML incomplet"))
+        echecs = {}
+        base = m.deps
+
+        def deps():
+            d = base()
+            lire = d["lire_json"]
+            d["lire_json"] = lambda chemin, defaut: echecs if chemin == "echecs.json" else lire(chemin, defaut)
+            d["ecrire_json"] = (lambda chemin, valeur: (echecs.clear(), echecs.update(valeur)) if chemin == "echecs.json"
+                                else m.traces.update(valeur))
+            d["FICHIER_ECHECS"] = "echecs.json"
+            return d
+        m.deps = deps
+        m.lancer([entree()])
+        m.lancer([entree()])
+        self.assertEqual(1, m.admin.send.await_count)
+        self.assertEqual(2, echecs["lien-test"]["n"])
+        m.lien_pour = AsyncMock(return_value=(URL, ""))
+        self.assertEqual(["lien-test"], m.lancer([entree()]))
+        self.assertIn("après 3 essais", m.admin.send.await_args.args[0])
+        self.assertNotIn("lien-test", echecs)

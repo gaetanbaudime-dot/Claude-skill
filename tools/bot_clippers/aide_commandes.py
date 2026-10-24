@@ -48,7 +48,7 @@ Une commande par message, puis attends la réponse. Les rafales ne routent pas t
 
 ADMIN_TOUT = """🧰 **Aide admin · tout le reste**
 
-• `!audit` · `!secu` — qui voit quoi, sécurité.
+• `!audit` · `!secu` — qui voit quoi, sécurité. `!acces-tl appliquer` — chaque TL voit le salon de ses VA.
 • `!memoire @membre` · `!pilotage` — mémoire du bot, ton app.
 • `!onboarding @membre` — reprendre son onboarding.
 • `!pseudo @membre 1 vrai_pseudo` — renommer un compte.

@@ -70,6 +70,7 @@ import rapport_quotidien                  # rapport compact de la veille à 13 h
 import metricool_comptes                  # 09/10 (dashboard) : Reels et vues des comptes Instagram branchés à Metricool → séries
 import visites_telegram                   # les visites de la veille dans le groupe Telegram de chaque créatrice (03/10)
 import bans_mail                          # bans Instagram vus par les mails de suspension → BAN + push (29/09)
+import preuve_mail                         # comptes créés prouvés par un mail Instagram (24/10)
 # 11/10 (lot L12) : la cadence des Reels (`!cadence`) et la vérification du classeur (`!classeur`) ne sont plus importées ni appelées :
 # la vérification vit dans le contrôle d'attribution (controle.py, C13 à C16, Dashboard et salon admin). CADENCE_AUTO n'est plus lue.
 import identifiants                       # identifiants neufs par créatrice, calculés depuis le classeur (30/09)
@@ -520,6 +521,7 @@ dans ce style, « Fan de <créatrice> 💛 Ses meilleurs moments, chaque jour »
 sport), jamais une ville, une région, un lien ou un @.
 44. Après une transmission à l'équipe, tu n'affirmes jamais qu'une chose est arrivée ou réglée (« tes identifiants doivent être \
 là maintenant », 22/10, Moutakabirou : faux). Tu ne vois pas son salon.
+45. « J'ai créé mon compte N », « j'ai fini mon compte », « j'ai déjà publié X Reels » alors que ta mémoire dit ce compte pas créé (24/10 : Esperance et Moutakabirou listés « compte 1 pas créé » et avertis d'une sortie, alors qu'ils l'avaient créé sans appuyer sur le bouton) : tu réponds « Appuie sur ✅ Compte N créé, sous le message de ton compte N, dans ton salon perso. C'est ce bouton qui lance la suite. » Puis, sur une autre ligne : « Ton @ n'est pas celui prévu ? Tape `!pseudo N` et ton vrai @. » Tu ne transmets pas à l'équipe pour ça, et tu ne dis jamais que la suite arrive sans ce bouton.
 35. Mise en forme (09/10, Gaëtan : « Saute des lignes, aère ») : le clipper te lit sur son téléphone. Des paragraphes d'une ou \
 deux phrases, une ligne vide entre chaque paragraphe, avant et après une liste. Une seule action demandée par réponse ; une \
 marche à suivre, seulement s'il la demande, en 3 étapes numérotées au plus."""
@@ -605,6 +607,49 @@ def compte_alias_a_creer(alias) -> bool:
     if handle not in ordre:
         return False
     return not parcours._cree(fiche_p, ordre.index(handle) + 1)
+
+
+def proprietaire_compte_alias(alias):
+    """24/10 (preuve_mail : Esperance et Pierre listés « compte 1 pas créé » alors qu'Instagram écrivait à leur compte) : le compte
+    livré à cette adresse et l'état de son étape, None si l'adresse n'a pas UN propriétaire ou si son compte n'est pas l'étape
+    en cours. {uid, n, handle, ouverte, cree, recycle, prenom}."""
+    alias = str(alias or "").strip().lower()
+    dest = destinataire_alias_code(alias)
+    if not dest:
+        return None
+    uid = str(dest["membre"].id)
+    handle = str((_adresses_codes_fiche(uid, avec_comptes=True) or {}).get(alias) or "").lower().lstrip("@")
+    if not handle:
+        return None
+    fiche_p = parcours._lire().get(uid) or {}
+    onb = parcours._onb(uid)
+    ordre = [str(h).lower().lstrip("@") for h in parcours._comptes_ordonnes(uid, onb, fiche_p)]
+    if handle not in ordre:
+        return None
+    n = ordre.index(handle) + 1
+    if int(fiche_p.get("etape", 0) or 0) != n:
+        return None
+    cle = onboarding._cle_handle(handle)
+    recycle = any(isinstance(a, dict) and a.get("cree") and onboarding._cle_handle(a.get("handle") or "") == cle
+                  for a in onb.get("acces") or [])
+    return {"uid": uid, "n": n, "handle": handle, "ouverte": (fiche_p.get("dates") or {}).get(str(n)),
+            "cree": parcours._cree(fiche_p, n), "recycle": recycle,
+            "prenom": fiche_p.get("prenom") or getattr(dest["membre"], "display_name", "") or uid}
+
+
+async def fermer_compte_prouve(uid, n) -> bool:
+    """24/10 (preuve_mail) : ferme l'étape n comme le bouton « ✅ Compte n créé » (profil, warm-up, compte suivant)."""
+    fiche_p = parcours._lire().get(str(uid)) or {}
+    salon = client.get_channel(int(fiche_p.get("salon_id") or 0)) if fiche_p.get("salon_id") else None
+    if salon is None:
+        return False
+    return bool(await parcours.valider_etape(salon, str(uid), int(n), par="mail", creation=True))
+
+
+async def _admin_preuve_mail(texte):
+    canal = await canal_admin()
+    if canal is not None:
+        await canal.send(texte[:1900])
 
 
 def destinataire_alias_code(alias):
@@ -3568,6 +3613,25 @@ async def _assurer_salon_perso(guild, membre, categorie, prenom_creatrice: str, 
     except (discord.Forbidden, discord.HTTPException) as erreur:
         journal.warning("Salon perso de %s : %s", membre.display_name, erreur)
         return salon, False, f"salon perso ({type(erreur).__name__} : {getattr(erreur, 'text', '')[:60] or 'refus Discord'})"
+
+
+def acces_tl_manquants(guild) -> list:
+    """24/10 (!audit : Lucas dans l'équipe de Clarisse, son salon sans elle) : [(salon, tl, va)] des VA dont le TL (organigramme
+    ou colonne « Team leader ») ne voit pas le salon perso. L'accès TL n'était posé qu'à l'arrivée."""
+    manques = []
+    try:
+        for va, tl_id in sorted(equipes_tl.tl_par_va().items()):
+            if not str(va).isdigit() or not str(tl_id).isdigit() or str(va) == str(tl_id):
+                continue
+            mv, mt = guild.get_member(int(va)), guild.get_member(int(tl_id))
+            if mv is None or mt is None or getattr(mt, "bot", False):
+                continue
+            salon = salon_perso_de(va)
+            if salon is not None and not salon.permissions_for(mt).view_channel:
+                manques.append((salon, mt, mv))
+    except Exception as erreur:                                         # noqa: BLE001 — un audit ne plante jamais
+        journal.warning("Accès TL manquants : %s", erreur)
+    return manques
 
 
 def salon_perso_de(uid):
@@ -7402,6 +7466,11 @@ async def commande_admin(message, texte: str) -> bool:
         if vides:
             note = " (v2 éteinte : comptage possiblement incomplet)" if not ACTIVER_V2 else ""
             problemes.append(f"ℹ️ Rôles sans membre{note} : {', '.join(vides[:10])}.")
+        manques_tl = acces_tl_manquants(g)
+        if manques_tl:
+            problemes.append("🔑 **TL sans accès au salon de son VA** : "
+                             + " · ".join(f"{prenom_de(va)} (TL {prenom_de(tl)})" for _, tl, va in manques_tl[:15])
+                             + "\n-# `!acces-tl appliquer` les ouvre (seulement les salons sans message d'un tiers).")
         await envoyer_long(message, carte)
         await envoyer_long(message, ["🩺 **Écarts à la doctrine**"] +
                            (problemes if problemes else ["✅ Aucune incohérence détectée — la structure est propre."]))
@@ -7835,6 +7904,36 @@ async def commande_admin(message, texte: str) -> bool:
     # ---- !acces : applique la doctrine d'accès aux salons (rôles → « Voir le salon ») ----
     # `!acces` = simulation (montre ce qui changerait, ne touche à rien).
     # `!acces appliquer` = exécute. Idempotent : à relancer dès qu'un accès dérive.
+    # ---- !acces-tl [appliquer] : le TL voit le salon perso de chacun de ses VA (24/10) ----
+    if texte.startswith("!acces-tl") or texte.startswith("!accès-tl"):
+        g = message.guild
+        if g is None:
+            await message.reply("À lancer depuis un salon du serveur.")
+            return True
+        manques = acces_tl_manquants(g)
+        if not manques:
+            await message.reply("✅ Chaque TL voit déjà le salon de ses VA.")
+            return True
+        if "appliqu" not in normaliser(texte):
+            await envoyer_long(message, ["🔑 **TL sans accès au salon de son VA**"]
+                               + [f"· #{salon.name} → {prenom_de(tl)}" for salon, tl, _ in manques]
+                               + ["", "▶️ `!acces-tl appliquer` pour les ouvrir."])
+            return True
+        faits, retenus = [], []
+        for salon, tl, va in manques:
+            if not await onboarding_preuves.salon_partageable(salon, str(va.id)):
+                retenus.append(f"#{salon.name} (message d'un tiers : à vérifier à la main)")
+                continue
+            try:
+                await salon.set_permissions(tl, overwrite=onboarding_discord.surcharge_acces_tl(salon, tl),
+                                            reason="Team leader configuré du clippeur (!acces-tl)")
+                faits.append(f"#{salon.name} → {prenom_de(tl)}")
+            except (discord.HTTPException, TimeoutError, OSError) as erreur:
+                retenus.append(f"#{salon.name} ({type(erreur).__name__})")
+        await envoyer_long(message, [f"🔑 **Accès TL** : {len(faits)} ouvert(s)."] + [f"· {x}" for x in faits]
+                           + ([f"⚠️ Retenu : {x}" for x in retenus] if retenus else []))
+        return True
+
     if texte.startswith("!acces") or texte.startswith("!accès"):
         g = message.guild
         if g is None:
@@ -8300,6 +8399,13 @@ async def commande_admin(message, texte: str) -> bool:
                 await message.reply(f"❌ {len(homonymes)} membres portent ce nom : " + " · ".join(m.mention for m in homonymes[:6])
                                     + ". Tape `!sortie @` et choisis la bonne personne.")
                 return True
+        if membre is None and corps and not message.mentions:
+            # 24/10 (« !sortie bab raison » : l'aide du format au lieu de dire que personne ne porte ce nom)
+            nom_tape = corps.split()[0]
+            await message.reply(f"❌ Personne ne s'appelle « {nom_tape} » sur le serveur. Déjà parti ? Ses accès sont retirés "
+                                "à son départ ; son lien se libère avec `!liens` puis `!lien @… retirer`. Sinon tape `!sortie @` "
+                                "et choisis-le dans la liste.")
+            return True
         if membre is None:
             await message.reply("Format : `!sortie Prénom raison` (ex. `!sortie Andry inactif depuis le 07/10`). Retire ses accès, "
                                 "archive ses liens et l'expulse du serveur ; ajoute `garder` pour le laisser sur le serveur. "
@@ -8349,6 +8455,9 @@ async def commande_admin(message, texte: str) -> bool:
         faits.append("expulsé du serveur" if res.get("expulse") else f"{nb_roles} rôle(s) retiré(s), reste sur le serveur")
         if res.get("liens"):
             faits.append(f"{res['liens']} lien(s) archivé(s)")
+        orphelins = len(process_adapters.store().get("depart-orphelins:" + str(membre.id)).get("liens") or [])
+        if orphelins:
+            faits.append(f"{orphelins} lien(s) déjà effacé(s) dans GAML archivé(s) ici, visites dues gardées")
         if comptes:
             faits.append(f"{comptes} compte(s) passé(s) « à mettre Metricool »")
         await message.reply(f"✅ {membre.display_name} sorti : " + ", ".join(faits) + ". Son salon est gardé (historique).")
@@ -9583,6 +9692,10 @@ async def on_ready():
         except Exception as erreur:                                             # noqa: BLE001 — jamais bloquer le démarrage
             journal.warning("Codes : migration des fiches d'onboarding : %s", erreur)
         bans_mail.abonner()
+        preuve_mail.configurer({"lire_json": lire_json, "ecrire_json": ecrire_json, "FICHIER": DONNEES / "preuve_mail.json",
+                                "proprietaire": proprietaire_compte_alias, "renommer": parcours.renommer,
+                                "fermer": fermer_compte_prouve, "admin": _admin_preuve_mail})
+        preuve_mail.abonner()                                                    # 24/10 : compte créé prouvé par un mail Instagram
         client.loop.create_task(codes_2fa.garde_codes(client, canal_admin, ADMIN_IDS))   # 18/10 : le lecteur et son gardien
         client.loop.create_task(codes_2fa.assurer_salon_codes(client))        # le salon commun, mode d'emploi v7 et son bouton
         client.loop.create_task(web_candidature.demarrer(client, {           # site du tunnel candidat (23/09)
@@ -9984,7 +10097,7 @@ async def on_ready():
             except Exception as erreur:                                 # noqa: BLE001
                 journal.warning("Ajout des identifiants : %s", erreur)
         client.loop.create_task(_identifiants_au_demarrage())                # 30/09 : Clarisse, trois comptes neufs
-        messages_deposes.configurer({"lire_json": lire_json, "ecrire_json": ecrire_json, "FICHIER": DONNEES / "messages_envoyes.json",
+        messages_deposes.configurer({"lire_json": lire_json, "ecrire_json": ecrire_json, "FICHIER": DONNEES / "messages_envoyes.json", "FICHIER_ECHECS": DONNEES / "messages_echecs.json",
                                      # 23/10 : les pseudos sont « Prénom - Créatrice » ; « pour : Esperance » ne passait pas par le pseudo entier
                                      "chercher_membre": lambda reference, exact=True: chercher_par_prenom(reference),
                                      "salon_perso": salon_perso_de, "canal_admin": canal_admin,
@@ -10926,12 +11039,20 @@ def membre_par_nom_tape(guild, tokens: list) -> tuple:
     """18/10 (« !sortie Andry pas publier » refusé cinq fois) : (membre, reste, homonymes) d'après un nom TAPÉ, sans mention. Le
     pseudo entier (« Andry - Sarah ») ou le prénom avant « - », sur les 1 à 4 premiers mots ; un seul membre doit correspondre."""
     membres = [m for m in getattr(guild, "members", None) or [] if not getattr(m, "bot", False)]
+
+    def cle(texte) -> str:
+        # 24/10 (« !sortie laure raison » : « Laure#👍 » jamais reconnu) : sans « #… », sans emoji ni ponctuation
+        return re.sub(r"\s+", " ", re.sub(r"[^\w\s-]", " ", normaliser(str(texte or "")).split("#")[0])).strip()
+
+    def noms(m) -> list:
+        return [x for x in (m.display_name, getattr(m, "name", ""), getattr(m, "global_name", "")) if x]
     for n in range(min(4, len(tokens)), 0, -1):
         nom = normaliser(" ".join(tokens[:n]).lstrip("@"))
         if not nom:
             continue
         exacts = [m for m in membres if normaliser(m.display_name) == nom]
-        trouves = exacts or [m for m in membres if normaliser(str(m.display_name).split(" - ")[0]) == nom]
+        trouves = (exacts or [m for m in membres if normaliser(str(m.display_name).split(" - ")[0]) == nom]
+                   or [m for m in membres if any(cle(x) == cle(nom) or cle(str(x).split(" - ")[0]) == cle(nom) for x in noms(m))])
         if len(trouves) == 1:
             return trouves[0], " ".join(tokens[n:]).strip(), []
         if len(trouves) > 1:
@@ -10943,7 +11064,7 @@ COMMANDES_ADMIN = ("!aide", "!roster", "!pipeline", "!funnel", "!tableau", "!fic
                    "!tl", "!creatrice", "!onboarding", "!pseudo", "!dashboard", "!code", "!reprise", "!remettre-compte1",
                    "!sortie", "!sortie-auto", "!organisation", "!diagnostic-dossier", "!relances", "!annonce", "!rapport", "!etape",
                    "!note", "!paie-clics", "!clics", "!comptes-libres", "!monteur", "!audit-discussions", "!bans", "!appel",
-                   "!salon-clipping")
+                   "!salon-clipping", "!acces-tl")
 
 
 def suggestion_admin(mot: str) -> str:

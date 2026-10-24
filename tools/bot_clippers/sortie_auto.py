@@ -631,10 +631,18 @@ def bilan_pour_digest() -> tuple:
         return [], []
     a_dire = [x for x in (_etat().get("a_dire") or []) if isinstance(x, dict) and x.get("lignes")]
     dormants = inactifs()
+    # 24/10 (« !sortie bab raison » refusé : Bab n'était plus sur le serveur) : un parti n'a pas de sortie à faire, seulement son
+    # lien à libérer ; il a sa propre ligne, avec la commande qui marche pour lui.
+    membre_de = _deps.get("membre_par_id")
+    partis = [(uid, nom) for uid, nom in dormants if membre_de and membre_de(uid) is None]
+    presents = [x for x in dormants if x not in partis]
     bloc_inactifs = ([f"😴 **0 visite payée depuis {INACTIF_JOURS} j** : "
-                      + ", ".join(f"<@{uid}>" for uid, nom in dormants[:25])
-                      + ("…" if len(dormants) > 25 else "")
-                      + "\n-# `!sortie @x raison` pour le sortir, `!note @x garde` pour le garder."] if dormants else [])
+                      + ", ".join(f"<@{uid}>" for uid, nom in presents[:25])
+                      + ("…" if len(presents) > 25 else "")
+                      + "\n-# `!sortie @x raison` pour le sortir, `!note @x garde` pour le garder."] if presents else [])
+    if partis:
+        bloc_inactifs.append("🧹 **Partis du serveur, lien encore à leur nom** : "
+                             + " · ".join(f"{nom} `!lien {uid} retirer`" for uid, nom in partis[:10]))
     if not a_dire:
         return bloc_inactifs, []
     out = [f"🚪 **Sorties** (compte 1 : avertis à {AVERTIR_APRES_H} h, sortie {SORTIE_APRES_AVERTISSEMENT_H} h après)"]

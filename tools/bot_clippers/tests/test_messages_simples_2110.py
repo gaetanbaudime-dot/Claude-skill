@@ -91,3 +91,27 @@ class SupportTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class EnRoute2410Tests(unittest.TestCase):
+    """24/10 (« ⛔ 0 place », 15 liens promis) : un lien n'est promis qu'une fois le compte 1 créé, et jamais à un sorti."""
+    def test_lien_promis_apres_le_compte_1(self):
+        from unittest.mock import patch
+        import parcours
+        fiches = {"1": {"etape": 1, "creatrice": "Sophie", "dates": {"1": "2026-10-18T10:00:00+00:00"}},
+                  "2": {"etape": 2, "creatrice": "Sophie", "dates": {"1": "x", "1_fait": "2026-10-20T10:00:00+00:00", "2": "y"}},
+                  "3": {"etape": 2, "creatrice": "Sophie", "dates": {"1_fait": "z"}}}
+        registre = {"1": {}, "2": {}}
+        ancien = dict(parcours._deps)
+        parcours._deps.update(FICHIER_EQUIPES="equipes.json", lire_json=lambda f, d: registre)
+        try:
+            with patch.object(parcours, "_lire", return_value=fiches), \
+                    patch.object(places.onboarding, "_lire_etat", return_value={"clippers": {}}), \
+                    patch.object(places.paie_clics, "actif", return_value=False):
+                route = {r["uid"]: r for r in places.en_route()}
+        finally:
+            parcours._deps.clear()
+            parcours._deps.update(ancien)
+        self.assertFalse(route["1"]["lien_du"])                              # compte 1 pas créé : pas de lien réservé
+        self.assertTrue(route["2"]["lien_du"])
+        self.assertNotIn("3", route)                                         # hors registre : sorti de l'équipe

@@ -185,10 +185,31 @@ class DepartAPI:
         liens = await p.liens_gaml()
         if not getattr(liens, 'complete', False):
             raise Bloque('Inventaire GAML incomplet')
-        locaux = {lid for lid, info in p._lire().get('liens', {}).items() if str(info.get('uid') or '') == uid}
-        locaux.update(l['id'] for l in liens if str(l.get('note') or '') in (f'Clipping UID:{uid}', f'X Clipping UID:{uid}'))
-        if not locaux <= {l['id'] for l in liens}:
-            raise Bloque('Lien local absent de GAML : rapprochement requis')
+        d = p._lire()
+        gaml = {str(l['id']) for l in liens}
+        locaux = {str(lid) for lid, info in d.get('liens', {}).items() if str(info.get('uid') or '') == uid}
+        locaux.update(str(l['id']) for l in liens if str(l.get('note') or '') in (f'Clipping UID:{uid}', f'X Clipping UID:{uid}'))
+        # 24/10 (Meiji, Randii : « !sortie » retenue, « Lien local absent de GAML ») : un lien local absent de GAML ne bloque plus
+        # la sortie quand il est PROUVÉ effacé (déjà archivé, marqué supprime_gaml, ou 404 du détail). Il est archivé ici, ses
+        # visites dues gardées (garder_dus) : il ne peut plus rien ramener. Un doute (délai, 5xx) bloque comme avant.
+        orphelins = locaux - gaml
+        for lid in sorted(orphelins):
+            info = d.get('liens', {}).get(lid) or {}
+            if not (info.get('archive') or info.get('supprime_gaml') or await o._lien_efface_gaml(lid)):
+                raise Bloque('Lien local absent de GAML : rapprochement requis')
+        if orphelins:
+            d = p._lire()
+            for lid in orphelins:
+                info = d.setdefault('liens', {}).get(lid)
+                if info is None:
+                    continue
+                if not info.get('archive'):
+                    p.garder_dus(info, uid, d)
+                    info['archive_date'] = p._aujourdhui().isoformat()
+                info.update(archive=True, hors_clipping=True)
+            p._ecrire(d)
+            store().put('depart-orphelins:' + uid, {'liens': sorted(orphelins)})
+        locaux -= orphelins
         fiche = o._lire_etat()['clippers'].get(uid) or {}
         if not fiche.get("comptes") and not locaux:
             raise Bloque("Historique de départ vide : rapprochement requis")
