@@ -13,7 +13,7 @@ import { pilotage } from "@/lib/pilotage";
 import { pilotageEquipe } from "@/lib/classement";
 import { semaine } from "@/lib/activite";
 import { suiviIg } from "@/lib/igSource";
-import { appliquerIg } from "@/lib/igSuivi";
+import { appliquerIg, porteursDeLien } from "@/lib/igSuivi";
 import { aujourdhuiParis } from "@/lib/dates";
 
 export const dynamic = "force-dynamic";
@@ -30,7 +30,8 @@ export async function GET(_req: Request, { params }: { params: { token: string }
     // 24/10 : la liste part du LOG DASHBOARD (Gérant), la fiche du bot donne les n° pour corriger un @ (lib/comptesReels)
     const jour = stats?.aujourdhui || aujourdhuiParis();
     const ig = await suiviIg(jour).catch(() => null);                    // 24/10 : chiffres du suivi RapidAPI (lib/igSuivi)
-    const comptes = comptesAffiches(comptesReels(c.prenom, m.comptes, stats?.comptes ?? null).map((x) => appliquerIg(x, ig, jour)));
+    const liens = porteursDeLien(stats?.comptes ?? []);                  // le compte qui reçoit les clics est le compte du lien
+    const comptes = comptesAffiches(comptesReels(c.prenom, m.comptes, stats?.comptes ?? null).map((x) => appliquerIg(x, ig, jour, liens)));
     // 24/10 : « Ma semaine » = ses Reels (inputs), vues, followers et clics payés des 7 derniers jours clos
     let clicsParJour: Record<string, number> | null = null;
     if (personnel) {

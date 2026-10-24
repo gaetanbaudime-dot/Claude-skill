@@ -89,7 +89,8 @@ export function semaine(comptes: CompteActivite[], aujourdhui: string, clicsParJ
   };
 }
 
-export type CadenceCompte = { handle: string; reels: number; moyenne: number | null; lu: boolean };
+/** `suspendu` : compte en « appel à faire », que le suivi ne relit plus ; il ne publie rien, il compte pour 0 (« comptes en règle »). */
+export type CadenceCompte = { handle: string; reels: number; moyenne: number | null; lu: boolean; suspendu?: boolean };
 export type ReelsPrime = {
   debut: string; fin: string;
   joursEcoules: number;           // jours clos de la période (aujourd'hui exclu)
@@ -112,8 +113,9 @@ export function reelsPrime(comptes: CompteActivite[], debut: string, fin: string
   for (let j = debut; j <= dernier; j = decaler(j, 1)) jours.push(j);
   const parCompte: CadenceCompte[] = croissance.map((c) => {
     const reels = jours.reduce((t, j) => t + ((c.jours || {})[j] || 0), 0);
-    const lu = reelsMesures(c, debut);
-    return { handle: c.handle, reels, lu, moyenne: lu && jours.length ? Math.round((reels / jours.length) * 10) / 10 : null };
+    const suspendu = !reelsMesures(c, debut) && plat(c.etat).includes("appel");
+    const lu = suspendu || reelsMesures(c, debut);
+    return { handle: c.handle, reels, lu, suspendu, moyenne: lu && jours.length ? Math.round((reels / jours.length) * 10) / 10 : null };
   }).sort((a, b) => Number(b.lu) - Number(a.lu) || (b.moyenne ?? 0) - (a.moyenne ?? 0));
   const lus = parCompte.filter((c) => c.lu);
   const deux = parCompte.slice(0, COMPTES_CROISSANCE);
@@ -129,7 +131,7 @@ export function reelsPrime(comptes: CompteActivite[], debut: string, fin: string
   return {
     debut, fin, joursEcoules: jours.length, reels: parCompte.reduce((t, c) => t + c.reels, 0),
     moyenne, parCompte, comptes: croissance.length, manque,
-    mesure: comptes.some((c) => c.jours !== undefined) && lus.length > 0,
+    mesure: comptes.some((c) => c.jours !== undefined) && lus.some((c) => !c.suspendu),   // un compte suspendu n'est pas « lu »
   };
 }
 

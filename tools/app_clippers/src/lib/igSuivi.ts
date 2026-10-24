@@ -70,14 +70,24 @@ export function lireIgJours(lignes: string[][], depuis: string): Map<string, Rec
   return out;
 }
 
-/** Un compte qui publie des Reels publics est un compte de croissance, quel que soit son n° dans la fiche du bot (le 24/10, le
- *  compte « callistachloe.prv » de Caroline, n° 3 donc marqué privé, publiait 7 Reels par semaine). Privé sur Instagram : privé.
- *  Sinon, la fiche du bot décide (un compte privé « ouvert » sans Reel, comme celui de Romaric, reste le compte du lien). */
-export function roleIg(roleFiche: string | undefined, ig?: IgCompte): string {
+/** Le rôle d'un compte, d'après ce qu'il fait :
+ *  1. il porte le lien GAML du clipper (il reçoit des clics) : c'est le compte privé, même ouvert et même s'il a publié des Reels
+ *     (le 24/10, le compte du lien de Mathieu, ouvert, avait 6 Reels début octobre) ;
+ *  2. privé sur Instagram : privé ;
+ *  3. il a publié des Reels publics ces 7 derniers jours : croissance, quel que soit son n° dans la fiche du bot (le 24/10, le
+ *     compte n° 3 de Caroline, donc marqué privé, publiait 7 Reels par semaine) ;
+ *  4. sinon, la fiche du bot décide. */
+export function roleIg(roleFiche: string | undefined, ig?: IgCompte, porteLien = false): string {
+  if (porteLien) return "privé";
   if (!ig || ig.statut === "introuvable") return roleFiche || "";
   if (ig.statut === "prive") return "privé";
-  if ((ig.reels30 ?? 0) > 0 || (ig.reels7 ?? 0) > 0) return "croissance";
+  if ((ig.reels7 ?? 0) > 0) return "croissance";
   return roleFiche || "";
+}
+
+/** Les @ qui reçoivent des clics GAML (« Clics 7 j » du pilotage) : les comptes qui portent le lien. */
+export function porteursDeLien(comptes: { handle: string; clics7: number | null; clicsHier?: number | null }[]): Set<string> {
+  return new Set(comptes.filter((c) => (c.clics7 ?? 0) > 0 || (c.clicsHier ?? 0) > 0).map((c) => cleIg(c.handle)));
 }
 
 /** « aujourd'hui », « hier », « il y a 3 j » ou « aucun » : le format du bot, lu par alerteMesure. */
@@ -91,9 +101,10 @@ export function dernierReelRelatif(iso: string, aujourdhui: string): string {
 type Base = { handle: string; followers: number | null; reels7: number | null; vues7: number | null; role?: string; jours?: Record<string, number>; mesure?: string; dernierReel?: string };
 
 /** Les chiffres RapidAPI remplacent ceux de l'ancien relevé pour un compte que RapidAPI connaît ; sinon rien ne change. */
-export function appliquerIg<T extends Base>(c: T, ig: IgSuivi | null, aujourdhui: string): T {
+export function appliquerIg<T extends Base>(c: T, ig: IgSuivi | null, aujourdhui: string, liens?: Set<string>): T {
+  const porteLien = Boolean(liens?.has(cleIg(c.handle)));
   const x = ig?.comptes.get(cleIg(c.handle));
-  if (!ig || !x) return c;
+  if (!ig || !x) return porteLien && c.role !== "privé" ? { ...c, role: "privé" } : c;
   if (x.statut === "introuvable") return { ...c, mesure: "introuvable (RapidAPI)" };
   const prive = x.statut === "prive";
   return {
@@ -102,7 +113,7 @@ export function appliquerIg<T extends Base>(c: T, ig: IgSuivi | null, aujourdhui
     reels7: prive ? c.reels7 : x.reels7,
     vues7: prive ? c.vues7 : x.vues7,
     jours: prive ? c.jours : (ig.jours.get(cleIg(c.handle)) || ig.jours.get(x.handle) || {}),
-    role: roleIg(c.role, x),
+    role: roleIg(c.role, x, porteLien),
     mesure: prive ? "privé (RapidAPI)" : "lu (RapidAPI)",
     dernierReel: prive ? (c.dernierReel || "") : dernierReelRelatif(x.dernierReel, aujourdhui),
   };

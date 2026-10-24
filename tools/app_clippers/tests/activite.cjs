@@ -73,6 +73,17 @@ assert.equal(p.manque, 'deuxieme_compte'); assert.equal(p.moyenne, 0);
 // Le 2e compte n'est pas lu par le bot : on ne conclut pas
 p = a.reelsPrime([fort, { ...vide, reels7: null }], '2026-10-20', '2026-11-04', auj);
 assert.equal(p.manque, 'deuxieme_non_lu'); assert.equal(p.moyenne, null); assert.equal(p.mesure, true);
+// Le 2e compte est suspendu (« appel à faire ») : le suivi ne le relit plus, il ne publie rien, il compte pour 0 (« comptes en
+// règle »), on conclut quand même (le cas de 3 clippers le 24/10)
+const suspendu = { ...vide, handle: 'susp', etat: 'Appel à faire', reels7: null };
+p = a.reelsPrime([fort, suspendu], '2026-10-20', '2026-11-04', auj);
+assert.equal(p.manque, ''); assert.equal(p.moyenne, 0); assert.equal(p.mesure, true);
+eq(p.parCompte.map(c => [c.handle, c.moyenne, Boolean(c.suspendu)]), [['fort', 6, false], ['susp', 0, true]]);
+// Deux bons comptes et un suspendu : on garde les 2 bons
+p = a.reelsPrime([suspendu, fort, { ...fort, handle: 'fort2' }], '2026-10-20', '2026-11-04', auj);
+assert.equal(p.moyenne, 6); eq(p.parCompte.slice(0, 2).map(c => c.handle), ['fort', 'fort2']);
+// Un compte suspendu seul ne fait pas un clipper « suivi »
+assert.equal(a.reelsPrime([suspendu, { ...suspendu, handle: 'susp2' }], '2026-10-20', '2026-11-04', auj).mesure, false);
 p = a.reelsPrime([croissance1], '2026-10-24', '2026-11-04', auj);
 assert.equal(p.joursEcoules, 0); assert.equal(p.moyenne, null);
 p = a.reelsPrime([croissance1], '2026-10-05', '2026-10-19', auj);           // période close : s'arrête à sa fin
@@ -87,4 +98,4 @@ e = a.evaluerPrime(9.5, 150);
 assert.equal(e.atteint, null); assert.equal(e.paliers[0].okReels, true); assert.equal(e.paliers[0].manqueClics, 50);
 e = a.evaluerPrime(null, null);
 assert.equal(e.atteint, null); assert.equal(e.paliers[0].okReels, false);
-console.log('Activité : colonne du bot, 7 jours clos, repli sans colonne, prime sur les comptes de croissance et paliers vérifiés.');
+console.log('Activité : colonne du bot, 7 jours clos, repli sans colonne, prime sur les comptes de croissance (suspendus à 0) et paliers vérifiés.');

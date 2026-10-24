@@ -8,7 +8,7 @@ import { comptesAffiches } from "@/lib/comptesVisibles";
 import { comptesReels } from "@/lib/comptesReels";
 import { pilotage } from "@/lib/pilotage";
 import { suiviIg } from "@/lib/igSource";
-import { appliquerIg } from "@/lib/igSuivi";
+import { appliquerIg, porteursDeLien } from "@/lib/igSuivi";
 import { reelsPrime } from "@/lib/activite";
 import { aujourdhuiParis } from "@/lib/dates";
 import { periodeEnCours } from "@/lib/paie";
@@ -24,7 +24,8 @@ export async function GET(_req: Request, { params }: { params: { token: string }
     const p = periodeEnCours(aujourdhui);
     // 24/10 : les mêmes comptes que l'onglet Comptes (LOG DASHBOARD, lib/comptesReels) et les chiffres du suivi RapidAPI
     const [{ comptes }, stats, ig] = await Promise.all([mesComptes(c.cle), pilotage().catch(() => null), suiviIg(aujourdhui).catch(() => null)]);
-    const miens = comptesAffiches(comptesReels(c.prenom, comptes, stats?.comptes ?? null).map((x) => appliquerIg(x, ig, aujourdhui)));
+    const liens = porteursDeLien(stats?.comptes ?? []);
+    const miens = comptesAffiches(comptesReels(c.prenom, comptes, stats?.comptes ?? null).map((x) => appliquerIg(x, ig, aujourdhui, liens)));
     return NextResponse.json(reelsPrime(miens, p.debut, p.fin, aujourdhui), { headers: ENTETES });
   } catch (e) {
     return NextResponse.json({ erreur: "Reels en cours de mise à jour", detail: (e as Error).message }, { status: 503, headers: ENTETES });
