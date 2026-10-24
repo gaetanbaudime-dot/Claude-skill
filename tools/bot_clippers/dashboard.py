@@ -1362,6 +1362,26 @@ def _reels_recents(ctx: _Ctx, L: dict) -> tuple:
     return rh, r7, (vues if n else (0 if lu and r7 == 0 else None))
 
 
+REELS_PAR_JOUR_JOURS = 17                                               # une période de paie (16 j au plus) + aujourd'hui
+
+
+def reels_par_jour(serie: dict, aujourdhui: date, jours: int = REELS_PAR_JOUR_JOURS) -> dict:
+    """24/10 (Gaëtan : « afficher la cadence sur les sept derniers jours » et l'objectif de la prime volume dans l'app des clippers) :
+    {jour à Paris « AAAA-MM-JJ » : Reels publiés ce jour-là} sur les `jours` jours finissant `aujourdhui`, d'après les Reels vus par
+    le bot (un minimum, comme lignes_reels). Les jours sans Reel sont absents. Pur, testé."""
+    debut = aujourdhui - timedelta(days=jours - 1)
+    reels = (serie or {}).get("reels") if isinstance((serie or {}).get("reels"), dict) else {}
+    out = {}
+    for x in reels.values():
+        p = _instant(x.get("publie")) if isinstance(x, dict) else None
+        if p is None:
+            continue
+        j = _paris(p).date()
+        if debut <= j <= aujourdhui:
+            out[j.isoformat()] = out.get(j.isoformat(), 0) + 1
+    return dict(sorted(out.items()))
+
+
 REELS_JOURS = 15                                                         # 20/10 (Gaëtan : cards « Reels 15 j » et « Vues 15 j » du Cockpit)
 
 
@@ -1710,7 +1730,8 @@ def _resultat(ctx: _Ctx, rows: list, kinds: list, comptes_l: list, creatrices: s
                                    for c, L_cr in ((L["c"], L["cr_nom"]) for L in comptes_l) if c.get("handle")}
         pil["chiffres"] = {_cle(L["c"].get("handle")): {"followers": L.get("followers"), "r7": L.get("r7"),
                                                         "v7": _vues_mesurees(L)[0],
-                                                        "followers_verified_at": L.get("followers_verified_at") if L.get("followers") is not None else ""}
+                                                        "followers_verified_at": L.get("followers_verified_at") if L.get("followers") is not None else "",
+                                                        "jours": reels_par_jour(L.get("serie"), ctx.j0)}   # 24/10 : app clippers
                            for L in comptes_l if L["c"].get("handle")}
     except Exception as erreur:                                          # noqa: BLE001
         journal.warning("Pilotage : tables non construites (%s)", erreur)

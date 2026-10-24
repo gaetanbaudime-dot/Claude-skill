@@ -9,6 +9,8 @@ import { demanderPseudo, mesComptes, mesDemandes, nettoyerHandle } from "@/lib/c
 import { comptesAffiches } from "@/lib/comptesVisibles";
 import { pilotage } from "@/lib/pilotage";
 import { pilotageEquipe } from "@/lib/classement";
+import { semaine } from "@/lib/activite";
+import { aujourdhuiParis } from "@/lib/dates";
 
 export const dynamic = "force-dynamic";
 const ENTETES = { "Cache-Control": "private, no-store" };
@@ -21,7 +23,15 @@ export async function GET(_req: Request, { params }: { params: { token: string }
     const [m, demandes, stats] = await Promise.all([mesComptes(c.cle), mesDemandes(c.cle), pilotage().catch(() => null)]);
     const parcours = m.comptes.filter(x => x.n >= 1 && x.n <= 3);
     const personnel = stats ? pilotageEquipe(stats, [{ prenom: c.prenom, creatrice: c.creatrice, comptes: parcours }]) : null;
-    return NextResponse.json({ comptes: comptesAffiches(m.comptes), tl: m.tl, demandes, pilotage: personnel }, { headers: ENTETES });
+    const comptes = comptesAffiches(m.comptes);
+    // 24/10 : « Ma semaine » = ses Reels (inputs), vues, followers et clics payés des 7 derniers jours clos
+    let clicsParJour: Record<string, number> | null = null;
+    if (personnel) {
+      clicsParJour = {};
+      for (const k of personnel.clics) if (k.axe === "Horizontal" && k.source === "Clipper") clicsParJour[k.jour] = (clicsParJour[k.jour] || 0) + k.visites;
+    }
+    const sem = semaine(comptes, stats?.aujourdhui || aujourdhuiParis(), clicsParJour);
+    return NextResponse.json({ comptes, tl: m.tl, demandes, pilotage: personnel, semaine: sem }, { headers: ENTETES });
   } catch (e) {
     return NextResponse.json({ erreur: "comptes en cours de mise à jour", detail: (e as Error).message }, { status: 503, headers: ENTETES });
   }

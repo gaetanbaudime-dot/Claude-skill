@@ -8,13 +8,15 @@
  *  l'applique avec la règle de `!pseudo` (classeur, fiche, scan) et écrit « fait » ou « refusé » avec la raison. L'app n'écrit
  *  jamais le classeur elle-même. */
 import { ajouterLignes, assurerOnglet, lirePlage, maintenantParis, tableur } from "./usage";
+import { lireJours } from "./activite";
 
 export const ONGLET_COMPTES_APP = "Comptes app";
 export const ONGLET_PSEUDOS = "Pseudos app";
 const ENTETE_PSEUDOS = ["Date", "Clé app", "N°", "Nouveau @", "Statut", "Détail"];
 
-/** `role` : colonne M « Rôle compte » publiée par le bot (« privé » = le compte au lien GAML, « croissance » sinon). */
-export type CompteApp = { n: number; handle: string; etat: string; creatrice: string; followers: number | null; reels7: number | null; vues7: number | null; followersVerifiesLe?: string; role?: string };
+/** `role` : colonne M « Rôle compte » publiée par le bot (« privé » = le compte au lien GAML, « croissance » sinon).
+ *  `jours` : colonne N « Reels par jour (17 j) » (24/10), undefined tant que le bot ne la publie pas. */
+export type CompteApp = { n: number; handle: string; etat: string; creatrice: string; followers: number | null; reels7: number | null; vues7: number | null; followersVerifiesLe?: string; role?: string; jours?: Record<string, number> };
 export type MembreEquipe = { cle: string; prenom: string; creatrice: string; comptes: CompteApp[] };
 export type Demande = { n: number; handle: string; statut: string; detail: string; date: string };
 
@@ -30,12 +32,15 @@ let cache: { t: number; lignes: Ligne[] } | null = null;
 
 async function lignes(): Promise<Ligne[]> {
   if (cache && Date.now() - cache.t < 2 * 60 * 1000) return cache.lignes;
-  const brut = await lirePlage(await tableur(), `'${ONGLET_COMPTES_APP}'!A2:M`);
+  const tout = await lirePlage(await tableur(), `'${ONGLET_COMPTES_APP}'!A1:N`);
+  // L'API Sheets coupe les cellules vides en fin de ligne : seul l'en-tête dit si la colonne N est publiée
+  const avecJours = String(tout[0]?.[13] || "").startsWith("Reels par jour");
+  const brut = tout.slice(1);
   const l = brut.filter((r) => (r[0] || "").trim()).map((r) => ({
     cle: (r[0] || "").trim(), prenom: (r[1] || "").trim(), cleTl: (r[9] || "").trim(), prenomTl: (r[10] || "").trim(),
     compte: (r[4] || "").trim() ? { n: parseInt(r[3] || "0", 10) || 0, handle: (r[4] || "").trim(), etat: (r[5] || "").trim(),
       creatrice: (r[2] || "").trim(), followers: nb(r[6]), reels7: nb(r[7]), vues7: nb(r[8]), followersVerifiesLe: (r[11] || "").trim(),
-      role: (r[12] || "").trim() } : null,
+      role: (r[12] || "").trim(), jours: avecJours ? lireJours(r[13] || "") : undefined } : null,
   }));
   cache = { t: Date.now(), lignes: l };
   return l;

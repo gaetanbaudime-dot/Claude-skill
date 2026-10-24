@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { signaler } from "@/lib/signal";
+import PrimeVolume from "./PrimeVolume";
 
 type Jour = { jour: string; visites: number; complet: boolean };
 type Bloc = { debut: string; fin: string; paie: string; libelle: string; libellePaie: string; visites: number; montant: number; complet: boolean };
@@ -250,6 +251,9 @@ export default function VersementsTab({ jeton }: { jeton: string }) {
         </div>
         {v?.partiel && <div className="text-[12px] text-amber-300/90 mt-3">Chiffres en cours de mise à jour : certains jours ne sont pas encore comptés.</div>}
       </div>
+
+      {/* 24/10 : l'objectif de la prime volume (Reels + clics), pour ceux qui sont payés au clic */}
+      {v && !v.fixe ? <PrimeVolume jeton={jeton} clics={v.periode.complet || v.periode.visites ? v.periode.visites : null} libelle={v.periode.libelle} /> : null}
 
       <div className="carte apparait-2 p-4">
         <div className="flex items-baseline justify-between mb-1">

@@ -1,7 +1,7 @@
 /** Accès Google (Drive, Sheets) avec le compte de service de l'agence : jeton OAuth signé en RS256, mis en cache 50 minutes. */
 import { createSign } from "crypto";
 
-type Compte = { client_email: string; private_key: string };
+type Compte = { client_email: string; private_key: string; private_key_id?: string };
 let jetonCache: { valeur: string; expire: number } | null = null;
 
 function compte(): Compte {
@@ -31,7 +31,12 @@ export async function jetonGoogle(): Promise<string> {
     body: new URLSearchParams({ grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer", assertion: `${entete}.${corps}.${signature}` }),
     cache: "no-store",
   });
-  if (!r.ok) throw new Error(`Google OAuth ${r.status}`);
+  if (!r.ok) {
+    // 24/10 : la raison de Google (« invalid_grant: Invalid JWT Signature »…) et l'identifiant public de la clé, jamais la clé
+    let raison = "";
+    try { const e = (await r.json()) as { error?: string; error_description?: string }; raison = [e.error, e.error_description].filter(Boolean).join(": "); } catch { /* corps illisible */ }
+    throw new Error(`Google OAuth ${r.status}${raison ? ` ${raison}` : ""}${c.private_key_id ? ` (clé ${c.private_key_id.slice(0, 8)}…)` : ""}`);
+  }
   const d = (await r.json()) as { access_token: string; expires_in: number };
   jetonCache = { valeur: d.access_token, expire: Date.now() + Math.min(d.expires_in - 120, 3000) * 1000 };
   return d.access_token;

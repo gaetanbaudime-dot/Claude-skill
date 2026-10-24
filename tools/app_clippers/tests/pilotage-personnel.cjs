@@ -13,6 +13,8 @@ function load(file, deps = {}) {
 const calc = load('components/pilotage/calc.ts');
 const model = load('lib/classement.ts', { '@/components/pilotage/calc': calc });
 const visibles = load('lib/comptesVisibles.ts');
+const dates = load('lib/dates.ts');
+const activite = load('lib/activite.ts', { './dates': dates });
 const me = { prenom: 'Caroline', creatrice: 'Chloé', cle: 'caroline' };
 const compte = (handle, n, gerant) => ({ handle, n, numero: n, gerant, creatrice: 'Chloé', axe: 'Horizontal', type: 'Clipper', etat: 'GOOD' });
 const mine = [1, 2, 3, 4].map(n => compte('mine'+n, n, 'Caroline'));
@@ -29,6 +31,8 @@ const route = load('app/api/k/[token]/comptes/route.ts', {
   '@/lib/pilotage': { pilotage: async () => { reads++; if (fail) throw Error('Sheets unavailable'); return data; } },
   '@/lib/classement': model,
   '@/lib/comptesVisibles': visibles,
+  '@/lib/activite': activite,
+  '@/lib/dates': dates,
 });
 (async () => {
   let r = await route.GET({}, { params: { token: 'invalid-token' } });
@@ -38,10 +42,13 @@ const route = load('app/api/k/[token]/comptes/route.ts', {
   assert.equal(r.body.pilotage.clippers.length, 1); assert.equal(r.body.pilotage.clippers[0].prenom, 'Caroline');
   assert.ok(r.body.pilotage.comptes.every(c => c.gerant === 'Caroline' && c.numero <= 3));
   assert.ok(r.body.pilotage.clics.every(c => c.qui === 'Caroline'));
+  assert.equal(r.body.semaine.clics, 10);                                          // ses 10 visites du 16/10, pas celles de Romaric
+  assert.equal(r.body.semaine.jours.length, 7);
   assert.equal(r.body.pilotage.subs.length, 0); assert.equal(r.body.pilotage.boutons.length, 0);
   assert.equal(r.headers['Cache-Control'], 'private, no-store');
   fail = true;
   r = await route.GET({}, { params: { token: 'own-token' } });
   assert.equal(r.status, 200); assert.equal(r.body.pilotage, null); assert.equal(r.body.comptes.length, 4);
+  assert.equal(r.body.semaine.clics, null);                                        // panne du pilotage : « – », jamais 0
   console.log('Pilotage personnel : jeton, propriétaire, limite 3 du pilotage, liste complète des comptes, absence de données tierces et panne de source vérifiés.');
 })().catch(e => { console.error(e); process.exitCode = 1; });
