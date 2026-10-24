@@ -35,5 +35,21 @@
     "expulser": true,
     "metricool": true,
     "raison": "virée (09/10, Gaëtan : « On vire Tara ») : expulsée, comptes créés à mettre Metricool, liens et lignes chez Rianah Metricool, visites dues gardées sur la prochaine paie"
+  },
+  {
+    "id": "stephane-2410",
+    "prenom": "Stéphane",
+    "creatrice": "Maddie",
+    "signe_avant": "2026-10-24",
+    "expulser": true,
+    "raison": "viré (24/10, Gaëtan : « Stéphane est viré ») : expulsé, comptes rendus au vivier, lien libéré pour le suivant, visites dues gardées sur la prochaine paie"
+  },
+  {
+    "id": "lucas-2410",
+    "prenom": "Lucas",
+    "creatrice": "Chloé",
+    "signe_avant": "2026-10-24",
+    "expulser": true,
+    "raison": "viré (24/10, Gaëtan : « Lucas aussi ») : expulsé, comptes rendus au vivier, lien libéré pour le suivant, visites dues gardées sur la prochaine paie"
   }
 ]
