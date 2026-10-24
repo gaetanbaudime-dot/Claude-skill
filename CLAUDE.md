@@ -18,6 +18,10 @@ Ce repo contient le second cerveau de Gaëtan (`second-brain/`, vault Obsidian s
 
 Lire `second-brain/_MOC.md` + les MOC concernés avant d'écrire → fusionner plutôt que dupliquer → cross-linker dans les deux sens et mettre à jour les MOC → audit wikilinks (zéro fantôme) → scan sécurité → commit français descriptif → push avec retry. Le hub business à lire en premier : `second-brain/00-Contexte/LTP Models.md`.
 
+## Pull requests : Claude merge lui-même
+
+Consigne de Gaëtan (24/10/2026) : « tu merges toi-même désormais, sur l'ensemble de mes conversations Claude ». Toute session ouvre sa PR, fait passer les tests, puis la **merge elle-même** (`gh api -X PUT repos/<dépôt>/pulls/<n>/merge`) sans attendre Gaëtan, et lui donne le résultat. Railway se redéploie depuis `main` : vérifier le déploiement après le merge. Si la plateforme refuse un merge, le dire tout de suite et ne pas contourner.
+
 
 **Reels des créatrices (OpusClip → Metricool)** : toute session qui touche à OpusClip, à Metricool ou aux Reels des créatrices charge la skill `reels-opusclip-metricool` (`.claude/skills/reels-opusclip-metricool/SKILL.md`, état dans `etat.json` à côté) : consignes de Gaëtan, identifiants, pièges et avancement y sont, la session n'a rien à redemander.
 
