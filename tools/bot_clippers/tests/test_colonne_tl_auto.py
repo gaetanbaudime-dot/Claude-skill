@@ -20,6 +20,7 @@ FICHES = {
     "8": {"prenom": "Yves", "creatrice": "Sarah", "chef": "Sarah"},
     "9": {"prenom": "Yan", "creatrice": "Sarah", "chef": "Sarah"},
     "10": {"prenom": "Marc", "creatrice": "Sophie", "manager_de": ["Sophie"]},
+    "11": {"prenom": "Rianah", "creatrice": "Chloé"},
 }
 
 
@@ -60,6 +61,18 @@ class ColonneACompleter(unittest.TestCase):
         comptes = [ligne("Jamel", "Sophie", 29, fusions={"tl": (29, 31)}), ligne("Jamel", "Sophie", 30)]
         r = E.colonne_a_completer(comptes, FICHES, exclure=lambda c: c["ligne"] == 30)
         self.assertEqual([], r)
+
+    def test_rianah_exclue_de_la_paie_au_clic_na_pas_de_tl(self):
+        # 24/10 : « Rianah (Metricool) → Clarisse » écrit à tort sur 6 lignes de Chloé : ses comptes sont ceux de l'agence
+        comptes = [ligne("Rianah (Metricool)", "Chloé", 23), ligne("Rianah Clipping Chloé", "Chloé", 7), ligne("Rianah Metricool", "Chloé", 9)]
+        with patch.dict(E._deps, {"exclus": ["Rianah"]}):
+            self.assertEqual([], E.colonne_a_completer(comptes, FICHES))
+        self.assertEqual(3, len(E.colonne_a_completer(comptes, FICHES)))        # sans l'exclusion, rien ne l'arrêtait : le test garde le piège
+
+    def test_regime_fixe_na_pas_de_tl(self):
+        with patch.dict(E._deps, {"regime": lambda uid: "fixe" if str(uid) == "2" else "clic"}):
+            self.assertEqual([], E.colonne_a_completer([ligne("Jamel", "Sophie", 29)], FICHES))
+            self.assertEqual(1, len(E.colonne_a_completer([ligne("Pierre", "Sophie", 26)], FICHES)))
 
     def test_plafond_par_passage(self):
         comptes = [ligne("Jamel", "Sophie", n) for n in range(2, 60)]

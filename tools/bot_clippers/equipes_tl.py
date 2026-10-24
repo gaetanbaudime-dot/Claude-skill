@@ -711,13 +711,15 @@ def organigramme_va(texte: str = None, fiches=None) -> dict:
 
 
 def _tl_du_clipper(gerant, creatrice, fiches: dict, tl_de: dict) -> str:
-    """Le prénom du TL à écrire sur les lignes de `gerant`, ou "" au moindre doute : le Gérant n'est qu'un membre du registre, ni
-    admin, ni manager, ni TL, de la créatrice de la ligne, et cette créatrice a exactement un TL dont le prénom retrouve ce TL."""
+    """Le prénom du TL à écrire sur les lignes de `gerant`, ou "" au moindre doute : le Gérant n'est qu'un VA au sens de la paie (registre,
+    au clic, non exclu : pas Rianah), ni admin, ni manager, ni TL, de la créatrice de la ligne, et cette créatrice a exactement un TL dont le prénom retrouve ce TL."""
     uid = uid_par_nom(gerant, fiches)
     if not uid or not _n(creatrice):
         return ""
     f = fiches.get(uid) or {}
     if uid in _admins() or _a_role_manager(_membre(uid)) or str(f.get("chef") or "").strip() or f.get("manager_de"):
+        return ""
+    if _exclu(uid, f) or _regime(uid) != "clic":                        # 24/10 : Rianah (CLICS_EXCLURE) et le fixe ne sont jamais VA d'une équipe
         return ""
     if _n(f.get("creatrice")) != _n(creatrice):
         return ""
