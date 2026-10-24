@@ -634,6 +634,7 @@ async def _renommer_compte(uid: str, ancien: str, nouveau: str, registre_process
     cle_job = f"renommage:{uid}:{ancien_n}:{nouveau_n}"
     job = registre_process.get(cle_job)
     propres = {normaliser_handle(h).lower() for h in fiche.get("comptes", [])}
+    propres |= {normaliser_handle(h).lower() for h in handles_telephones(fiche)}       # 24/10 : ses comptes des autres créatrices
     if ancien_n not in propres and not (job and nouveau_n in propres):
         return "ce compte n'est pas dans tes comptes"
     proprietaires = _proprietaires()
@@ -673,6 +674,10 @@ async def _renommer_compte(uid: str, ancien: str, nouveau: str, registre_process
     for a in fiche.get("acces") or []:
         if isinstance(a, dict) and normaliser_handle(a.get("handle")).lower() == ancien_n:
             a["handle"] = nouveau_n
+    for t in (fiche.get("telephones") or {}).values():                  # 24/10 : un compte d'une autre créatrice suit aussi
+        for a in (t or {}).get("acces") or [] if isinstance(t, dict) else []:
+            if isinstance(a, dict) and normaliser_handle(a.get("handle")).lower() == ancien_n:
+                a["handle"] = nouveau_n
     livres = etat.setdefault("livres", {})
     for cle in [k for k in livres if normaliser_handle(k).lower() == ancien_n]:
         livres[nouveau_n] = livres.pop(cle)
@@ -1569,6 +1574,20 @@ def _cle_handle(h) -> str:
     return normaliser_handle(h).lower()
 
 
+def handles_telephones(fiche: dict, creatrice: str = "") -> list:
+    """24/10 : les @ des comptes d'un clipper multi chez ses AUTRES créatrices (fiche « telephones »), dans l'ordre de leurs accès ;
+    seulement ceux de `creatrice` si elle est donnée."""
+    out = []
+    for c, t in ((fiche or {}).get("telephones") or {}).items():
+        if creatrice and _norm(c) != _norm(creatrice):
+            continue
+        for a in (t or {}).get("acces") or [] if isinstance(t, dict) else []:
+            h = a.get("handle") if isinstance(a, dict) else a
+            if isinstance(h, str) and h:
+                out.append(h)
+    return out
+
+
 def _proprietaires() -> dict:
     """Contrat C6(d) (revue CLICS du 09/10) : {@ normalisé : {uid}} — qui détient chaque ligne d'après onboarding.json : la livraison
     la plus récente (`livres`, posée quand le Gérant change dans le classeur) prime, sinon les fiches (comptes, accès) qui portent ce
@@ -1583,6 +1602,7 @@ def _proprietaires() -> dict:
             continue
         hs = {h for h in fiche.get("comptes") or [] if isinstance(h, str)}
         hs |= {a.get("handle") for a in fiche.get("acces") or [] if isinstance(a, dict) and isinstance(a.get("handle"), str)}
+        hs |= set(handles_telephones(fiche))                            # 24/10 : ses comptes des autres créatrices sont à lui aussi
         for h in hs:
             if _cle_handle(h):
                 out.setdefault(_cle_handle(h), set()).add(str(uid))
@@ -2319,15 +2339,19 @@ TELEPHONE2_LIEN_ESSAI_H = 6                                             # lien G
 
 
 def message_telephone(mention: str, creatrice: str, n: int, acces: dict, videos: str = "", lien: str = "", suivant: bool = False,
-                      codes: str = "") -> str:
+                      codes: str = "", dedie: bool = False) -> str:
     """Un compte du 2e téléphone : un titre, ses identifiants, UNE action, et ce qui vient ensuite. Le compte 1 donne aussi les vidéos
-    d'origine de la créatrice ; le privé (en dernier) porte le lien GAML de cette créatrice."""
-    if n == 1:
+    d'origine de la créatrice ; le privé (en dernier) porte le lien GAML de cette créatrice.
+    24/10 (Gaëtan : « Rianah clipping Chloé, Rianah clipping Sarah : trois identités différentes ») : `dedie` = le message part dans
+    le salon de clipping de CETTE créatrice (« rianah-clipping-sarah ») : on parle de son téléphone {créatrice}, plus du « 2e »."""
+    telephone = f"ton téléphone {creatrice}" if dedie else "ton 2e téléphone"
+    if n == 1 and not dedie:
         lignes = [f"📱 {mention} **Ton 2e téléphone : {creatrice}**", f"Ton compte 1 {creatrice} :"]
     else:
-        lignes = [f"📱 {mention} **{creatrice} · ton compte {n}" + (", le privé**" if acces.get("prive") else "**")]
+        lignes = [f"{'🔒' if acces.get('prive') else '📱'} {mention} **{creatrice} · ton compte {n}"
+                  + (", le privé**" if acces.get("prive") else "**")]
     lignes.append(_bloc_acces(acces))
-    faire = "Connecte-toi dessus sur ton 2e téléphone." if acces.get("cree") else "Crée-le sur ton 2e téléphone, avec cet e-mail."
+    faire = f"Connecte-toi dessus sur {telephone}." if acces.get("cree") else f"Crée-le sur {telephone}, avec cet identifiant."
     if acces.get("prive"):
         lignes.append(faire + " Il ne publie pas de Reel.")
         lignes.append(f"Ton lien {creatrice} va dans sa bio (Modifier le profil → Liens) :\n{lien}" if lien
@@ -2369,6 +2393,114 @@ async def lien_autre_creatrice(membre, creatrice: str, handles=(), creer: bool =
     return lien
 
 
+# 24/10 (Gaëtan : « Rianah clipping Chloé dans la catégorie Chloé, Rianah clipping Sarah dans la catégorie Sarah. Trois identités
+# différentes ; trois comptes Instagram pour Sarah, trois pour Chloé ; les comptes tous les 48 heures ») : une créatrice d'un clipper
+# multi qui a son SALON DE CLIPPING (`!salon-clipping`, registre « salons_clipping ») reprend le parcours compte par compte DANS ce
+# salon : un compte, puis le suivant TELEPHONE2_ATTENTE_H heures plus tard, le privé en dernier avec le lien de cette créatrice.
+# Les messages ne portent jamais d'e-mail ni de mot de passe (_bloc_acces, règle du 17/10) : le responsable remet les accès.
+# Sans salon dédié, la file héritée reste retenue pour remise humaine (17/10), inchangée.
+_RETENUS_SALON_DEDIE: set = set()                                       # (uid, créatrice, n) déjà journalisés une fois
+
+
+def salon_telephone(uid, creatrice: str):
+    """Le salon de clipping dédié à `creatrice` pour ce clipper (dépendance « salon_telephone » du bot), sinon None."""
+    f = _deps.get("salon_telephone")
+    if f is None:
+        return None
+    try:
+        return f(str(uid), creatrice)
+    except Exception as erreur:                                         # noqa: BLE001
+        journal.warning("Salon de clipping %s de %s : %s", creatrice, uid, type(erreur).__name__)
+        return None
+
+
+async def _donner_salon_dedie(uid, membre, salon, creatrice: str, t: dict, maintenant) -> int:
+    """Un pas du parcours d'une créatrice secondaire dans son salon dédié : le compte suivant si son heure est venue, sinon le lien du
+    privé s'il manque encore. Renvoie le nombre de messages envoyés (0 ou 1)."""
+    acces, donnes = list(t.get("acces") or []), int(t.get("donnes", 0) or 0)
+    lien, texte, prive_sans_lien = t.get("lien", ""), "", False
+    if donnes < len(acces):
+        try:
+            dernier = datetime.fromisoformat(str(t.get("dernier") or ""))
+        except ValueError:
+            dernier = None
+        if dernier is not None and dernier.tzinfo is None:
+            dernier = dernier.replace(tzinfo=timezone.utc)
+        if dernier is not None and (maintenant - dernier).total_seconds() < TELEPHONE2_ATTENTE_H * 3600:
+            return 0
+        a = acces[donnes] if isinstance(acces[donnes], dict) else {"handle": str(acces[donnes])}
+        try:
+            import parcours                                             # import tardif : parcours importe onboarding
+            libre = parcours.disponibilite_prouvee(uid, a.get("handle") or "")
+        except Exception:                                               # noqa: BLE001 — sans preuve lisible, on retient
+            libre = False
+        if not libre:                                                   # même règle que le parcours principal (compte à créer)
+            cle_r = (str(uid), _norm(creatrice), donnes + 1)
+            if cle_r not in _RETENUS_SALON_DEDIE:
+                _RETENUS_SALON_DEDIE.add(cle_r)
+                journal.warning("Salon de clipping %s de %s : compte %s retenu, disponibilité Instagram non prouvée",
+                                creatrice, uid, donnes + 1)
+            return 0
+        if a.get("prive") and not lien:
+            lien = await lien_autre_creatrice(membre, creatrice, [x.get("handle") for x in acces if isinstance(x, dict)])
+            prive_sans_lien = not lien
+        videos = ""
+        if donnes == 0:
+            try:
+                videos = await lien_drive_creatrice(creatrice)
+            except Exception as erreur:                                 # noqa: BLE001
+                journal.info("Vidéos d'origine de %s : %s", creatrice, type(erreur).__name__)
+        try:
+            import parcours                                             # import tardif : parcours importe onboarding
+            codes = parcours.texte_codes()
+        except Exception:                                               # noqa: BLE001
+            codes = ""
+        texte = message_telephone(membre.mention, creatrice, donnes + 1, a, videos, lien, donnes + 1 < len(acces), codes,
+                                  dedie=True)
+    elif t.get("lien_du") and not lien:                                 # le privé est parti sans lien : on le retente
+        try:
+            essai = datetime.fromisoformat(str(t.get("lien_essai") or ""))
+        except ValueError:
+            essai = None
+        if essai is not None and essai.tzinfo is None:
+            essai = essai.replace(tzinfo=timezone.utc)
+        if essai is not None and (maintenant - essai).total_seconds() < TELEPHONE2_LIEN_ESSAI_H * 3600:
+            return 0
+        lien = await lien_autre_creatrice(membre, creatrice, [x.get("handle") for x in acces if isinstance(x, dict)])
+        texte = (f"🔗 {membre.mention} **Ton lien {creatrice} est prêt** : {lien}\n\nMets-le dans ton compte privé "
+                 f"{creatrice} : Modifier le profil → **Liens** → Ajouter un lien externe.") if lien else ""
+        if not lien:
+            etat = _lire_etat()
+            t2 = ((etat.get("clippers", {}).get(str(uid)) or {}).get("telephones") or {}).get(creatrice)
+            if isinstance(t2, dict):
+                t2["lien_essai"] = maintenant.isoformat(timespec="seconds")
+                _ecrire_etat(etat)
+            return 0
+    else:
+        return 0
+    try:
+        await salon.send(texte[:1990])
+    except (discord.Forbidden, discord.HTTPException) as erreur:
+        journal.warning("Salon de clipping %s de %s : %s", creatrice, uid, type(erreur).__name__)
+        return 0
+    etat = _lire_etat()                                                 # relu après les appels (GAML, Drive, Discord)
+    t2 = ((etat.get("clippers", {}).get(str(uid)) or {}).get("telephones") or {}).get(creatrice)
+    if isinstance(t2, dict):
+        if lien:
+            t2["lien"] = lien
+            t2.pop("lien_du", None)
+            t2.pop("lien_essai", None)
+        if donnes < len(acces):
+            t2["donnes"], t2["dernier"] = donnes + 1, maintenant.isoformat(timespec="seconds")
+            if prive_sans_lien:
+                t2["lien_du"], t2["lien_essai"] = True, maintenant.isoformat(timespec="seconds")
+        t2.pop("remise_securisee", None)
+        _ecrire_etat(etat)
+    journal.info("Salon de clipping %s de %s : %s", creatrice, uid,
+                 f"compte {donnes + 1} envoyé" if donnes < len(acces) else "lien du privé envoyé")
+    return 1
+
+
 async def donner_telephones(uid=None, maintenant=None) -> int:
     """09/10 (revue du lot L6) : chaque autre créatrice d'un clipper multi (fiche « telephones ») reçoit, dans son salon perso, UN
     compte à la fois historiquement. Les accès restant à remettre sont maintenant retenus pour remise humaine,
@@ -2384,6 +2516,12 @@ async def donner_telephones(uid=None, maintenant=None) -> int:
         if membre is None or salon is None:
             continue
         for creatrice, t in list(fiche["telephones"].items()):
+            if not isinstance(t, dict):
+                continue
+            salon_c = salon_telephone(uid_t, creatrice)
+            if salon_c is not None:                                     # 24/10 : salon de clipping dédié, le parcours reprend
+                envoyes += await _donner_salon_dedie(uid_t, membre, salon_c, creatrice, t, maintenant)
+                continue
             acces, donnes = list(t.get("acces") or []), int(t.get("donnes", 0) or 0)
             texte, lien = "", t.get("lien", "")
             if donnes < len(acces):
