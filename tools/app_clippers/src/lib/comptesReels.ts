@@ -71,7 +71,7 @@ export function alerteMesure(c: { etat: string; mesure?: string; dernierReel?: s
   if (m.startsWith("restreint")) return { texte: "Instagram limite la lecture de ce compte : chiffres partiels", grave: false };
   const abonnes = /followers non lus depuis le (\d{1,2}\/\d{1,2})/.exec(m);
   if (abonnes) return { texte: `abonnés non relus depuis le ${abonnes[1]}`, grave: false };
-  if (m.includes("reels non lus")) return { texte: "Reels pas encore lus par le bot", grave: false };
+  if (m.includes("reels non lus")) return { texte: "Reels non relus au dernier passage du bot : chiffres peut-être en retard", grave: false };
   if (plat(c.role) === "prive" || m.startsWith("prive")) return null;
   if (d === "aucun") return { texte: "aucun Reel vu par le bot", grave: false };
   const jours = /il y a (\d+) j/.exec(d);
