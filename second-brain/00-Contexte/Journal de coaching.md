@@ -22,6 +22,16 @@ tags: [contexte/coaching]
 
 ## Décisions prises
 
+### 2026-10-24 (parcours, Instagram) — Un compte toutes les 48 h pour tous ; Instagram lu par RapidAPI, Apify coupé côté bot
+
+> [!tip] Verdict
+> Tout clipper, arrivé avant ou après le 23/10, reçoit son compte 2 48 h après la création du compte 1 et son compte 3 (privé, avec le lien) 48 h après celle du compte 2, sans Reels à compter. Les 4 Reels par compte restent l'objectif, rappelé à l'ouverture du compte suivant, jamais une condition. Le bot lit Instagram par le suivi RapidAPI (GitHub Actions, 5 passages par jour) et n'appelle plus Apify ; la recherche des @ légèrement changés, la bio et le lien du privé, les légendes et la garde contre les faux 0 sont refaits avec RapidAPI.
+
+- **Demande de Gaëtan (24/10)** : « dans tous les cas, on leur donne un compte toutes les 48 heures, on arrête ce truc de quatre posts… comme ça on est sûr que le clipper ait vraiment tous ses comptes » ; « on n'utilise plus Apify, on utilise RapidAPI » ; « tout ce qui est contrôle, fraîcheur et faux chiffres, développe-le avec RapidAPI ».
+- **Fait** : PR #136 (Apify → RapidAPI dans le bot) et PR #139 (48 h pour tous, contrôles RapidAPI), mergées et déployées le 24/10 ; règles gelées mises à jour (C12 étendue, C4 et C5 retirées, journal du 24/10) dans la page maître et sa copie Notion ; base de l'assistant v23 ; annonce dans #annonces au démarrage du bot.
+- **Avocat du diable** : un clipper qui ne publie pas reçoit quand même ses comptes 2 et 3, et le stock de comptes « à créer » est le goulot actuel du recrutement. Au déploiement, tous ceux qui attendaient leurs 4 Reels depuis plus de 48 h reçoivent leur compte suivant d'un coup, s'il reste une ligne chez leur créatrice. Garde-fous restants : la sortie à 10 jours sans visite payée (L7), l'onglet « À suivre » de l'app des TL, le rapport du jour.
+- **Prédiction (24/10, revue le 07/11)** : la moitié au moins des comptes 2 et 3 remis sous la nouvelle règle ont 4 Reels ou plus dans les 7 jours qui suivent leur création. En dessous de 30 %, remettre une condition de publication sur le compte 3 seulement (celui du lien).
+
 ### 2026-10-23 (bots) — La panne Google se dit en une alerte ; les alertes et tickets répétés se regroupent
 
 > [!tip] Verdict
