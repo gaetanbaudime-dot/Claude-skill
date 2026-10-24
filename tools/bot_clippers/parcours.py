@@ -1026,6 +1026,58 @@ async def renommer(uid: str, n: int, nouveau: str) -> tuple:
     return ancien, ""
 
 
+def compte_deja_cree(uid, handle: str) -> bool:
+    """24/10 : le compte existe déjà sur Instagram (ligne du classeur hors « à créer », notée « cree » dans ses accès) : le clipper
+    s'y connecte, il ne crée rien."""
+    cle = onboarding.normaliser_handle(handle).lower()
+    onb = _onb(uid)
+    accs = [a for a in onb.get("acces") or [] if isinstance(a, dict)]
+    accs += [a for t in (onb.get("telephones") or {}).values() if isinstance(t, dict)
+             for a in t.get("acces") or [] if isinstance(a, dict)]
+    return any(onboarding.normaliser_handle(a.get("handle")).lower() == cle and a.get("cree") for a in accs)
+
+
+def disponibilite_prouvee(uid, handle: str) -> bool:
+    """La preuve que l'@ prévu est libre sur Instagram (process_pseudos.json, remplie par un opérateur) n'a de sens que pour un compte
+    À CRÉER. 24/10 (Rianah : son compte 2 Chloé existe déjà, « l'IA n'a toujours pas mis le 2e ») : un compte déjà créé passe."""
+    if compte_deja_cree(uid, handle):
+        return True
+    preuves = onboarding._deps["lire_json"](onboarding._deps["FICHIER_ONBOARDING"].parent / "process_pseudos.json", {})
+    return process_clippeur.pseudo_disponible(preuves.get(onboarding.normaliser_handle(handle).lower()) or {},
+                                              datetime.now(timezone.utc))
+
+
+async def renommer_telephone(uid: str, creatrice: str, n: int, nouveau: str) -> tuple:
+    """24/10 (Rianah : son `!pseudo 1` de son compte Sarah, tapé dans son salon Chloé, a renommé son compte 1 CHLOÉ) : le compte n
+    de ses comptes chez `creatrice` (fiche « telephones »), renommé quand la commande est tapée dans le salon de clipping de cette
+    créatrice. Mêmes gardes que `renommer` ; renvoie (ancien, raison), raison '' si c'est fait."""
+    comptes = onboarding.handles_telephones(_onb(uid), creatrice)
+    if n < 1 or n > len(comptes) or not comptes[n - 1]:
+        return "", f"pas de compte {n} {creatrice} pour toi"
+    ancien = comptes[n - 1]
+    if est_exemple(nouveau):
+        return ancien, RAISON_EXEMPLE
+    nouveau = onboarding.normaliser_handle(nouveau).lower()
+    for k, h in enumerate(comptes, start=1):
+        if k != n and h and onboarding.normaliser_handle(h).lower() == nouveau:
+            return ancien, f"c'est déjà ton compte {k} {creatrice}"
+    try:
+        raison = await onboarding.renommer_compte(uid, ancien, nouveau)
+    except Exception as erreur:                                         # noqa: BLE001
+        journal.warning("Renommage du compte %s %s de %s : %s", n, creatrice, uid, erreur)
+        raison = "le classeur ne répond pas, réessaie dans une minute"
+    if raison:
+        return ancien, raison
+    try:
+        canal = await _deps["canal_admin"]() if _deps.get("canal_admin") else None
+        if canal is not None:
+            prenom = (_lire().get(str(uid)) or {}).get("prenom") or uid
+            await canal.send(f"✏️ {prenom} · {creatrice} : compte {n} `{ancien}` → `{nouveau}` (classeur mis à jour)")
+    except Exception:                                                   # noqa: BLE001
+        pass
+    return ancien, ""
+
+
 def proprietaire(handle: str) -> tuple:
     """09/10 : (uid, n) du clipper à qui ce compte est livré (fiche d'onboarding), n = son numéro de compte ; ('', 0) sinon."""
     cle = onboarding.normaliser_handle(handle).lower()
@@ -1341,9 +1393,7 @@ async def envoyer_etape(salon, membre, n: int, pointer: bool = True) -> bool:
                     raise RuntimeError("Premier compte non neuf : rapprochement requis")
                 pseudo_propose = handle
             else:
-                preuves = onboarding._deps["lire_json"](
-                    onboarding._deps["FICHIER_ONBOARDING"].parent / "process_pseudos.json", {})
-                if not process_clippeur.pseudo_disponible(preuves.get(handle.lower()) or {}, datetime.now(timezone.utc)):
+                if not disponibilite_prouvee(uid, handle):
                     _garder_au_programme(uid, n, noter=True)
                     journal.warning("Compte retenu : disponibilité Instagram non prouvée")
                     return False
@@ -3874,20 +3924,31 @@ async def commande_pseudo(message, texte: str) -> bool:
         await message.reply(f"Écris `!pseudo`, le numéro du compte (1, 2 ou 3) et ton vrai @. Par exemple : `!pseudo 1 {EXEMPLE_PSEUDO}`")
         return True
     uid, n = str(membre.id), int(reste[0])
-    if not staff:
+    # 24/10 : tapé dans un salon de clipping d'une autre créatrice (« rianah-clipping-sarah »), le compte n est celui de CETTE créatrice
+    creatrice_salon = ""
+    if _deps.get("creatrice_du_salon"):
+        try:
+            creatrice_salon = _deps["creatrice_du_salon"](uid, getattr(message.channel, "id", None)) or ""
+        except Exception:                                               # noqa: BLE001
+            creatrice_salon = ""
+    if not staff and not creatrice_salon:
         salon = _deps["salon_perso"](uid) if _deps.get("salon_perso") else None
         if salon is None or getattr(message.channel, "id", None) != salon.id:
             await message.reply("Tape `!pseudo` dans ton salon perso.")
             return True
     nouveau = onboarding.normaliser_handle(reste[1]).lower()
-    _, raison = await renommer(uid, n, nouveau)                         # 09/10 : la même fonction que la fenêtre de création
+    if creatrice_salon:
+        _, raison = await renommer_telephone(uid, creatrice_salon, n, nouveau)
+    else:
+        _, raison = await renommer(uid, n, nouveau)                     # 09/10 : la même fonction que la fenêtre de création
     if raison == RAISON_EXEMPLE:                                        # 09/10 : `!pseudo 1 ton_identifiant` recopié
         await message.reply(f"❌ Écris le vrai @ de ton compte, par exemple : `!pseudo {n} {EXEMPLE_PSEUDO}`")
         return True
     if raison:
         await message.reply(f"❌ Pas changé : {raison}.")
         return True
-    await message.reply(f"✅ C'est noté : ton compte {n} est maintenant `{nouveau}`. Je le suis sous ce nom.")
+    quel = f"ton compte {n} {creatrice_salon}" if creatrice_salon else f"ton compte {n}"
+    await message.reply(f"✅ C'est noté : {quel} est maintenant `{nouveau}`. Je le suis sous ce nom.")
     return True
 
 

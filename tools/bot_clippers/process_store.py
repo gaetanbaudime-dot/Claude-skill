@@ -15,6 +15,27 @@ class Bloque(RuntimeError):
     pass
 
 
+# 24/10 (Gaëtan, Rianah : « C'est comme si tu avais trois personnes : Rianah Metricool, Rianah clipping Chloé, Rianah clipping
+# Sarah, sauf que tu mets le même compte Discord ») : trois places à vie PAR IDENTITÉ de clipping. Un membre sans salon de clipping
+# (cas général) garde 3 places ; le bot branche ici le nombre d'identités de clipping d'un membre (1 + ses salons de clipping).
+PLACES_PAR_IDENTITE = 3
+
+
+def _identites(uid) -> int:
+    return 1
+
+
+identites_de = _identites
+
+
+def places_a_vie(uid) -> int:
+    try:
+        n = int(identites_de(str(uid)) or 1)
+    except Exception:                                                   # noqa: BLE001 — jamais plus de places sur une erreur
+        n = 1
+    return PLACES_PAR_IDENTITE * max(1, n)
+
+
 class Store:
     def __init__(self, path):
         self.path = Path(path)
@@ -118,7 +139,7 @@ class Store:
                         raise Bloque('Réattribution interdite')
                 else:
                     nouveaux.append(h)
-            if count + len(nouveaux) > 3:
+            if count + len(nouveaux) > places_a_vie(uid):
                 raise Bloque('Trois places à vie déjà créées, réservées ou incertaines')
             for h in nouveaux:
                 ident = str(uuid4())

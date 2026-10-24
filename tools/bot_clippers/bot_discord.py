@@ -3371,6 +3371,10 @@ def nom_salon_cible(guild, membre) -> str:
     """Nom du salon perso (25/09) : le prénom seul (« thia »), ou « prenom-creatrice » si un autre signé porte le
     même prénom (deux Julien). 01/10 : homonyme aussi quand un salon à ce nom appartient déjà à quelqu'un d'autre (un candidat
     n'est pas au registre) ; si le salon au pseudo complet est lui aussi à un autre (deux homonymes), on ajoute la fin de son id."""
+    # 24/10 (Gaëtan : « Rianah clipping Chloé ») : un nom fixé au registre (`!salon-clipping`) n'est plus jamais ramené au prénom
+    fixe = _slug_salon(str(((lire_json(FICHIER_EQUIPES, {}).get(str(membre.id)) or {}).get("salon_nom")) or ""))
+    if fixe:
+        return fixe
     p = prenom_de(membre)
     homonyme = False
     for uid in lire_json(FICHIER_EQUIPES, {}):
@@ -3576,6 +3580,129 @@ def salon_perso_de(uid):
             and salon.permissions_for(membre.guild.me).send_messages):            # 23/09 : un salon où je ne peux pas écrire = 403
         return salon
     return None
+
+
+# 24/10 (Gaëtan : « un salon personnel dans la catégorie Chloé, Rianah clipping Chloé, et dans la catégorie Sarah, Rianah clipping
+# Sarah. On traite Rianah en tant que Metricool, en tant que clipping Chloé, en tant que clipping Sarah : trois identités ») : un
+# clipper multi a un salon par créatrice. Sa créatrice principale garde son salon perso, renommé « prenom-clipping-créatrice »
+# (registre « salon_nom », plus ramené au prénom au démarrage) ; chaque autre créatrice a son salon dans SA catégorie (registre
+# « salons_clipping » = {créatrice: id}) où arrivent ses comptes, son lien et où `!pseudo` vise ses comptes à elle. Le sujet du
+# salon dit « clipping-uid: », jamais « clipper-uid: » (ce marqueur désigne LE salon perso, assurer_salon_perso).
+def _salons_clipping(uid) -> dict:
+    return dict(((lire_json(FICHIER_EQUIPES, {}).get(str(uid)) or {}).get("salons_clipping")) or {})
+
+
+def salon_clipping_de(uid, creatrice: str):
+    """Le salon de clipping de `creatrice` pour ce clipper (où il voit et où j'écris), sinon None."""
+    sid = next((v for c, v in _salons_clipping(uid).items() if normaliser(c) == normaliser(creatrice or "")), None)
+    if not sid or not str(sid).isdigit():
+        return None
+    salon = client.get_channel(int(sid))
+    membre = membre_par_id(uid)
+    if not isinstance(salon, discord.TextChannel) or membre is None:
+        return None
+    if not salon.permissions_for(membre).view_channel or not salon.permissions_for(salon.guild.me).send_messages:
+        return None
+    return salon
+
+
+def creatrice_du_salon_clipping(uid, salon_id) -> str:
+    """La créatrice dont ce salon est le salon de clipping de ce clipper ('' si ce n'en est pas un)."""
+    return next((c for c, v in _salons_clipping(uid).items() if str(v) == str(salon_id or "")), "")
+
+
+def nom_salon_clipping(membre, creatrice: str) -> str:
+    return _slug_salon(f"{prenom_de(membre)} clipping {creatrice}")
+
+
+async def ouvrir_salons_clipping(membre, creatrices: list, par: str = "gaetan") -> list:
+    """Un salon par créatrice pour ce clipper (voir plus haut). Idempotent : un salon déjà ouvert est gardé (ou adopté s'il porte
+    déjà le bon nom et qu'il y a accès). Renvoie les lignes de bilan, une par créatrice."""
+    g, uid = membre.guild, str(membre.id)
+    raison = f"Salon de clipping par créatrice ({par}, 24/10)"
+    reg = lire_json(FICHIER_EQUIPES, {})
+    if uid not in reg:
+        return [f"⚠️ {membre.display_name} n'est pas au registre des signés : rien fait"]
+    principale = str(reg[uid].get("creatrice") or "")
+    telephones = ((lire_json(FICHIER_ONBOARDING, {}).get("clippers") or {}).get(uid) or {}).get("telephones") or {}
+    lignes = []
+    for creatrice in creatrices:
+        nom = nom_salon_clipping(membre, creatrice)
+        categorie = categorie_de_creatrice(g, creatrice)
+        if normaliser(creatrice) == normaliser(principale):
+            reg = lire_json(FICHIER_EQUIPES, {})
+            reg[uid]["salon_nom"] = nom
+            ecrire_json(FICHIER_EQUIPES, reg)
+            salon = trouver_salon_perso(g, membre)
+            if salon is None:
+                lignes.append(f"⚠️ {creatrice} : salon perso introuvable (nom #{nom} retenu pour sa création)")
+                continue
+            if categorie is not None and salon.category != categorie and not acces_categorie(g, categorie):
+                try:
+                    salon = await salon.edit(category=categorie, sync_permissions=False, reason=raison)
+                except (discord.Forbidden, discord.HTTPException) as erreur:
+                    lignes.append(f"⚠️ {creatrice} : déplacement refusé ({type(erreur).__name__})")
+            avert = await ranger_salon_perso(g, membre, salon, raison)
+            lignes.append(f"✅ {creatrice} : {salon.mention}" + (f" · {avert}" if avert else ""))
+            continue
+        cle_tel = next((c for c in telephones if normaliser(c) == normaliser(creatrice)), None)
+        if cle_tel is None:
+            lignes.append(f"⚠️ {creatrice} : aucun compte {creatrice} dans sa fiche (`!creatrice` avec ses deux créatrices d'abord)")
+            continue
+        salon, cree = salon_clipping_de(uid, cle_tel), False
+        if salon is None:                                                  # ouvert à la main avec le bon nom : adopté
+            salon = next((c for c in g.text_channels if c.name == nom and membre in c.overwrites), None)
+        if salon is None:
+            manque = acces_categorie(g, categorie) if categorie is not None else "catégorie introuvable"
+            if manque:
+                lignes.append(f"⚠️ {creatrice} : salon non créé ({manque})")
+                continue
+            overwrites = {g.default_role: discord.PermissionOverwrite(view_channel=False),
+                          membre: discord.PermissionOverwrite(view_channel=True, send_messages=True, read_message_history=True),
+                          g.me: discord.PermissionOverwrite(view_channel=True, send_messages=True, read_message_history=True)}
+            for mgr in (managers_humains(g) if SALON_PERSO_MANAGERS else []):
+                overwrites[mgr] = discord.PermissionOverwrite(view_channel=True, send_messages=True, read_message_history=True)
+            sujet = (f"clipping-uid:{uid} · Salon de {membre.display_name} — clipping {cle_tel}. Comptes {cle_tel}, lien {cle_tel} : "
+                     "tout arrive ici. Codes Instagram : #🔐-code-instagram.")
+            try:
+                salon = await g.create_text_channel(nom, category=categorie, overwrites=overwrites, topic=sujet, reason=raison)
+                cree = True
+            except (discord.Forbidden, discord.HTTPException) as erreur:
+                lignes.append(f"⚠️ {creatrice} : création refusée par Discord ({type(erreur).__name__})")
+                continue
+        reg = lire_json(FICHIER_EQUIPES, {})
+        reg[uid].setdefault("salons_clipping", {})[cle_tel] = str(salon.id)
+        ecrire_json(FICHIER_EQUIPES, reg)
+        if cree:
+            try:
+                await salon.send(f"👋 {membre.mention}, ton salon **clipping {cle_tel}**.\n\n"
+                                 f"Tes comptes {cle_tel} arrivent ici, un par un, 48 h entre chaque.\n\n"
+                                 f"Ton vrai @ n'est pas celui prévu ? Tape ici `!pseudo`, le numéro du compte et ton @. "
+                                 f"Par exemple : `!pseudo 1 {parcours.EXEMPLE_PSEUDO}`.\n\n"
+                                 + codes_2fa.texte_salon_codes())
+            except (discord.Forbidden, discord.HTTPException):
+                pass
+        try:
+            n = await onboarding.donner_telephones(uid)
+        except Exception as erreur:                                        # noqa: BLE001
+            journal.warning("Salon de clipping %s de %s : %s", cle_tel, uid, erreur)
+            n = 0
+        lignes.append(f"✅ {cle_tel} : {salon.mention}" + (" (créé)" if cree else "") + (" · compte suivant envoyé" if n else ""))
+    return lignes
+
+
+async def commande_salon_clipping(message, texte: str) -> bool:
+    """`!salon-clipping @membre Créatrice [Créatrice…]` (admin) : ouvre ou range ses salons de clipping (voir plus haut)."""
+    if str(message.author.id) not in ADMIN_IDS:
+        return False
+    mots = [m for m in texte.split()[1:] if not m.startswith("<@")]
+    membre = message.mentions[0] if message.mentions else (chercher_membre(mots.pop(0)) if mots else None)
+    if membre is None or not mots:
+        await message.reply("Format : `!salon-clipping @membre Chloé Sarah` (sa créatrice principale d'abord).")
+        return True
+    lignes = await ouvrir_salons_clipping(membre, mots, par=str(message.author.id))
+    await message.reply(f"🎬 Salons de clipping de {membre.display_name}\n\n" + "\n".join(lignes))
+    return True
 
 
 def membre_par_id(uid):
@@ -7073,6 +7200,8 @@ async def commande_admin(message, texte: str) -> bool:
         return True
     if texte.split()[:1] == ["!reprise"]:
         return await commande_reprise(message, texte)
+    if texte.split()[:1] == ["!salon-clipping"]:                         # 24/10 : un salon de clipping par créatrice (Rianah)
+        return await commande_salon_clipping(message, texte)
     if texte.split()[:1] == ["!rapprocher-zero"]:
         import rapprochement_zero
         cibles = {v.strip() for v in os.environ.get("RAPPROCHEMENT_ZERO_UIDS", "").split(",") if v.strip().isdigit()}
@@ -9324,8 +9453,13 @@ def brancher_onboarding() -> dict:
             "FICHIER_EQUIPES": FICHIER_EQUIPES, "FICHIER_PIPELINE": FICHIER_PIPELINE, "FICHIER_CLICS": FICHIER_CLICS,
             "normaliser": normaliser, "heure_paris": heure_paris, "canal_admin": canal_admin,
             "salon_perso": salon_perso_de, "membre_par_prenom": membre_par_prenom, "membre_par_id": membre_par_id,
-            "envoyer_long": envoyer_long}
+            "envoyer_long": envoyer_long,
+            # 24/10 : un salon de clipping par créatrice pour un clipper multi (« rianah-clipping-sarah »)
+            "salon_telephone": lambda uid, c: salon_clipping_de(uid, c),
+            "creatrice_du_salon": lambda uid, sid: creatrice_du_salon_clipping(uid, sid)}
     onboarding.configurer(deps)
+    import process_store                                                # 24/10 : trois places à vie par identité de clipping
+    process_store.identites_de = lambda uid: 1 + len(_salons_clipping(uid))
     return deps
 
 
@@ -9778,6 +9912,11 @@ async def on_ready():
         remplacements.configurer({"lire_json": lire_json, "ecrire_json": ecrire_json, "DONNEES": DONNEES, "normaliser": normaliser,
                                   "membre_par_prenom": membre_par_prenom, "salon_perso": salon_perso_de, "notifier": notifier_manager})
         client.loop.create_task(remplacements.demarrage(client))
+        import identites_clipping                                       # 24/10 : Rianah Clipping Chloé / Sarah, un salon chacune
+        identites_clipping.configurer({"lire_json": lire_json, "ecrire_json": ecrire_json, "DONNEES": DONNEES,
+                                       "FICHIER_EQUIPES": FICHIER_EQUIPES, "membre_par_prenom": membre_par_prenom,
+                                       "ouvrir_salons": ouvrir_salons_clipping, "notifier": notifier_manager})
+        client.loop.create_task(identites_clipping.demarrage(client))
 
         async def _roles_au_demarrage():                                # 30/09 : rôle de la créatrice rattrapé pour tous les signés
             await client.wait_until_ready()
@@ -10801,7 +10940,8 @@ def membre_par_nom_tape(guild, tokens: list) -> tuple:
 COMMANDES_ADMIN = ("!aide", "!roster", "!pipeline", "!funnel", "!tableau", "!fiche", "!memoire", "!audit", "!secu", "!pilotage",
                    "!tl", "!creatrice", "!onboarding", "!pseudo", "!dashboard", "!code", "!reprise", "!remettre-compte1",
                    "!sortie", "!sortie-auto", "!organisation", "!diagnostic-dossier", "!relances", "!annonce", "!rapport", "!etape",
-                   "!note", "!paie-clics", "!clics", "!comptes-libres", "!monteur", "!audit-discussions", "!bans", "!appel")
+                   "!note", "!paie-clics", "!clics", "!comptes-libres", "!monteur", "!audit-discussions", "!bans", "!appel",
+                   "!salon-clipping")
 
 
 def suggestion_admin(mot: str) -> str:
