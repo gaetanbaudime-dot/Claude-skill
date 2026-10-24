@@ -31,7 +31,12 @@ export async function jetonGoogle(): Promise<string> {
     body: new URLSearchParams({ grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer", assertion: `${entete}.${corps}.${signature}` }),
     cache: "no-store",
   });
-  if (!r.ok) throw new Error(`Google OAuth ${r.status}`);
+  if (!r.ok) {
+    // 24/10 : la raison de Google (« invalid_grant » = clé supprimée ou remplacée) dit tout de suite quoi faire : recoller sur
+    // Vercel la clé du bot (Railway, BOT Marketing). La réponse d'erreur de Google ne contient aucun secret.
+    const raison = await r.json().then((d: { error?: string }) => d.error || "").catch(() => "");
+    throw new Error(`Google OAuth ${r.status}${raison ? ` ${raison}` : ""}`);
+  }
   const d = (await r.json()) as { access_token: string; expires_in: number };
   jetonCache = { valeur: d.access_token, expire: Date.now() + Math.min(d.expires_in - 120, 3000) * 1000 };
   return d.access_token;
