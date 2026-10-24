@@ -281,4 +281,37 @@ async def demarrage(client) -> list:
                                     client.guilds[0] if client.guilds else None)
         except Exception:                                               # noqa: BLE001
             pass
+    for uid in _uids_multi():
+        try:
+            journal.info("Identités de clipping, état de %s : %s", uid, etat(uid))
+        except Exception as erreur:                                     # noqa: BLE001 — un état illisible ne tue rien
+            journal.warning("Identités de clipping, état de %s illisible : %s", uid, type(erreur).__name__)
     return lignes
+
+
+def _uids_multi() -> list:
+    """Les clippers qui ont au moins un salon de clipping en plus de leur salon principal (registre « salons_clipping »)."""
+    registre = _deps["lire_json"](_deps["FICHIER_EQUIPES"], {}) if _deps.get("lire_json") and _deps.get("FICHIER_EQUIPES") else {}
+    return [str(u) for u, f in (registre or {}).items() if isinstance(f, dict) and f.get("salons_clipping")]
+
+
+def etat(uid: str) -> str:
+    """24/10 : une ligne par identité, au démarrage — ce qui est parti et ce qui attend, pour vérifier sans ouvrir Discord.
+    Parcours principal (étapes envoyées, programme), comptes remis dans chaque salon de clipping, journal des places."""
+    uid = str(uid)
+    f = parcours._lire().get(uid) or {}
+    dates = f.get("dates") or {}
+    envoyees = sorted(k for k in dates if str(k).isdigit())
+    attend = [f"{x.get('n')} le {str(x.get('quand'))[:16]}" for x in f.get("programme") or [] if x.get("type") == "etape"]
+    morceaux = [f"principal étape {f.get('etape', '?')}, envoyées {', '.join(envoyees) or 'aucune'}"
+                + (f", attend {' · '.join(attend)}" if attend else "")]
+    fiche = onboarding._lire_etat()["clippers"].get(uid) or {}
+    for creatrice, t in (fiche.get("telephones") or {}).items():
+        if isinstance(t, dict):
+            morceaux.append(f"{creatrice} {t.get('donnes', '?')}/{len(t.get('acces') or [])} remis, dernier {str(t.get('dernier'))[:16]}")
+    try:
+        import process_store
+        morceaux.append(f"places {onboarding.process_adapters.store().counts(uid)} (max {process_store.places_a_vie(uid)})")
+    except Exception as erreur:                                         # noqa: BLE001
+        morceaux.append(f"places illisibles ({type(erreur).__name__})")
+    return " | ".join(morceaux)

@@ -1384,7 +1384,10 @@ async def envoyer_etape(salon, membre, n: int, pointer: bool = True) -> bool:
                 pseudo_propose = handle
             # 24/10 (Gaëtan, « GO ») : plus de preuve que l'@ prévu est libre sur Instagram avant les comptes 2 et 3. Personne ne
             # la remplissait : aucun compte « à créer » ne partait. Un @ pris se règle avec `!pseudo`.
-        except RuntimeError:
+        except RuntimeError as erreur:
+            # 24/10 : retenue jusqu'ici sans une ligne de journal (le compte 2 Chloé de Rianah, bloqué au premier démarrage,
+            # était invérifiable). Nouvel essai LIGNE_REESSAI_MIN minutes plus tard.
+            journal.info("Parcours : étape %s de %s retenue (%s), nouvel essai dans %s min", n, uid, erreur, LIGNE_REESSAI_MIN)
             _garder_au_programme(uid, n, noter=True)
             return False
     if (n == 6 or n == n_prive(_lire().get(uid) or {})) and _deps.get("attribuer_lien"):
@@ -1485,6 +1488,7 @@ async def envoyer_etape(salon, membre, n: int, pointer: bool = True) -> bool:
             else:
                 d[uid]["acces_en_attente"] = _maintenant()
         _ecrire(d)
+    journal.info("Parcours : étape %s envoyée à %s", n, uid)            # 24/10 : un envoi se vérifie dans les logs
     if pseudo_propose and not identifiants:
         await alerter_acces_en_attente(membre, uid)
     if n == 1 and pointer and not (fiche_avant.get("messages") or {}).get("1"):
