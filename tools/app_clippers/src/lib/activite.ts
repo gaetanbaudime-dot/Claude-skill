@@ -7,8 +7,9 @@
  *
  *  Prime volume (annonce Discord du 21/10, période de paie de 15 jours) : en moyenne chaque jour, sur les 2 comptes de croissance,
  *    3 Reels par jour et par compte et au moins 200 clics payés → +10 $ ; 6 Reels et 400 clics → +20 $ ; 9 Reels et 600 clics → +30 $.
- *  Lecture retenue : « 3 Reels par jour et par compte », soit 6 Reels par jour sur les deux comptes (Gaëtan, 21/10 : « +10 $ si
- *  3 Reels/jour/compte sur les comptes 1 et 2 en moyenne sur 15 jours »). La moyenne se fait sur les jours clos de la période. */
+ *  Règle (Gaëtan, 24/10 : « la prime est la cadence moyenne sur chaque compte de croissance ») : CHAQUE compte de croissance doit
+ *  tenir la moyenne. La cadence retenue est donc celle du moins actif de ses 2 comptes de croissance les plus actifs : 6 Reels
+ *  par jour sur un compte et 0 sur l'autre, c'est 0, pas 3. La moyenne se fait sur les jours clos de la période. */
 import { decaler } from "./dates";
 
 export type Palier = { reels: number; clics: number; bonus: number; emoji: string };
@@ -17,7 +18,7 @@ export const PALIERS: Palier[] = [
   { reels: 6, clics: 400, bonus: 20, emoji: "✅" },
   { reels: 9, clics: 600, bonus: 30, emoji: "🚀" },
 ];
-export const COMPTES_CROISSANCE = 2;
+export const COMPTES_CROISSANCE = 2;                                 // la prime se juge sur ses 2 comptes de croissance
 
 export type CompteActivite = {
   handle: string; etat: string; role?: string;
@@ -88,28 +89,47 @@ export function semaine(comptes: CompteActivite[], aujourdhui: string, clicsParJ
   };
 }
 
+export type CadenceCompte = { handle: string; reels: number; moyenne: number | null; lu: boolean };
 export type ReelsPrime = {
   debut: string; fin: string;
   joursEcoules: number;           // jours clos de la période (aujourd'hui exclu)
   reels: number;                  // Reels publiés sur ses comptes de croissance pendant ces jours
-  moyenne: number | null;         // Reels par jour et par compte de croissance ; null avant le premier jour clos
+  /** Cadence retenue : Reels par jour du moins actif de ses 2 comptes de croissance les plus actifs. null si on ne peut pas
+   *  conclure : période commencée aujourd'hui, ou un des 2 comptes pas lu par le bot. */
+  moyenne: number | null;
+  parCompte: CadenceCompte[];     // ses comptes de croissance, les plus actifs d'abord, les non lus à la fin
   comptes: number;                // comptes de croissance trouvés
+  manque: "" | "deuxieme_compte" | "deuxieme_non_lu";
   mesure: boolean;                // false : colonne pas publiée, ou aucun compte de croissance lu par le bot
 };
 
-/** Les Reels de la période de paie sur ses comptes de croissance (le compte privé ne compte pas). */
+/** Les Reels de la période de paie, compte de croissance par compte de croissance (le compte privé ne compte pas). */
 export function reelsPrime(comptes: CompteActivite[], debut: string, fin: string, aujourdhui: string): ReelsPrime {
   const croissance = comptes.filter((c) => !estPrive(c.role));
   const hier = decaler(aujourdhui, -1);
   const dernier = hier < fin ? hier : fin;
   const jours: string[] = [];
   for (let j = debut; j <= dernier; j = decaler(j, 1)) jours.push(j);
-  const reels = croissance.reduce((s, c) => s + jours.reduce((t, j) => t + ((c.jours || {})[j] || 0), 0), 0);
+  const parCompte: CadenceCompte[] = croissance.map((c) => {
+    const reels = jours.reduce((t, j) => t + ((c.jours || {})[j] || 0), 0);
+    const lu = reelsMesures(c, debut);
+    return { handle: c.handle, reels, lu, moyenne: lu && jours.length ? Math.round((reels / jours.length) * 10) / 10 : null };
+  }).sort((a, b) => Number(b.lu) - Number(a.lu) || (b.moyenne ?? 0) - (a.moyenne ?? 0));
+  const lus = parCompte.filter((c) => c.lu);
+  const deux = parCompte.slice(0, COMPTES_CROISSANCE);
+  let moyenne: number | null = null, manque: ReelsPrime["manque"] = "";
+  if (croissance.length < COMPTES_CROISSANCE) {
+    manque = "deuxieme_compte";
+    moyenne = jours.length && lus.length ? 0 : null;                     // la prime demande 2 comptes : sans le 2e, 0
+  } else if (deux.some((c) => !c.lu)) {
+    manque = "deuxieme_non_lu";
+  } else if (jours.length) {
+    moyenne = Math.min(...deux.map((c) => c.moyenne ?? 0));
+  }
   return {
-    debut, fin, joursEcoules: jours.length, reels,
-    moyenne: jours.length ? Math.round((reels / jours.length / COMPTES_CROISSANCE) * 10) / 10 : null,
-    comptes: croissance.length,
-    mesure: comptes.some((c) => c.jours !== undefined) && croissance.some((c) => reelsMesures(c, debut)),
+    debut, fin, joursEcoules: jours.length, reels: parCompte.reduce((t, c) => t + c.reels, 0),
+    moyenne, parCompte, comptes: croissance.length, manque,
+    mesure: comptes.some((c) => c.jours !== undefined) && lus.length > 0,
   };
 }
 

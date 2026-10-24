@@ -55,8 +55,24 @@ assert.equal(s.reels, null); assert.equal(s.vues, null); assert.equal(s.follower
 let p = a.reelsPrime([croissance1, croissance2, prive], '2026-10-20', '2026-11-04', auj);
 assert.equal(p.joursEcoules, 4);                       // 20, 21, 22, 23
 assert.equal(p.reels, 9);                              // 2 + 4 + 3, le privé et aujourd'hui exclus
-assert.equal(p.moyenne, 1.1);                          // 9 / 4 / 2
-assert.equal(p.comptes, 2); assert.equal(p.mesure, true);
+assert.equal(p.moyenne, 0.8);                          // 24/10 : compte par compte, 6/4 = 1,5 et 3/4 = 0,8 → le moins actif
+eq(p.parCompte.map(c => [c.handle, c.moyenne]), [['c1', 1.5], ['c2', 0.8]]);
+assert.equal(p.comptes, 2); assert.equal(p.mesure, true); assert.equal(p.manque, '');
+// « La prime est la cadence moyenne sur chaque compte de croissance » : 6 par jour sur l'un et 0 sur l'autre, c'est 0
+const fort = { handle: 'fort', etat: 'GOOD', role: 'croissance', followers: 1, reels7: 42, vues7: 1,
+  jours: { '2026-10-20': 6, '2026-10-21': 6, '2026-10-22': 6, '2026-10-23': 6 } };
+const vide = { handle: 'vide', etat: 'GOOD', role: 'croissance', followers: 1, reels7: 0, vues7: null, jours: {} };
+p = a.reelsPrime([fort, vide], '2026-10-20', '2026-11-04', auj);
+assert.equal(p.moyenne, 0); eq(p.parCompte.map(c => c.moyenne), [6, 0]);
+// Trois comptes de croissance : on garde ses 2 plus actifs
+p = a.reelsPrime([fort, vide, { ...fort, handle: 'fort2', jours: { '2026-10-20': 4, '2026-10-21': 4, '2026-10-22': 4, '2026-10-23': 4 } }], '2026-10-20', '2026-11-04', auj);
+assert.equal(p.moyenne, 4);
+// Un seul compte de croissance : la prime en demande 2, la cadence retenue est 0
+p = a.reelsPrime([fort, prive], '2026-10-20', '2026-11-04', auj);
+assert.equal(p.manque, 'deuxieme_compte'); assert.equal(p.moyenne, 0);
+// Le 2e compte n'est pas lu par le bot : on ne conclut pas
+p = a.reelsPrime([fort, { ...vide, reels7: null }], '2026-10-20', '2026-11-04', auj);
+assert.equal(p.manque, 'deuxieme_non_lu'); assert.equal(p.moyenne, null); assert.equal(p.mesure, true);
 p = a.reelsPrime([croissance1], '2026-10-24', '2026-11-04', auj);
 assert.equal(p.joursEcoules, 0); assert.equal(p.moyenne, null);
 p = a.reelsPrime([croissance1], '2026-10-05', '2026-10-19', auj);           // période close : s'arrête à sa fin
