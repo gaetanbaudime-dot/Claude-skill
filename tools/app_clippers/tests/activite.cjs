@@ -35,6 +35,14 @@ assert.equal(s.parJour, true);
 // Colonne pas encore publiée : on retombe sur « Reels 7 j », sans graphique ; clics inconnus = null, jamais 0
 s = a.semaine([{ ...croissance1, jours: undefined }, { ...prive, jours: undefined }], auj, null);
 assert.equal(s.parJour, false); assert.equal(s.reels, 10); assert.equal(s.cadence, 1.4); assert.equal(s.clics, null);
+// Aucun compte lu par le bot : « – », jamais 0 Reel (le cas d'un clipper à 1 129 clics le 24/10)
+const nonLu = { handle: 'n', etat: 'GOOD', role: 'croissance', followers: 4, reels7: null, vues7: null, jours: {} };
+s = a.semaine([nonLu, { ...nonLu, handle: 'n2' }], auj, { '2026-10-23': 50 });
+assert.equal(s.reels, null); assert.equal(s.cadence, null); assert.equal(s.parJour, false); assert.equal(s.clics, 50);
+assert.equal(a.reelsPrime([nonLu, { ...prive, jours: {} }], '2026-10-20', '2026-11-04', auj).mesure, false);
+// Un compte relevé à 0 (Reels 7 j = 0) est mesuré : 0 est alors un vrai chiffre
+s = a.semaine([{ ...nonLu, reels7: 0 }], auj, null);
+assert.equal(s.reels, 0); assert.equal(s.cadence, 0);
 s = a.semaine([], auj, null);
 assert.equal(s.reels, null); assert.equal(s.vues, null); assert.equal(s.followers, null);
 
