@@ -78,6 +78,8 @@ class Compte2A48h(unittest.IsolatedAsyncioTestCase):
                   "programme": [{"type": "etape", "n": 2, "quand": il_y_a(1)}]},
         }
 
+    lignes = []
+
     async def passer(self, envoyer=True):
         d = self.d
 
@@ -93,6 +95,8 @@ class Compte2A48h(unittest.IsolatedAsyncioTestCase):
              patch.object(parcours, "envoyer_etape", envoyer_etape), \
              patch.object(parcours, "_envoyer_publier", publier), \
              patch.object(onboarding.process_adapters, "store", return_value=store), \
+             patch.object(onboarding, "lire_comptes", AsyncMock(return_value=self.lignes)), \
+             patch.object(parcours, "_comptes_ordonnes", side_effect=lambda uid, **_: [f"fictif-{uid}-1", f"fictif-{uid}-2"]), \
              patch.dict(parcours._deps, {"membre_par_id": lambda uid: SimpleNamespace(id=int(uid), mention=f"<@{uid}>"),
                                          "canal_admin": None}):
             faits = await parcours.forcer_comptes2(client, MAINTENANT)
@@ -277,3 +281,56 @@ class RelanceDesAcces(unittest.IsolatedAsyncioTestCase):
             remis, salon, _ = await self.passer(d)
         self.assertEqual([], remis)
         salon.send.assert_not_awaited()
+
+
+class VeteransEtRetenus(Compte2A48h):
+    test_au_compte_1_liste_du_plus_ancien_au_plus_recent = None
+    test_seuls_ceux_a_48h_et_plus_recoivent_leur_compte_2 = None
+    test_pas_de_second_essai_avant_30_minutes = None
+    test_sans_reels_vaut_pour_le_compte_2_force_seulement = None
+
+    async def test_compte_2_deja_en_service_depuis_longtemps_fiche_close(self):
+        self.d["6"] = {"prenom": "Veteran", "etape": 2, "salon_id": "16", "dates": {"1": il_y_a(400)},
+                       "programme": [{"type": "etape", "n": 2, "quand": il_y_a(1), "ligne": True}]}
+        self.lignes = [{"handle": "fictif-6-2", "etat": "GOOD"}, {"handle": "fictif-1-2", "etat": "GOOD"}]
+        faits, envoyer_etape, _ = await self.passer()
+        self.assertNotIn("6", [str(c.args[1].id) for c in envoyer_etape.await_args_list])
+        self.assertEqual("fictif-6-2", self.d["6"]["compte2_en_service"])
+        self.assertEqual([], self.d["6"]["programme"])
+        # 60 h : un compte existant confié à un nouveau part quand même (« Ce compte existe déjà »)
+        self.assertIn("1", [str(c.args[1].id) for c in envoyer_etape.await_args_list])
+
+    async def test_retenu_echu_repris_retenu_a_venir_laisse_au_programme(self):
+        self.d["7"] = {"prenom": "Echu", "etape": 2, "salon_id": "17", "dates": {"1": il_y_a(200), "1_fait": "x"},
+                       "programme": [{"type": "etape", "n": 2, "quand": il_y_a(5), "ligne": True}]}
+        self.d["8"] = {"prenom": "AVenir", "etape": 2, "salon_id": "18", "dates": {"1": il_y_a(200), "1_fait": "x"},
+                       "programme": [{"type": "etape", "n": 2, "quand": (MAINTENANT + timedelta(minutes=20)).isoformat(), "ligne": True}]}
+        _, envoyer_etape, _ = await self.passer()
+        partis = [str(c.args[1].id) for c in envoyer_etape.await_args_list]
+        self.assertIn("7", partis)
+        self.assertNotIn("8", partis)
+
+
+class LigneProche(unittest.TestCase):
+    TOUS = [{"handle": "fictif.un.deux", "gerant": "Fictif", "creatrice": "Créa"},
+            {"handle": "journaldecrea_x", "gerant": "Fictif", "creatrice": "Créa"},
+            {"handle": "fictifundeux", "gerant": "Autre", "creatrice": "Créa"},
+            {"handle": "doublon1", "gerant": "Fictif", "creatrice": "Créa"},
+            {"handle": "doublon2", "gerant": "Fictif", "creatrice": "Créa"}]
+
+    def test_meme_squelette_puis_prefixe_parmi_ses_lignes_seulement(self):
+        self.assertEqual(["fictif.un.deux"], [c["handle"] for c in remise_compte1.ligne_proche(self.TOUS, "fictifundeux", "Fictif", "Créa")])
+        self.assertEqual(["journaldecrea_x"], [c["handle"] for c in remise_compte1.ligne_proche(self.TOUS, "journaldecrea", "Fictif", "Créa")])
+        self.assertEqual(2, len(remise_compte1.ligne_proche(self.TOUS, "doublon", "Fictif", "Créa")))   # deux : rien n'est choisi
+        self.assertEqual([], remise_compte1.ligne_proche(self.TOUS, "fictifundeux", "", "Créa"))
+
+
+class IdentifiantsCompteRendLArobaseDuClasseur(unittest.IsolatedAsyncioTestCase):
+    async def test_arobase_du_classeur_en_troisieme(self):
+        mdp = secrets.token_hex(6)
+        lignes = [{"handle": "fictif.un.deux", "gerant": "Fictif", "creatrice": "Créa", "etat": "à créer",
+                   "mail": "x@exemple.invalid", "mdp": mdp}]
+        with patch.object(remise_compte1, "verifier_lecteurs", Mock()), \
+             patch.object(onboarding, "lire_comptes", AsyncMock(return_value=lignes)):
+            acces = await remise_compte1.identifiants_compte(None, None, "42", "fictifundeux", "Fictif", "Créa", set(), None)
+        self.assertEqual(("x@exemple.invalid", mdp, "fictif.un.deux"), acces)

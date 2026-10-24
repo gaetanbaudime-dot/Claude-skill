@@ -1431,7 +1431,9 @@ async def _avec_acces(salon, uid: str, n: int, fiche_p: dict, texte: str) -> str
         ACCES_ETAPE[cle] = remise_compte1.RAISONS.get(str(uid), "") or "contrôle non passé"
         return texte
     ACCES_ETAPE[cle] = "inclus"
-    return texte.replace(ACCES_A_CONFIRMER, f"E-mail : `{acces[0]}`\n\nMot de passe : `{acces[1]}`")
+    texte = texte.replace(ACCES_A_CONFIRMER, f"E-mail : `{acces[0]}`\n\nMot de passe : `{acces[1]}`")
+    reel = acces[2] if len(acces) > 2 and acces[2] else handles[n - 1]
+    return texte.replace(f"@{handles[n - 1]}", f"@{reel}") if reel != handles[n - 1] else texte   # l'@ du classeur fait foi
 
 
 # ------------------------------------------------------------------ déroulé
@@ -3069,8 +3071,9 @@ async def relancer_acces(client, maintenant=None) -> list:
                     _ecrire(d)
                     journal.info("Accès du compte %s de %s toujours à remettre : %s", n, uid, raison)
                 continue
+            reel = acces[2] if len(acces) > 2 and acces[2] else handles[n - 1]   # l'@ du classeur fait foi
             try:
-                await salon.send((f"{membre.mention} 🔑 **Accès de ton compte {n} · @{handles[n - 1]}**\n\n"
+                await salon.send((f"{membre.mention} 🔑 **Accès de ton compte {n} · @{reel}**\n\n"
                                   f"E-mail : `{acces[0]}`\n\nMot de passe : `{acces[1]}`\n\n"
                                   f"Les codes de connexion arrivent dans {mention_salon_codes()} : appuie sur « 📩 Mon code ».")[:1990])
             except (discord.Forbidden, discord.HTTPException) as erreur:
@@ -3113,6 +3116,7 @@ def au_compte_1(d: dict, maintenant) -> list:
 
 
 _COMPTE1_LISTE = {"dite": False}
+VETERAN_H = 7 * 24
 
 
 async def forcer_comptes2(client, maintenant=None) -> list:
@@ -3130,11 +3134,16 @@ async def forcer_comptes2(client, maintenant=None) -> list:
         journal.info("Clippers au compte 1 sans compte 2 (%s) : %s", len(liste), " · ".join(
             f"{p} ({u}) {h} h{' simple' if s else ''}{' confirmé' if c else ''}" for u, p, h, s, c in liste) or "aucun")
     faits, bilan, ecartes = [], [], []
+    classeur = None
     for uid, prenom, heures, _, confirme in liste:
         if heures < FORCE_COMPTE2_H:
             continue
         f = d0.get(uid) or {}
-        if any(x.get("type") == "etape" and int(x.get("n") or 0) == 2 and x.get("ligne") for x in f.get("programme") or []):
+        if f.get("compte2_en_service"):
+            continue                                                    # déjà dit : son compte 2 existe et sert déjà
+        en_attente = [_instant_iso(x.get("quand")) for x in f.get("programme") or []
+                      if x.get("type") == "etape" and int(x.get("n") or 0) == 2 and x.get("ligne")]
+        if any(q is not None and q > maintenant for q in en_attente):
             ecartes.append(f"{prenom} ({uid}) : retenu, nouvel essai par le programme")   # programme_du_jour retente à son heure
             continue
         essai = _instant_iso(f.get("force_2_essai"))
@@ -3150,6 +3159,27 @@ async def forcer_comptes2(client, maintenant=None) -> list:
         membre = _deps["membre_par_id"](uid) if _deps.get("membre_par_id") else None
         if salon is None or membre is None:
             ecartes.append(f"{prenom} ({uid}) : {'salon perso introuvable' if salon is None else 'plus sur le serveur'}")
+            continue
+        if classeur is None:                                            # une lecture du classeur par passage, seulement s'il faut
+            try:
+                classeur = {onboarding._cle_handle(c.get("handle")): c for c in await onboarding.lire_comptes() if c.get("handle")}
+            except Exception as erreur:                                 # noqa: BLE001 — classeur saturé : on attend le tour suivant
+                journal.info("Compte 2 à 48 h : classeur illisible (%s), tour suivant", type(erreur).__name__)
+                break
+        handles = _comptes_ordonnes(uid, fiche_p=f)
+        ligne2 = classeur.get(onboarding._cle_handle(handles[1])) if len(handles) >= 2 else None
+        etat2 = onboarding._norm((ligne2 or {}).get("etat", "")).strip()
+        if ligne2 is not None and etat2 and etat2 not in onboarding.A_CREER and etat2 != "ban" and heures >= VETERAN_H:
+            # 24/10 (Lilian, Josué, Caroline, Yves, Mohamed : fiche de parcours restée au compte 1 depuis le 8/10, mais leurs trois
+            # comptes publient) : un compte 2 déjà en service au classeur ne se « donne » pas une seconde fois. Noté, plus retenté.
+            # Seulement au-delà de VETERAN_H : un compte existant confié à un nouveau (« Ce compte existe déjà ») part normalement.
+            d = _lire()
+            if uid in d:
+                d[uid]["compte2_en_service"] = handles[1]
+                d[uid]["programme"] = [x for x in d[uid].get("programme") or []
+                                       if not (x.get("type") == "etape" and int(x.get("n") or 0) == 2)]
+                _ecrire(d)
+            ecartes.append(f"{prenom} ({uid}) : compte 2 {handles[1]} déjà en service au classeur ({etat2}), fiche close")
             continue
         d = _lire()
         if uid not in d:
