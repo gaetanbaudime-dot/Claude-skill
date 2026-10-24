@@ -30,20 +30,22 @@ export default function PrimeVolume({ jeton, clics, libelle }: { jeton: string; 
         <div className="text-[14px] font-semibold">🔥 Prime volume</div>
         <span className="text-[11px] text-argent2">{libelle}</span>
       </div>
-      <p className="text-[12.5px] text-argent2 mt-1 leading-relaxed">En plus de tes clics. Ta moyenne de Reels par jour sur chacun de tes 2 comptes de croissance.</p>
+      <p className="text-[12.5px] text-argent2 mt-1 leading-relaxed">En plus de tes clics. Chacun de tes 2 comptes de croissance doit tenir la cadence : c'est le moins actif qui compte.</p>
 
       {!r && !erreur ? <div className="squelette h-20 mt-3" /> : null}
       {erreur && !r ? <p className="text-[12.5px] text-argent2 mt-3">Tes Reels sont en cours de mise à jour. <button onClick={charger} className="text-accent font-semibold">Réessayer</button></p> : null}
       {r && !r.mesure ? <p className="text-[12.5px] text-argent2 mt-3">Le bot ne lit pas encore les Reels de tes comptes de croissance. Ta moyenne s'affiche dès qu'il les voit.</p> : null}
       {r && r.mesure && r.joursEcoules === 0 ? <p className="text-[12.5px] text-argent2 mt-3">La période commence aujourd'hui. Ta moyenne s'affiche demain.</p> : null}
+      {r && r.mesure && r.joursEcoules > 0 && r.manque === "deuxieme_non_lu" ? <p className="text-[12.5px] text-amber-200 mt-3">Le bot ne lit pas encore ton 2e compte de croissance. Ta cadence s'affiche dès qu'il le voit.</p> : null}
+      {r && r.mesure && r.joursEcoules > 0 && r.manque === "deuxieme_compte" ? <p className="text-[12.5px] text-amber-200 mt-3">La prime se calcule sur 2 comptes de croissance. Ton 2e compte n'est pas encore là.</p> : null}
 
       {r && r.mesure && moyenne !== null ? (
         <>
           <div className="mt-3 leading-none">
             <span className="titre-argent text-[32px] font-bold tabular-nums">{dec(moyenne)}</span>
-            <span className="text-[13px] text-argent2 ml-1.5">Reels / jour / compte</span>
+            <span className="text-[13px] text-argent2 ml-1.5">Reels / jour sur chaque compte</span>
           </div>
-          <div className="text-[12px] text-argent2 mt-1.5">{fmt(r.reels)} Reels sur tes comptes de croissance en {r.joursEcoules} jour{r.joursEcoules > 1 ? "s" : ""}, à jour d'hier</div>
+          <div className="text-[12px] text-argent2 mt-1.5">Sur {r.joursEcoules} jour{r.joursEcoules > 1 ? "s" : ""}, à jour d'hier</div>
           <div className="relative mt-4 h-2 rounded-full" style={{ background: "rgba(255,255,255,0.08)" }}>
             <div className="h-full rounded-full" style={{ width: `${Math.min(100, (moyenne / MAX_JAUGE) * 100)}%`, background: "linear-gradient(90deg,#2b6cff,#7ef0b2)", transition: "width 600ms ease" }} />
             {PALIERS.map((p) => (
@@ -56,17 +58,31 @@ export default function PrimeVolume({ jeton, clics, libelle }: { jeton: string; 
         </>
       ) : null}
 
+      {r && r.mesure && r.joursEcoules > 0 && r.parCompte.length ? (
+        <div className="mt-3 space-y-1.5 text-[13px]">
+          {r.parCompte.slice(0, 2).map((c) => {
+            const decide = moyenne !== null && c.moyenne === moyenne;
+            return (
+              <div key={c.handle} className="flex items-center justify-between gap-2 rounded-xl px-3 py-2" style={{ background: "rgba(255,255,255,0.04)" }}>
+                <span className="truncate">@{c.handle}{decide && r.parCompte.length > 1 ? <span className="text-amber-200 text-[11.5px] ml-1.5">celui qui compte</span> : null}</span>
+                <b className="tabular-nums shrink-0">{c.moyenne !== null ? `${dec(c.moyenne)} / jour` : "pas lu"}</b>
+              </div>
+            );
+          })}
+        </div>
+      ) : null}
+
       <div className="mt-3 rounded-2xl overflow-hidden text-[13px]" style={{ background: "rgba(255,255,255,0.04)" }}>
         {paliers.map((p, i) => (
           <div key={p.reels} className={`px-3 py-2.5 ${i ? "border-t border-white/[0.06]" : ""}`}>
             <div className="flex items-center justify-between gap-2">
-              <span>{p.emoji} {p.reels} Reels / jour + {fmt(p.clics)} clics</span>
-              <b className={`tabular-nums ${p.atteint ? "text-emerald-300" : ""}`}>+{p.bonus} $</b>
+              <span>{p.emoji} {p.reels} Reels / jour sur chaque compte + {fmt(p.clics)} clics</span>
+              <b className={`tabular-nums whitespace-nowrap shrink-0 ${p.atteint ? "text-emerald-300" : ""}`}>+{p.bonus} $</b>
             </div>
             <div className={`text-[11.5px] mt-0.5 ${p.atteint ? "text-emerald-300" : "text-argent2"}`}>
               {p.atteint ? "Atteint à ce jour" : (() => {
                 const manque = [
-                  moyenne !== null && !p.okReels ? `${dec(p.manqueReels)} Reel${p.manqueReels > 1 ? "s" : ""} par jour` : "",
+                  moyenne !== null && !p.okReels ? `${dec(p.manqueReels)} Reel${p.manqueReels > 1 ? "s" : ""} par jour sur ton compte le moins actif` : "",
                   clics !== null && !p.okClics ? `${fmt(p.manqueClics)} clics` : "",
                 ].filter(Boolean);
                 return manque.length ? `Il manque ${manque.join(" et ")}` : "À suivre";
