@@ -2148,12 +2148,69 @@ def texte_panne_google(panne: dict, maintenant: float, email: str = "") -> str:
             "entier dans la variable Railway `GOOGLE_SERVICE_ACCOUNT_JSON` : Railway redémarre le bot tout seul.")
 
 
+# 24/10 (Gaëtan : « assure-toi que ça marche une bonne fois pour toutes ») : la clé Google de l'app des clippers, sur Vercel, a été
+# refusée du 22 au 24/10 sans alerte (l'onglet Comptes restait vide). L'app dit sa santé sur /api/sante ; vide = surveillance coupée.
+APP_SANTE_URL = os.environ.get("APP_SANTE_URL",
+                               os.environ.get("APP_CLIPPERS_URL", "https://app-clippers.vercel.app").strip().rstrip("/") + "/api/sante").strip()
+
+
+def texte_panne_app(depuis: float, maintenant: float, detail: str = "") -> str:
+    """24/10 : l'alerte unique de l'app des clippers qui ne lit plus Google, avec le remède."""
+    minutes = max(0, int((maintenant - depuis) // 60))
+    duree = f"{minutes // 60} h {minutes % 60:02d}" if minutes >= 60 else f"{minutes} min"
+    return (f"🔴 **L'app des clippers ne lit plus Google depuis {duree}**" + (f" ({detail})" if detail else "") + ".\n\n"
+            "Les onglets Comptes et Ma semaine, et la prime volume, restent vides pour les clippers et les TL. "
+            "Les versements marchent toujours.\n\n"
+            "Remède : copie la variable Railway `GOOGLE_SERVICE_ACCOUNT_JSON` du bot. Colle-la dans Vercel, projet app-clippers, "
+            "Settings, Environment Variables, en cochant Production. Puis Deployments, les trois points, Redeploy.")
+
+
+def decider_alerte_app(etat: dict, ok, maintenant: float, detail: str = "") -> str:
+    """Pur, testé : met à jour `etat` ({"depuis", "dite", "detail"}) avec la réponse de /api/sante et dit quoi envoyer :
+    « alerte » (refus tenu GOOGLE_PANNE_MIN minutes, puis toutes les GOOGLE_PANNE_RAPPEL_H heures), « retour » (l'app relit
+    Google après une alerte) ou « » (rien). ok None = l'app n'a pas répondu : on ne conclut rien."""
+    if ok is None:
+        return ""
+    if ok:
+        etat["depuis"] = None
+        if etat.get("dite") is not None:
+            etat["dite"] = None
+            return "retour"
+        return ""
+    etat["depuis"] = etat.get("depuis") or maintenant
+    etat["detail"] = detail
+    if maintenant - etat["depuis"] >= GOOGLE_PANNE_MIN * 60 and \
+            (etat.get("dite") is None or maintenant - etat["dite"] >= GOOGLE_PANNE_RAPPEL_H * 3600):
+        etat["dite"] = maintenant
+        return "alerte"
+    return ""
+
+
+async def sante_app() -> tuple:
+    """(True, '') si l'app lit Google ; (False, raison) si elle dit que Google la refuse ; (None, '') si elle ne répond pas."""
+    if not APP_SANTE_URL:
+        return None, ""
+    try:
+        async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=20)) as session:
+            async with session.get(APP_SANTE_URL) as r:
+                d = await r.json(content_type=None)
+        if isinstance(d, dict) and d.get("google") == "ok":
+            return True, ""
+        if isinstance(d, dict) and d.get("google"):
+            return False, str(d.get("detail") or "")[:200]
+    except Exception:                                                   # noqa: BLE001 — app injoignable : rien à conclure
+        pass
+    return None, ""
+
+
 async def surveiller_google():
     """23/10 (Gaëtan : « Invalid JWT Signature » sur chaque lecture depuis le 22/10, invisible sauf en bout de digest) : toutes
     les 5 minutes, un jeton est demandé (gratuit tant qu'il est valable). Clé refusée depuis GOOGLE_PANNE_MIN minutes → une
-    alerte au salon admin avec le remède, rappelée toutes les GOOGLE_PANNE_RAPPEL_H heures ; retour → « ✅ » une fois."""
+    alerte au salon admin avec le remède, rappelée toutes les GOOGLE_PANNE_RAPPEL_H heures ; retour → « ✅ » une fois.
+    24/10 : même surveillance pour la clé de l'app des clippers (Vercel), par sa route /api/sante."""
     await client.wait_until_ready()
     dite = None
+    etat_app = {"depuis": None, "dite": None, "detail": ""}
     while not client.is_closed():
         try:
             await google_api.jeton()
@@ -2174,6 +2231,20 @@ async def surveiller_google():
                 dite = None
         except Exception as erreur:                                     # noqa: BLE001 — la surveillance ne meurt jamais
             journal.warning("Surveillance Google : %s", erreur)
+        try:
+            ok, detail = await sante_app()
+            maintenant = time.time()
+            action = decider_alerte_app(etat_app, ok, maintenant, detail)
+            if action:
+                canal = await canal_admin()
+                if canal is not None:
+                    await canal.send(texte_panne_app(etat_app["depuis"] or maintenant, maintenant, etat_app["detail"])
+                                     if action == "alerte" else
+                                     "✅ **L'app des clippers relit Google.** Les onglets Comptes et Ma semaine se remplissent de nouveau.")
+            if ok is False:
+                journal.warning("App clippers : Google refuse la clé (%s)", detail)
+        except Exception as erreur:                                     # noqa: BLE001
+            journal.warning("Surveillance de l'app : %s", erreur)
         await asyncio.sleep(300)
 
 

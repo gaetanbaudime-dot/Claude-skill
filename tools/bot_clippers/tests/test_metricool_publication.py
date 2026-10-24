@@ -10,7 +10,7 @@ class MetricoolPublicationTests(unittest.TestCase):
         source = Path(__file__).resolve().parents[1] / "pilotage.py"
         tree = ast.parse(source.read_text())
         definitions = [node for node in tree.body if isinstance(node, ast.FunctionDef)
-                       and node.name in ("_txt", "lignes_comptes_app")]
+                       and node.name in ("_txt", "_jours_txt", "lignes_comptes_app")]
         namespace = {"unicodedata": unicodedata}
         exec(compile(ast.Module(body=definitions, type_ignores=[]), str(source), "exec"), namespace)
         publisher = namespace["lignes_comptes_app"]

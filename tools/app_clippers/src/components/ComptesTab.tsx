@@ -1,9 +1,9 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
 import { signaler } from "@/lib/signal";
-import type { Pilotage } from "@/lib/pilotage";
 import { etatAffiche, type Ton } from "@/lib/comptesVisibles";
-import PilotageClipper from "./pilotage/PilotageClipper";
+import { estPrive, type Semaine } from "@/lib/activite";
+import MaSemaine from "./MaSemaine";
 import MonEquipe from "./MonEquipe";
 
 /** 12/10 (Gaëtan : « un onglet où il peut mettre à jour le @ de ses 3 comptes Instagram, ça nous permettra d'avoir toujours les
@@ -11,7 +11,10 @@ import MonEquipe from "./MonEquipe";
  *  « Pseudos app »), qui l'applique sous 15 minutes avec la règle de `!pseudo` et dit « fait » ou pourquoi c'est refusé.
  *  24/10 (Gaëtan : « on ne voit pas les comptes Instagram que le clipper gère ») : le 17/10, la liste avait été repliée sous
  *  « Gérer mes comptes et Metricool », sous les statistiques. Elle revient en haut, dépliée : tous ses comptes (la route les
- *  choisit avec comptesAffiches), l'état et le rôle de chacun, puis « Mon activité » en dessous. */
+ *  choisit avec comptesAffiches), l'état et le rôle de chacun.
+ *  24/10, plus tard (Gaëtan : « affiche la cadence sur les sept derniers jours, les vues, les followers et les clics ») : « Ma
+ *  semaine » ouvre l'onglet (MaSemaine). Elle remplace « Mon activité », le pilotage de l'admin, qui parlait de coût clippers
+ *  et de Rianah Metricool à un clipper. */
 type Compte = { n: number; handle: string; etat: string; creatrice: string; followers: number | null; reels7: number | null; vues7: number | null; role?: string };
 type Demande = { n: number; handle: string; statut: string; detail: string; date: string };
 const fmt = (n: number) => new Intl.NumberFormat("fr-FR").format(n);
@@ -20,7 +23,6 @@ const TONS: Record<Ton, string> = {
   orange: "bg-amber-400/10 text-amber-200",
   gris: "bg-white/[0.06] text-argent2",
 };
-const estPrive = (role?: string) => (role || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim() === "prive";
 
 type Metricool = { n: number; eligible: boolean; statut: "disponible" | "attente" | "pret" | "connecte" | "renouveler" };
 function MetricoolBouton({ jeton, n, etat, charger }: { jeton: string; n: number; etat?: Metricool; charger: () => Promise<void> }) {
@@ -108,7 +110,7 @@ function Ligne({ c, demande, jeton, recharger, metricool, rechargerMetricool }: 
 }
 
 function MesComptes({ jeton }: { jeton: string }) {
-  const [d, setD] = useState<{ comptes: Compte[]; demandes: Demande[]; pilotage: Pilotage | null } | null>(null);
+  const [d, setD] = useState<{ comptes: Compte[]; demandes: Demande[]; semaine?: Semaine } | null>(null);
   const [erreur, setErreur] = useState(false);
   const [metricool, setMetricool] = useState<Metricool[]>([]);
   const chargerMetricool = useCallback(async () => {
@@ -129,7 +131,8 @@ function MesComptes({ jeton }: { jeton: string }) {
   useEffect(() => { chargerMetricool(); const id = setInterval(chargerMetricool, 60_000); return () => clearInterval(id); }, [chargerMetricool]);
   return (
     <section className="space-y-3">
-      <div className="apparait px-1 pt-1">
+      {d?.semaine ? <MaSemaine s={d.semaine} /> : null}
+      <div className="apparait px-1 pt-2">
         <h2 className="text-[18px] font-bold">Mes comptes Instagram</h2>
         <p className="text-argent2 text-[13px] mt-1 leading-relaxed">Touche un @ pour l'ouvrir dans Instagram.</p>
       </div>
@@ -139,9 +142,6 @@ function MesComptes({ jeton }: { jeton: string }) {
       {d && !d.comptes.length ? <div className="carte p-5 text-center text-argent2">Pas encore de compte. Ton compte 1 arrive dans ton salon Discord.</div> : null}
       {d?.comptes.map((c) => <Ligne key={`${c.n}-${c.handle}`} c={c} demande={d.demandes.find((x) => x.n === c.n)} jeton={jeton} recharger={charger}
         metricool={metricool.find(e => e.n === c.n)} rechargerMetricool={chargerMetricool} />)}
-      {d ? <div className="pt-4">
-        {d.pilotage ? <PilotageClipper d={d.pilotage} /> : <div className="carte p-4 text-[13px] text-argent2">Tes statistiques sont en cours de mise à jour. <button className="text-accent" onClick={charger}>Réessayer</button></div>}
-      </div> : null}
     </section>
   );
 }

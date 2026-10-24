@@ -54,8 +54,10 @@ SUBS_TTL_S = 30 * 60
 # « Comptes app » = les comptes de chaque clipper dans l'ordre du parcours, avec son TL (onglets Comptes et Équipe de l'app) ;
 # « Pseudos app » = les @ corrigés depuis l'app (écrits par l'app), appliqués ici avec parcours.renommer (la règle de `!pseudo`)
 ONGLET_COMPTES_APP = "Comptes app"
+# 24/10 (Gaëtan : cadence sur 7 jours et objectif de la prime volume dans l'app des clippers) : + « Reels par jour (17 j) », les
+# jours à Paris où le compte a publié, « AAAA-MM-JJ:n » séparés par des espaces (dashboard.reels_par_jour, un minimum)
 ENTETE_COMPTES_APP = ["Clé app", "Prénom", "Créatrice", "N°", "@", "ETAT", "Followers", "Reels 7 j", "Vues 7 j (48 h)", "Clé app TL",
-                      "Prénom TL", "Followers vérifiés le (ISO)", "Rôle compte"]
+                      "Prénom TL", "Followers vérifiés le (ISO)", "Rôle compte", "Reels par jour (17 j)"]
 ONGLET_PSEUDOS = "Pseudos app"
 ONGLET_IDENTITY_APP = "Référentiel clippers"
 ONGLET_IDENTITY_LOG = "Clippers · 360"
@@ -98,6 +100,14 @@ def _txt(v) -> str:
     return "" if v is None or isinstance(v, bool) else str(v)
 
 
+def _jours_txt(jours) -> str:
+    """{« AAAA-MM-JJ » : n} → « AAAA-MM-JJ:n AAAA-MM-JJ:n » (jours avec au moins un Reel, dans l'ordre) ; '' sinon."""
+    if not isinstance(jours, dict):
+        return ""
+    return " ".join(f"{j}:{int(n)}" for j, n in sorted(jours.items())
+                    if isinstance(n, (int, float)) and not isinstance(n, bool) and n > 0)
+
+
 def lignes_comptes_app(cles_app: dict, comptes_de, tl_de: dict, nom, classeur: dict, chiffres: dict, cle=None, numero_prive=None) -> list:
     """Pur : une ligne par compte de chaque clipper qui a une clé d'app (uid → clé), dans l'ordre de son parcours (compte 1, 2, 3),
     avec l'ETAT et les chiffres du Dashboard et la clé d'app de son TL. Un clipper sans compte : une ligne sans @ (il voit son
@@ -121,7 +131,7 @@ def lignes_comptes_app(cles_app: dict, comptes_de, tl_de: dict, nom, classeur: d
         except Exception:                                               # noqa: BLE001 — fiche illisible : sans compte
             handles = []
         if not handles:
-            out.append([c_app, nom(uid), "", "", "", "", "", "", "", tl_cle, tl_nom, "", ""])
+            out.append([c_app, nom(uid), "", "", "", "", "", "", "", tl_cle, tl_nom, "", "", ""])
             continue
         for n, h in enumerate(handles, start=1):
             k = cle(h)
@@ -129,7 +139,8 @@ def lignes_comptes_app(cles_app: dict, comptes_de, tl_de: dict, nom, classeur: d
             out.append([c_app, nom(uid), str(cl.get("creatrice") or ""), str(n), k, str(cl.get("etat") or ""),
                         _txt(ch.get("followers")), _txt(ch.get("r7")), _txt(ch.get("v7")), tl_cle, tl_nom,
                         _txt(ch.get("followers_verified_at")),
-                        "privé" if n == (numero_prive(uid) if numero_prive else 3) else "croissance"])
+                        "privé" if n == (numero_prive(uid) if numero_prive else 3) else "croissance",
+                        _jours_txt(ch.get("jours"))])
     return out
 
 
