@@ -46,6 +46,16 @@ assert.equal(c.mesure, 'lu (RapidAPI)'); assert.equal(c.dernierReel, 'hier');   
 assert.equal(ig.appliquerIg(base('ancien.prv', 'privé'), suivi, '2026-10-24').role, 'croissance');
 assert.equal(ig.appliquerIg(base('vrai.prive', 'croissance'), suivi, '2026-10-24').role, 'privé');
 assert.equal(ig.appliquerIg(base('lien.ouvert', 'privé'), suivi, '2026-10-24').role, 'privé');  // ouvert sans Reel : la fiche décide
+// Le compte qui reçoit les clics GAML porte le lien : privé, même ouvert et même avec des Reels (compte du lien de Mathieu, 24/10)
+const liens = ig.porteursDeLien([{ handle: '@Ancien.PRV', clics7: 41, clicsHier: 3 }, { handle: 'croissance.a', clics7: 0, clicsHier: 0 },
+  { handle: 'vrai.prive', clics7: null }]);
+eq([...liens], ['ancien.prv']);
+assert.equal(ig.appliquerIg(base('ancien.prv', 'croissance'), suivi, '2026-10-24', liens).role, 'privé');
+assert.equal(ig.appliquerIg(base('croissance.a', 'croissance'), suivi, '2026-10-24', liens).role, 'croissance');
+assert.equal(ig.appliquerIg(base('pas.suivi', 'croissance'), suivi, '2026-10-24', new Set(['pas.suivi'])).role, 'privé');  // même inconnu de RapidAPI
+// Des Reels il y a 3 semaines mais plus rien depuis 7 jours : ce n'est pas un compte de croissance, la fiche décide
+const vieux = ig.lireIgComptes([ligne('vieux.reels', 'public', 150, 6, 0, 6, 0, '2026-10-05T10:00:00+00:00')]);
+assert.equal(ig.appliquerIg(base('vieux.reels', 'privé'), { comptes: vieux, jours: new Map() }, '2026-10-24').role, 'privé');
 // Introuvable : signalé, chiffres non inventés ; compte inconnu de RapidAPI ou suivi illisible : rien ne change
 assert.equal(ig.appliquerIg(base('disparu', ''), suivi, '2026-10-24').mesure, 'introuvable (RapidAPI)');
 const inconnu = base('pas.suivi', 'croissance');
@@ -56,4 +66,4 @@ assert.equal(ig.appliquerIg(inconnu, null, '2026-10-24'), inconnu);
 assert.equal(ig.dernierReelRelatif('2026-10-23T10:00:00+00:00', '2026-10-24'), 'hier');
 assert.equal(ig.dernierReelRelatif('2026-10-20T10:00:00+00:00', '2026-10-24'), 'il y a 4 j');
 assert.equal(ig.dernierReelRelatif('', '2026-10-24'), 'aucun');
-console.log('Suivi RapidAPI : comptes restreints lus, renommés trouvés, jours à Paris, rôles, introuvables et repli vérifiés.');
+console.log('Suivi RapidAPI : comptes restreints lus, renommés trouvés, jours à Paris, rôles (lien GAML compris), introuvables et repli vérifiés.');

@@ -12,7 +12,7 @@ import { createHmac, timingSafeEqual } from "crypto";
 import { jetonGoogle } from "./google";
 import { tableur } from "./usage";
 import { suiviIg } from "./igSource";
-import { appliquerIg } from "./igSuivi";
+import { appliquerIg, porteursDeLien } from "./igSuivi";
 
 export const ONGLETS = { comptes: "Pilotage comptes", clics: "Pilotage clics", subs: "Pilotage subs", infos: "Pilotage infos",
   boutons: "Pilotage boutons", identites: "Référentiel clippers" };
@@ -114,9 +114,11 @@ async function lire(): Promise<Pilotage> {
   // 24/10 : followers, Reels et vues viennent du suivi RapidAPI quand il connaît le compte (lib/igSuivi) ; l'ancien relevé du bot
   // ne voit pas les comptes « restreints » (Caroline, Yves…). Sans suivi lisible, rien ne change.
   const ig = await suiviIg(aujourdhui).catch(() => null);
+  // le compte qui reçoit les clics GAML porte le lien : c'est le compte privé (pas les comptes des créatrices elles-mêmes)
+  const liens = porteursDeLien(comptes.filter((c) => !/cr[ée]atrice/i.test(c.type)));
   const comptesIg = ig ? comptes.map((c) => {
     const x = appliquerIg({ handle: c.handle, followers: c.followers, reels7: c.reels7, vues7: c.vuesRecentes ?? c.vues7, role: c.roleCompte,
-      mesure: c.mesure, dernierReel: c.dernierReel }, ig, aujourdhui);
+      mesure: c.mesure, dernierReel: c.dernierReel }, ig, aujourdhui, liens);
     return { ...c, followers: x.followers, reels7: x.reels7, vues7: x.vues7, vuesRecentes: x.vues7, roleCompte: x.role || c.roleCompte,
       mesure: x.mesure || c.mesure, dernierReel: x.dernierReel ?? c.dernierReel };
   }) : comptes;

@@ -58,6 +58,7 @@ export default function PrimeVolume({ jeton, clics, libelle }: { jeton: string; 
                   {PALIERS.map((p) => <div key={p.reels} className="absolute -top-0.5 h-2.5 w-0.5 rounded-full bg-white/50" style={{ left: `${(p.reels / MAX_JAUGE) * 100}%` }} />)}
                 </div>
               ) : <div className="text-[11.5px] text-amber-200 mt-1">Pas encore suivi</div>}
+              {c.suspendu ? <div className="text-[11.5px] text-amber-200 mt-1.5">Compte suspendu : fais appel. Il compte pour 0 tant qu'il est suspendu.</div> : null}
             </div>
           ))}
           <div className="text-[11.5px] text-argent2">Moyenne sur {r!.joursEcoules} jour{r!.joursEcoules > 1 ? "s" : ""}, à jour d'hier. Repères à 3, 6 et 9.</div>
