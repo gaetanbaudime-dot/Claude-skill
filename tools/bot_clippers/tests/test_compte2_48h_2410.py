@@ -334,3 +334,48 @@ class IdentifiantsCompteRendLArobaseDuClasseur(unittest.IsolatedAsyncioTestCase)
              patch.object(onboarding, "lire_comptes", AsyncMock(return_value=lignes)):
             acces = await remise_compte1.identifiants_compte(None, None, "42", "fictifundeux", "Fictif", "Créa", set(), None)
         self.assertEqual(("x@exemple.invalid", mdp, "fictif.un.deux"), acces)
+
+
+class HistoriqueNonRapproche(Compte2A48h):
+    test_au_compte_1_liste_du_plus_ancien_au_plus_recent = None
+    test_seuls_ceux_a_48h_et_plus_recoivent_leur_compte_2 = None
+    test_pas_de_second_essai_avant_30_minutes = None
+    test_sans_reels_vaut_pour_le_compte_2_force_seulement = None
+
+    def setUp(self):
+        super().setUp()
+        a_venir = (MAINTENANT + timedelta(minutes=25)).isoformat()
+        retenue = {"n": 2, "raison": "Historique à vie non rapproché : allocation bloquée", "date": il_y_a(0)}
+        self.d = {
+            "9": {"prenom": "Nouveau", "etape": 2, "salon_id": "19", "dates": {"1": il_y_a(250), "1_fait": "x"}, "retenue": retenue,
+                  "programme": [{"type": "etape", "n": 2, "quand": a_venir, "ligne": True}]},
+            "10": {"prenom": "Ancien", "etape": 2, "salon_id": "20", "dates": {"1": il_y_a(400), "1_fait": "x"}, "retenue": retenue,
+                   "programme": [{"type": "etape", "n": 2, "quand": a_venir, "ligne": True}]},
+        }
+        self.lignes = [{"handle": "fictif-9-2", "etat": "à créer"}, {"handle": "fictif-10-2", "etat": "GOOD"}]
+
+    async def test_historique_repris_puis_compte_2_envoye_ancien_en_service_clos(self):
+        with patch.object(parcours, "_reprendre_historique", return_value=True) as reprendre:
+            _, envoyer_etape, _ = await self.passer()
+        self.assertEqual(["9"], [str(c.args[1].id) for c in envoyer_etape.await_args_list])
+        self.assertEqual(["9"], [c.args[0] for c in reprendre.call_args_list])
+        self.assertEqual([], self.d["9"]["programme"])                  # l'essai part ici, plus au programme
+        self.assertEqual("fictif-10-2", self.d["10"]["compte2_en_service"])
+
+    async def test_historique_refuse_rien_ne_part(self):
+        with patch.object(parcours, "_reprendre_historique", return_value=False):
+            _, envoyer_etape, _ = await self.passer()
+        envoyer_etape.assert_not_awaited()
+
+
+class ReprendreHistorique(unittest.TestCase):
+    def test_a_creer_compte_reserve_les_autres_incertains(self):
+        import reprise_ancien
+        with patch.object(reprise_ancien, "handles_connus", return_value=["fictif-a", "fictif-b"]), \
+             patch.object(reprise_ancien, "reprendre", return_value={"comptes": 2}) as reprendre, \
+             patch.object(onboarding, "_lire_etat", return_value={}), patch.object(parcours, "_lire", return_value={}), \
+             patch.object(onboarding.process_adapters, "store", return_value=Mock()):
+            ok = parcours._reprendre_historique("42", "Fictif", {"fictif-a": {"etat": "à créer"}, "fictif-b": {"etat": "GOOD"}})
+        self.assertTrue(ok)
+        self.assertEqual({"fictif-a"}, reprendre.call_args.args[4])
+        self.assertEqual("bot (décision de Gaëtan, 24/10)", reprendre.call_args.args[3]["par"])
