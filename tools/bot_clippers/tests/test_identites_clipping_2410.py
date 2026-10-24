@@ -270,3 +270,34 @@ class LienImpose(unittest.IsolatedAsyncioTestCase):
             self.assertTrue(etat["clippers"]["42"]["liens_prets"])
             await onboarding.attribuer_lien(SimpleNamespace(id=42), "Autre", creer=True)
             attribuer.assert_awaited_once()                              # une autre créatrice garde le chemin normal
+
+
+class EtatAuDemarrage(unittest.TestCase):
+    """24/10 : une ligne d'état par identité au démarrage, et une ligne de journal quand une étape part ou est retenue."""
+
+    def test_etat_dit_ce_qui_est_parti_et_ce_qui_attend(self):
+        fiche_p = {"etape": 2, "dates": {"1": "2026-01-01T00:00:00+00:00", "1_fait": "x"},
+                   "programme": [{"type": "etape", "n": 2, "quand": "2026-01-03T10:20:00+00:00"}]}
+        clippers = {"clippers": {"42": {"telephones": {"Fictive": {"acces": [{}, {}, {}], "donnes": 2,
+                                                                    "dernier": "2026-01-02T08:00:00+00:00"}}}}}
+        with tempfile.TemporaryDirectory() as d:
+            store = process_store.Store(Path(d) / "s.sqlite3")
+            store.reconcile("42", [{"aliases": ["fictif1"], "status": "created"}], "test")
+            with patch.object(parcours, "_lire", return_value={"42": fiche_p}), \
+                 patch.object(onboarding, "_lire_etat", return_value=clippers), \
+                 patch.object(onboarding.process_adapters, "store", return_value=store):
+                ligne = identites_clipping.etat("42")
+        self.assertIn("principal étape 2, envoyées 1", ligne)
+        self.assertIn("attend 2 le 2026-01-03T10:20", ligne)
+        self.assertIn("Fictive 2/3 remis", ligne)
+        self.assertIn("places {'created': 1} (max 3)", ligne)
+
+    def test_uids_multi_ne_garde_que_les_identites_multiples(self):
+        registre = {"1": {"salons_clipping": {"Fictive": "9"}}, "2": {"salon_id": "8"}, "3": "illisible"}
+        with patch.dict(identites_clipping._deps, {"lire_json": lambda *_: registre, "FICHIER_EQUIPES": Path("/tmp/e.json")}):
+            self.assertEqual(["1"], identites_clipping._uids_multi())
+
+    def test_envoi_et_retenue_journalises(self):
+        source = (ROOT / "parcours.py").read_text(encoding="utf-8")
+        self.assertIn('journal.info("Parcours : étape %s envoyée à %s", n, uid)', source)
+        self.assertIn('journal.info("Parcours : étape %s de %s retenue (%s)', source)
