@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from "react";
 import { signaler } from "@/lib/signal";
 import type { Pilotage } from "@/lib/pilotage";
 import PilotageClipper from "./pilotage/PilotageClipper";
+import MonEquipe from "./MonEquipe";
 
 /** 12/10 (Gaëtan : « un onglet où il peut mettre à jour le @ de ses 3 comptes Instagram, ça nous permettra d'avoir toujours les
  *  bons ») : ses comptes dans l'ordre du parcours, chacun avec un lien direct vers Instagram et « Modifier le @ ». Le nouveau @
@@ -87,7 +88,7 @@ function Ligne({ c, demande, jeton, recharger, metricool, rechargerMetricool }: 
   );
 }
 
-export default function ComptesTab({ jeton }: { jeton: string }) {
+function MesComptes({ jeton }: { jeton: string }) {
   const [d, setD] = useState<{ comptes: Compte[]; demandes: Demande[]; pilotage: Pilotage | null } | null>(null);
   const [erreur, setErreur] = useState(false);
   const [metricool, setMetricool] = useState<Metricool[]>([]);
@@ -122,5 +123,34 @@ export default function ComptesTab({ jeton }: { jeton: string }) {
         </div>
       </details> : null}
     </section>
+  );
+}
+
+/** 24/10 (Gaëtan : « dans les comptes, les comptes du team leader et ensuite les comptes de son équipe… deux onglets ») : un TL a
+ *  deux vues dans Comptes. « Mes comptes » = exactement l'onglet d'un clipper (ses stats, ses @ modifiables, Metricool) ; « Mon
+ *  équipe » = le pilotage de ses clippers (clics, Reels, vues, chaque @ vers Instagram), filtré côté serveur sur son équipe. Un
+ *  clipper qui n'est pas TL ne voit aucun changement. Le choix est retenu sur le téléphone. */
+type Vue = "moi" | "equipe";
+export default function ComptesTab({ jeton, tl = false }: { jeton: string; tl?: boolean }) {
+  const [vue, setVue] = useState<Vue>("moi");
+  useEffect(() => {
+    if (!tl) return;
+    try { if (localStorage.getItem("gm-tl-comptes") === "equipe") setVue("equipe"); } catch { /* privé */ }
+  }, [tl]);
+  if (!tl) return <MesComptes jeton={jeton} />;
+  const choisir = (v: Vue) => {
+    setVue(v);
+    signaler(jeton, v === "equipe" ? "onglet:equipe" : "onglet:comptes");
+    try { localStorage.setItem("gm-tl-comptes", v); } catch { /* privé */ }
+  };
+  return (
+    <div className="space-y-3">
+      <div className="flex gap-2" role="tablist" aria-label="Comptes">
+        {([["moi", "Mes comptes"], ["equipe", "Mon équipe"]] as const).map(([cle, titre]) =>
+          <button key={cle} role="tab" aria-selected={vue === cle} onClick={() => choisir(cle)}
+                  className={`flex-1 rounded-xl py-3 text-[14px] font-semibold ${vue === cle ? "bg-white text-black" : "bg-white/10 text-argent2"}`}>{titre}</button>)}
+      </div>
+      {vue === "moi" ? <MesComptes jeton={jeton} /> : <MonEquipe jeton={jeton} />}
+    </div>
   );
 }
