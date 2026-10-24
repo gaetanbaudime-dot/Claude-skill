@@ -3,8 +3,8 @@ import { useCallback, useEffect, useState } from "react";
 import { evaluerPrime, PALIERS, type ReelsPrime } from "@/lib/activite";
 
 /** 24/10 (Gaëtan : « dans les versements, un truc par rapport à l'objectif, j'ai rajouté un objectif de Reels et d'input ») :
- *  la prime volume annoncée le 21/10, suivie sur la période de paie en cours. Les Reels viennent de /prime (onglet « Comptes app »),
- *  les clics payés de la carte du dessus (GAML). Une estimation : la prime est validée par l'agence en fin de période. */
+ *  la prime volume annoncée le 21/10, suivie sur la période de paie en cours. Les Reels viennent de /prime (suivi RapidAPI, lib/igSuivi),
+ *  les clics payés de la carte du dessus (GAML). La prime est validée par l'agence en fin de période. */
 const fmt = (n: number) => new Intl.NumberFormat("fr-FR").format(n);
 const dec = (n: number) => n.toLocaleString("fr-FR", { maximumFractionDigits: 1 });
 const MAX_JAUGE = 10;
@@ -24,51 +24,43 @@ export default function PrimeVolume({ jeton, clics, libelle }: { jeton: string; 
   const moyenne = r && r.mesure ? r.moyenne : null;
   const { paliers, atteint } = evaluerPrime(moyenne, clics);
   const prochain = paliers.find((p) => !p.atteint);
+  // 24/10 (Gaëtan : « il faut que la moyenne du compte 1 soit supérieure à 3, il faut que la moyenne du compte 2 soit supérieure
+  // à 3 ») : chaque compte de croissance face au palier, sans « cadence retenue » à interpréter
+  const deux = r && r.mesure && r.joursEcoules > 0 ? r.parCompte.slice(0, 2) : [];
+  const manqueCompte = (palier: number) => deux.map((c, i) => c.moyenne !== null && c.moyenne < palier
+    ? (() => { const m = Math.round((palier - c.moyenne) * 10) / 10; return `${dec(m)} Reel${m >= 2 ? "s" : ""} par jour sur le compte ${i + 1}`; })() : "").filter(Boolean);
   return (
     <div className="carte apparait-2 p-4">
       <div className="flex items-baseline justify-between gap-2">
         <div className="text-[14px] font-semibold">🔥 Prime volume</div>
         <span className="text-[11px] text-argent2">{libelle}</span>
       </div>
-      <p className="text-[12.5px] text-argent2 mt-1 leading-relaxed">En plus de tes clics. Chacun de tes 2 comptes de croissance doit tenir la cadence : c'est le moins actif qui compte.</p>
+      <p className="text-[12.5px] text-argent2 mt-1 leading-relaxed">En plus de tes clics. Ton compte 1 et ton compte 2 de croissance doivent chacun tenir la moyenne de Reels par jour.</p>
 
       {!r && !erreur ? <div className="squelette h-20 mt-3" /> : null}
       {erreur && !r ? <p className="text-[12.5px] text-argent2 mt-3">Tes Reels sont en cours de mise à jour. <button onClick={charger} className="text-accent font-semibold">Réessayer</button></p> : null}
-      {r && !r.mesure ? <p className="text-[12.5px] text-argent2 mt-3">Le bot ne lit pas encore les Reels de tes comptes de croissance. Ta moyenne s'affiche dès qu'il les voit.</p> : null}
-      {r && r.mesure && r.joursEcoules === 0 ? <p className="text-[12.5px] text-argent2 mt-3">La période commence aujourd'hui. Ta moyenne s'affiche demain.</p> : null}
-      {r && r.mesure && r.joursEcoules > 0 && r.manque === "deuxieme_non_lu" ? <p className="text-[12.5px] text-amber-200 mt-3">Le bot ne lit pas encore ton 2e compte de croissance. Ta cadence s'affiche dès qu'il le voit.</p> : null}
-      {r && r.mesure && r.joursEcoules > 0 && r.manque === "deuxieme_compte" ? <p className="text-[12.5px] text-amber-200 mt-3">La prime se calcule sur 2 comptes de croissance. Ton 2e compte n'est pas encore là.</p> : null}
+      {r && !r.mesure ? <p className="text-[12.5px] text-argent2 mt-3">Tes comptes ne sont pas encore suivis. C'est de notre côté, on s'en occupe.</p> : null}
+      {r && r.mesure && r.joursEcoules === 0 ? <p className="text-[12.5px] text-argent2 mt-3">La période commence aujourd'hui. Tes moyennes s'affichent demain.</p> : null}
+      {r && r.mesure && r.joursEcoules > 0 && r.manque === "deuxieme_non_lu" ? <p className="text-[12.5px] text-amber-200 mt-3">Ton 2e compte n'est pas encore suivi. C'est de notre côté, on s'en occupe.</p> : null}
+      {r && r.mesure && r.joursEcoules > 0 && r.manque === "deuxieme_compte" ? <p className="text-[12.5px] text-amber-200 mt-3">Tu n'as qu'un compte de croissance. La prime en demande 2.</p> : null}
 
-      {r && r.mesure && moyenne !== null ? (
-        <>
-          <div className="mt-3 leading-none">
-            <span className="titre-argent text-[32px] font-bold tabular-nums">{dec(moyenne)}</span>
-            <span className="text-[13px] text-argent2 ml-1.5">Reels / jour sur chaque compte</span>
-          </div>
-          <div className="text-[12px] text-argent2 mt-1.5">Sur {r.joursEcoules} jour{r.joursEcoules > 1 ? "s" : ""}, à jour d'hier</div>
-          <div className="relative mt-4 h-2 rounded-full" style={{ background: "rgba(255,255,255,0.08)" }}>
-            <div className="h-full rounded-full" style={{ width: `${Math.min(100, (moyenne / MAX_JAUGE) * 100)}%`, background: "linear-gradient(90deg,#2b6cff,#7ef0b2)", transition: "width 600ms ease" }} />
-            {PALIERS.map((p) => (
-              <div key={p.reels} className="absolute -top-1 h-4 w-0.5 rounded-full bg-white/50" style={{ left: `${(p.reels / MAX_JAUGE) * 100}%` }} />
-            ))}
-          </div>
-          <div className="relative h-4 mt-1 text-[10.5px] text-argent2">
-            {PALIERS.map((p) => <span key={p.reels} className="absolute -translate-x-1/2 tabular-nums" style={{ left: `${(p.reels / MAX_JAUGE) * 100}%` }}>{p.reels}</span>)}
-          </div>
-        </>
-      ) : null}
-
-      {r && r.mesure && r.joursEcoules > 0 && r.parCompte.length ? (
-        <div className="mt-3 space-y-1.5 text-[13px]">
-          {r.parCompte.slice(0, 2).map((c) => {
-            const decide = moyenne !== null && c.moyenne === moyenne;
-            return (
-              <div key={c.handle} className="flex items-center justify-between gap-2 rounded-xl px-3 py-2" style={{ background: "rgba(255,255,255,0.04)" }}>
-                <span className="truncate">@{c.handle}{decide && r.parCompte.length > 1 ? <span className="text-amber-200 text-[11.5px] ml-1.5">celui qui compte</span> : null}</span>
-                <b className="tabular-nums shrink-0">{c.moyenne !== null ? `${dec(c.moyenne)} / jour` : "pas lu"}</b>
+      {deux.length ? (
+        <div className="mt-3 space-y-2">
+          {deux.map((c, i) => (
+            <div key={c.handle} className="rounded-xl px-3 py-2.5" style={{ background: "rgba(255,255,255,0.04)" }}>
+              <div className="flex items-baseline justify-between gap-2 text-[13px]">
+                <span className="truncate"><span className="text-argent2">Compte {i + 1}</span> · @{c.handle}</span>
+                <b className="tabular-nums shrink-0 text-[15px]">{c.moyenne !== null ? `${dec(c.moyenne)}` : "–"}<span className="text-[11px] text-argent2 font-normal"> / jour</span></b>
               </div>
-            );
-          })}
+              {c.moyenne !== null ? (
+                <div className="relative mt-2 h-1.5 rounded-full" style={{ background: "rgba(255,255,255,0.08)" }}>
+                  <div className="h-full rounded-full" style={{ width: `${Math.min(100, (c.moyenne / MAX_JAUGE) * 100)}%`, background: "linear-gradient(90deg,#2b6cff,#7ef0b2)", transition: "width 600ms ease" }} />
+                  {PALIERS.map((p) => <div key={p.reels} className="absolute -top-0.5 h-2.5 w-0.5 rounded-full bg-white/50" style={{ left: `${(p.reels / MAX_JAUGE) * 100}%` }} />)}
+                </div>
+              ) : <div className="text-[11.5px] text-amber-200 mt-1">Pas encore suivi</div>}
+            </div>
+          ))}
+          <div className="text-[11.5px] text-argent2">Moyenne sur {r!.joursEcoules} jour{r!.joursEcoules > 1 ? "s" : ""}, à jour d'hier. Repères à 3, 6 et 9.</div>
         </div>
       ) : null}
 
@@ -81,11 +73,8 @@ export default function PrimeVolume({ jeton, clics, libelle }: { jeton: string; 
             </div>
             <div className={`text-[11.5px] mt-0.5 ${p.atteint ? "text-emerald-300" : "text-argent2"}`}>
               {p.atteint ? "Atteint à ce jour" : (() => {
-                const manque = [
-                  moyenne !== null && !p.okReels ? `${dec(p.manqueReels)} Reel${p.manqueReels > 1 ? "s" : ""} par jour sur ton compte le moins actif` : "",
-                  clics !== null && !p.okClics ? `${fmt(p.manqueClics)} clics` : "",
-                ].filter(Boolean);
-                return manque.length ? `Il manque ${manque.join(" et ")}` : "À suivre";
+                const manque = [...manqueCompte(p.reels), clics !== null && !p.okClics ? `${fmt(p.manqueClics)} clics` : ""].filter(Boolean);
+                return manque.length ? `Il manque ${manque.join(", ")}` : "À suivre";
               })()}
             </div>
           </div>
@@ -96,7 +85,7 @@ export default function PrimeVolume({ jeton, clics, libelle }: { jeton: string; 
         {atteint ? `Si la période finissait hier : +${atteint.bonus} $ en plus de tes clics.`
           : prochain ? `Premier objectif : ${prochain.reels} Reels par jour sur chaque compte et ${fmt(prochain.clics)} clics.` : ""}
       </div>
-      <p className="text-[11px] text-argent2/80 mt-2 leading-relaxed">Un clip différent sur chaque compte. Comptes en règle. Estimation d'après les Reels vus par le bot : la prime est validée par l'agence à la fin de la période.</p>
+      <p className="text-[11px] text-argent2/80 mt-2 leading-relaxed">Un clip différent sur chaque compte. Comptes en règle. Reels relevés 3 fois par jour sur Instagram. La prime est validée par l'agence à la fin de la période.</p>
     </div>
   );
 }

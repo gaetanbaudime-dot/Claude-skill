@@ -12,6 +12,8 @@ import { comptesReels } from "@/lib/comptesReels";
 import { pilotage } from "@/lib/pilotage";
 import { pilotageEquipe } from "@/lib/classement";
 import { semaine } from "@/lib/activite";
+import { suiviIg } from "@/lib/igSource";
+import { appliquerIg } from "@/lib/igSuivi";
 import { aujourdhuiParis } from "@/lib/dates";
 
 export const dynamic = "force-dynamic";
@@ -26,14 +28,16 @@ export async function GET(_req: Request, { params }: { params: { token: string }
     const parcours = m.comptes.filter(x => x.n >= 1 && x.n <= 3);
     const personnel = stats ? pilotageEquipe(stats, [{ prenom: c.prenom, creatrice: c.creatrice, comptes: parcours }]) : null;
     // 24/10 : la liste part du LOG DASHBOARD (Gérant), la fiche du bot donne les n° pour corriger un @ (lib/comptesReels)
-    const comptes = comptesAffiches(comptesReels(c.prenom, m.comptes, stats?.comptes ?? null));
+    const jour = stats?.aujourdhui || aujourdhuiParis();
+    const ig = await suiviIg(jour).catch(() => null);                    // 24/10 : chiffres du suivi RapidAPI (lib/igSuivi)
+    const comptes = comptesAffiches(comptesReels(c.prenom, m.comptes, stats?.comptes ?? null).map((x) => appliquerIg(x, ig, jour)));
     // 24/10 : « Ma semaine » = ses Reels (inputs), vues, followers et clics payés des 7 derniers jours clos
     let clicsParJour: Record<string, number> | null = null;
     if (personnel) {
       clicsParJour = {};
       for (const k of personnel.clics) if (k.axe === "Horizontal" && k.source === "Clipper") clicsParJour[k.jour] = (clicsParJour[k.jour] || 0) + k.visites;
     }
-    const sem = semaine(comptes, stats?.aujourdhui || aujourdhuiParis(), clicsParJour);
+    const sem = semaine(comptes, jour, clicsParJour);
     return NextResponse.json({ comptes, tl: m.tl, demandes, pilotage: personnel, semaine: sem }, { headers: ENTETES });
   } catch (e) {
     return NextResponse.json({ erreur: "comptes en cours de mise à jour", detail: (e as Error).message }, { status: 503, headers: ENTETES });
