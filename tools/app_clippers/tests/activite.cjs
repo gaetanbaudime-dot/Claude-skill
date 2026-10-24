@@ -40,6 +40,11 @@ const nonLu = { handle: 'n', etat: 'GOOD', role: 'croissance', followers: 4, ree
 s = a.semaine([nonLu, { ...nonLu, handle: 'n2' }], auj, { '2026-10-23': 50 });
 assert.equal(s.reels, null); assert.equal(s.cadence, null); assert.equal(s.parJour, false); assert.equal(s.clics, 50);
 assert.equal(a.reelsPrime([nonLu, { ...prive, jours: {} }], '2026-10-20', '2026-11-04', auj).mesure, false);
+// Des Reels vus avant la fenêtre ne prouvent pas que le compte est lu aujourd'hui (le cas réel du 24/10)
+const ancien = { ...nonLu, etat: 'Faire appel', jours: { '2026-10-12': 1, '2026-10-13': 2 } };
+s = a.semaine([ancien, nonLu], auj, { '2026-10-23': 50 });
+assert.equal(s.reels, null); assert.equal(s.cadence, null);
+assert.equal(a.reelsPrime([ancien, nonLu], '2026-10-20', '2026-11-04', auj).mesure, false);
 // Un compte relevé à 0 (Reels 7 j = 0) est mesuré : 0 est alors un vrai chiffre
 s = a.semaine([{ ...nonLu, reels7: 0 }], auj, null);
 assert.equal(s.reels, 0); assert.equal(s.cadence, 0);
