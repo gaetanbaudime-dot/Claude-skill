@@ -2820,6 +2820,47 @@ def candidatures_du_jour(jour, lignes: list, pipe: dict | None = None) -> list:
     return out
 
 
+def envois_candidatures(lignes: list, pipe: dict | None = None) -> list:
+    """24/10 (M1 = nouvelles personnes) : tous les envois connus, un dict par envoi {date (heure de Paris, naïve), tel, telegram,
+    prenom, pays} : les lignes du classeur (deux onglets) et, côté pipeline, la fiche actuelle, les fiches remplacées par une
+    re-candidature (candidatures_contact_historique) et chaque envoi du site (candidatures_web). Le staff
+    (RELANCES_EXCLURE_TELS) est exclu ; les tests le sont par funnel_quotidien."""
+    try:
+        from zoneinfo import ZoneInfo
+        paris = ZoneInfo("Europe/Paris")
+    except Exception:                                                   # noqa: BLE001 — base de fuseaux absente
+        paris = timezone(timedelta(hours=2))
+    out = []
+
+    def _iso(s):
+        try:
+            d = datetime.fromisoformat(str(s or ""))
+        except ValueError:
+            return None
+        return (d if d.tzinfo else d.replace(tzinfo=timezone.utc)).astimezone(paris).replace(tzinfo=None)
+
+    def _ajouter(d, tel, telegram, prenom, pays):
+        if d is None or relances.tel_exclu(tel):
+            return
+        out.append({"date": d, "tel": str(tel or ""), "telegram": str(telegram or ""), "prenom": str(prenom or ""),
+                    "pays": str(pays or "")})
+
+    for c in lignes or []:
+        _ajouter(c.get("date"), c.get("tel", ""), c.get("telegram", ""), c.get("prenom", ""), c.get("pays", ""))
+    pipe = pipe or {}
+    for tel, c in (pipe.get("candidatures") or {}).items():
+        _ajouter(_iso(c.get("date")), tel, c.get("pseudo", ""), c.get("prenom", ""), c.get("pays", ""))
+    for tel, anciennes in (pipe.get("candidatures_contact_historique") or {}).items():
+        for c in anciennes if isinstance(anciennes, list) else []:
+            if isinstance(c, dict):
+                _ajouter(_iso(c.get("date")), tel, c.get("pseudo", ""), c.get("prenom", ""), c.get("pays", ""))
+    for w in (pipe.get("candidatures_web") or {}).values():
+        if isinstance(w, dict):
+            dos = w.get("dossier") or {}
+            _ajouter(_iso(w.get("date")), w.get("tel", ""), dos.get("pseudo", ""), dos.get("prenom", ""), dos.get("pays", ""))
+    return out
+
+
 def candidature_de(lignes: list, tel: str = "", prenom: str = "") -> dict:
     """La candidature d'une personne : par les 8 derniers chiffres du numéro, sinon par prénom (si unique). La plus récente gagne."""
     chiffres = _chiffres_tel(tel)
@@ -4837,7 +4878,8 @@ ONGLET_FUNNEL = "Funnel quotidien"
 
 async def serie_funnel(nb_jours: int, fin=None) -> list:
     """18/10 (actions 16-17) : [(jour, M1, M2, M3)] des `nb_jours` jours pleins jusqu'à `fin` (hier par défaut), heure de Paris.
-    M1 = candidatures_du_jour (le compteur de !pipeline), M2 = funnel_quotidien.qualifies, M3 = funnel_quotidien.actifs."""
+    M1 = nouvelles personnes du jour (24/10 : funnel_quotidien.nouvelles_personnes_par_jour sur tous les envois connus),
+    M2 = funnel_quotidien.qualifies, M3 = funnel_quotidien.actifs."""
     try:
         from zoneinfo import ZoneInfo
         paris = ZoneInfo("Europe/Paris")
@@ -4857,8 +4899,9 @@ async def serie_funnel(nb_jours: int, fin=None) -> list:
         journal.warning("Funnel : relevés de visites illisibles (%s)", erreur)
         paie = {}
     exclus = frozenset(ADMIN_IDS)
+    nouvelles = funnel_quotidien.nouvelles_personnes_par_jour(envois_candidatures(lignes_c, pipe))
     return funnel_quotidien.serie(
-        jours, lambda j: len(candidatures_du_jour(j, lignes_c, pipe)),
+        jours, lambda j: nouvelles.get(j, 0),
         lambda j: len(funnel_quotidien.qualifies(pipe, j, paris)),
         lambda j: len(funnel_quotidien.actifs(paie, j, paie_clics.payees, exclus)) if paie else 0)
 
@@ -5226,9 +5269,11 @@ async def boucle_rappels():
                 cand_24h = candidatures_du_jour(hier, lignes_c, pipe)
                 flux = compteurs_funnel(pipe, hier, equipes_r)
                 sources = sources_candidatures(cand_24h, lignes_c, pipe)
+                # 24/10 : le premier chiffre est M1, le même que le cockpit (nouvelles personnes, tests et re-candidatures exclus)
+                nouveaux_hier = funnel_quotidien.nouvelles_personnes_par_jour(envois_candidatures(lignes_c, pipe)).get(hier, 0)
                 # 21/10 (Gaëtan : « simplifie, rends ça agréable à lire ») : l'entonnoir d'hier en une chaîne ; les sources seulement
                 # quand il y en a plusieurs (« web 6 » seul n'apprend rien)
-                blocs_d.append(("hier", f"📋 **Recrutement hier** : {len(cand_24h)} candidature(s) → {flux['quiz_ok']} quiz réussi(s)"
+                blocs_d.append(("hier", f"📋 **Recrutement hier** : {nouveaux_hier} nouveau(x) candidat(s) → {flux['quiz_ok']} quiz réussi(s)"
                                 + (f" ({flux['quiz_ko']} raté(s))" if flux["quiz_ko"] else "")
                                 + f" → {flux['arrives']} arrivé(s) sur Discord → {attribues_du_jour(equipes_r, hier)} avec une créatrice"
                                 + ("\n-# Sources : " + " · ".join(f"{s} {n}" for s, n in sources) if len(sources) > 1 else "")))
