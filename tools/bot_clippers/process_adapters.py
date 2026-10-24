@@ -33,15 +33,25 @@ class LiensAPI:
         modeles = [l for l in liens if o._norm(str(l.get('name') or '').split()[0] if l.get('name') else '') == o._norm(creatrice.split()[0])]
         if modeles:
             self._verifier_modele(await p.lien_detail(modeles[0]['id']))
-        reserve = await m.lignes()
+        # 24/10 : l'onglet unique « Réserve trackings » (MYM et OF, rempli par Gaëtan) d'abord, l'ancienne réserve ensuite
+        premier = (o._norm(creatrice).split() or [''])[0]
+        def libre_u(r, kind):
+            return ((o._norm(r['creatrice']).split() or [''])[0] == premier and r['kind'] == kind and not r['pose']
+                    and r['url'] not in utilises and not store().resource_owner(kind, r['url']))
+        reserve_u = await m.lignes_reserve()
+        mym_u = next((r for r in reserve_u if libre_u(r, 'mym')), None)
+        of_u = next((r for r in reserve_u if libre_u(r, 'of')), None)
+        reserve = [] if mym_u else await m.lignes()
         mym = next((r for r in reserve if o._norm(r['creatrice']) == o._norm(creatrice)
                     and not r['pose'] and r['url'] not in utilises and not store().resource_owner('mym', r['url'])), None)
-        of = next((str(c.get('lien_infloww') or '').strip() for c in self.tous if o._pour_creatrice(c, creatrice)
+        of = of_u['url'] if of_u else next((str(c.get('lien_infloww') or '').strip() for c in self.tous if o._pour_creatrice(c, creatrice)
                    and str(c.get('lien_infloww') or '').startswith('https://')
                    and c['lien_infloww'].strip() not in utilises
                    and not store().resource_owner('of', c['lien_infloww'].strip())), '')
-        return {'modele': modeles[0]['id'] if modeles else '', 'mym': mym['url'] if mym else '',
-                'mym_ligne': mym['ligne'] if mym else None, 'of': of}
+        return {'modele': modeles[0]['id'] if modeles else '',
+                'mym': mym_u['url'] if mym_u else (mym['url'] if mym else ''),
+                'mym_ligne': mym['ligne'] if (mym and not mym_u) else None,
+                'mym_ligne_u': mym_u['ligne'] if mym_u else None, 'of': of, 'of_ligne_u': of_u['ligne'] if of_u else None}
 
     @staticmethod
     def _verifier_modele(detail):
@@ -98,7 +108,21 @@ class LiensAPI:
         return True
 
     async def marquer_capacite(self, job):
+        import onboarding as o
         import reserve_mym as m
+        if job.get('mym_ligne_u') or job.get('of_ligne_u'):                 # 24/10 : onglet unique « Réserve trackings »
+            membre = o._deps['membre_par_id'](self.uid) if o._deps.get('membre_par_id') else None
+            clipper = str(getattr(membre, 'display_name', '') or self.uid).split(' - ')[0]
+            lignes_u = await m.lignes_reserve()
+            for cle, kind in (('mym_ligne_u', 'mym'), ('of_ligne_u', 'of')):
+                if not job.get(cle):
+                    continue
+                r = next((r for r in lignes_u if r['ligne'] == job[cle] and r['url'] == job[kind]), None)
+                if not r or r['pose'] not in ('', job['lien']):
+                    raise Bloque('Réserve de trackings modifiée pendant la préparation')
+                await m.marquer_reserve(r['ligne'], job['lien'], clipper)
+        if job.get('mym_ligne') is None:
+            return
         lignes = await m.lignes()
         r = next((r for r in lignes if r['ligne'] == job['mym_ligne'] and r['url'] == job['mym']), None)
         if not r or r['pose'] not in ('', job['lien']):

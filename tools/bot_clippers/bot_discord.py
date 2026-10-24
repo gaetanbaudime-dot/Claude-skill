@@ -9734,6 +9734,7 @@ async def on_ready():
             while not client.is_closed():
                 try:
                     await reserve_mym.assurer_onglet()
+                    await reserve_mym.assurer_onglet_reserve()              # 24/10 : onglet unique MYM + OF
                     bilan_rm = await reserve_mym.poser_sur_existants()
                     if bilan_rm and onboarding.bilan_a_poster(bilan_rm, "reserve_mym"):
                         canal_rm = await canal_admin()

@@ -63,7 +63,7 @@ class SalonDedie(unittest.IsolatedAsyncioTestCase):
             "donnes": donnes, "dernier": dernier or "2020-01-01T00:00:00+00:00", "lien": "https://exemple.invalid/8"}}}},
             "livres": {}}
 
-    async def passer(self, etat, salon_dedie, maintenant=None, preuve=False):
+    async def passer(self, etat, salon_dedie, maintenant=None):
         def ecrire(d):
             etat.clear(); etat.update(deepcopy(d))
         principal = SimpleNamespace(send=AsyncMock())
@@ -73,7 +73,6 @@ class SalonDedie(unittest.IsolatedAsyncioTestCase):
              patch.object(onboarding, "lien_autre_creatrice", AsyncMock(return_value="")), \
              patch.object(onboarding, "lien_drive_creatrice", AsyncMock(return_value="")), \
              patch.object(parcours, "_onb", side_effect=lambda uid: deepcopy(etat)["clippers"].get(str(uid), {})), \
-             patch.object(parcours.process_clippeur, "pseudo_disponible", return_value=preuve), \
              patch.dict(onboarding._deps, {"salon_perso": lambda uid: principal, "membre_par_id": lambda uid: membre,
                                            "salon_telephone": lambda uid, c: salon_dedie,
                                            "lire_json": lambda *_: {}, "FICHIER_ONBOARDING": Path("/tmp/x.json")}):
@@ -103,17 +102,15 @@ class SalonDedie(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(0, n)
         salon.send.assert_not_awaited()
 
-    async def test_compte_a_creer_retenu_sans_preuve_de_disponibilite(self):
+    async def test_prive_a_creer_part_avec_son_lien(self):
         etat = self.etat(donnes=2)
         salon = SimpleNamespace(send=AsyncMock())
         n, _ = await self.passer(etat, salon)
-        self.assertEqual(0, n)
-        self.assertEqual(2, etat["clippers"]["42"]["telephones"]["Fictive"]["donnes"])
-        n, _ = await self.passer(etat, salon, preuve=True)
         self.assertEqual(1, n)
         texte = salon.send.await_args.args[0]
         self.assertIn("le privé", texte)
         self.assertIn("https://exemple.invalid/8", texte)              # le lien déjà attribué de cette créatrice
+        self.assertEqual(3, etat["clippers"]["42"]["telephones"]["Fictive"]["donnes"])
 
     async def test_sans_salon_dedie_la_file_heritee_reste_retenue(self):
         etat = self.etat()
@@ -225,3 +222,51 @@ class DepotTrios(unittest.IsolatedAsyncioTestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ReserveUnique(unittest.IsolatedAsyncioTestCase):
+    def test_lecture_de_l_onglet_unique(self):
+        import reserve_mym
+        brut = [["Fictive", "MYM", "CLIP-FICTIVE-MYM-001", "https://mym.fans/app/t/fictif1"],
+                ["Fictive", "OF", "CLIP-FICTIVE-OF-001", "https://onlyfans.com/fictive/c1", "https://exemple.invalid/3", "Prenom", "24/10/2026"],
+                ["Fictive", "", "", "https://onlyfans.com/fictive/c2"],      # plateforme déduite de l'adresse
+                ["Fictive", "MYM", "", "https://onlyfans.com/fictive/c9"],   # mauvaise plateforme : ignorée
+                ["", "MYM", "", "https://mym.fans/app/t/sans-creatrice"]]
+        lignes = reserve_mym.lignes_reserve_depuis(brut)
+        self.assertEqual([(2, "mym", ""), (3, "of", "https://exemple.invalid/3"), (4, "of", "")],
+                         [(l["ligne"], l["kind"], l["pose"]) for l in lignes])
+
+    async def test_capacite_prend_la_premiere_ligne_libre_de_la_creatrice(self):
+        import paie_clics
+        import process_adapters
+        import reserve_mym
+        liste = type("Liste", (list,), {"complete": True})([{"id": "m1", "name": "Fictive"}])
+        u = [{"ligne": 2, "creatrice": "Autre", "kind": "mym", "url": "https://mym.fans/app/t/autre", "pose": ""},
+             {"ligne": 3, "creatrice": "Fictive", "kind": "mym", "url": "https://mym.fans/app/t/pris", "pose": "https://x/1"},
+             {"ligne": 4, "creatrice": "fictive", "kind": "mym", "url": "https://mym.fans/app/t/libre", "pose": ""},
+             {"ligne": 5, "creatrice": "Fictive", "kind": "of", "url": "https://onlyfans.com/fictive/c5", "pose": ""}]
+        store = SimpleNamespace(resource_owner=lambda kind, url: None)
+        with patch.object(paie_clics, "liens_de", return_value=[]), patch.object(paie_clics, "_lire", return_value={}), \
+             patch.object(paie_clics, "liens_gaml", AsyncMock(return_value=liste)), \
+             patch.object(paie_clics, "lien_detail", AsyncMock(return_value={"contents": []})), \
+             patch.object(process_adapters.LiensAPI, "_verifier_modele", staticmethod(lambda d: None)), \
+             patch.object(process_adapters, "store", return_value=store), \
+             patch.object(reserve_mym, "lignes_reserve", AsyncMock(return_value=u)), \
+             patch.object(reserve_mym, "lignes", AsyncMock(return_value=[])):
+            choix = await process_adapters.LiensAPI("42", []).capacite("Fictive")
+        self.assertEqual(("https://mym.fans/app/t/libre", 4, "https://onlyfans.com/fictive/c5", 5, None),
+                         (choix["mym"], choix["mym_ligne_u"], choix["of"], choix["of_ligne_u"], choix["mym_ligne"]))
+
+
+class LienImpose(unittest.IsolatedAsyncioTestCase):
+    async def test_lien_impose_sans_reserve(self):
+        etat = {"clippers": {"42": {"creatrice": "Fictive", "lien_impose": "https://exemple.invalid/7"}}}
+        with patch.object(onboarding, "_lire_etat", side_effect=lambda: deepcopy(etat)), \
+             patch.object(onboarding, "_ecrire_etat", side_effect=lambda d: etat.update(deepcopy(d))), \
+             patch.object(onboarding.process_adapters, "attribuer", AsyncMock()) as attribuer:
+            bilan = await onboarding.attribuer_lien(SimpleNamespace(id=42), "Fictive", creer=True)
+            self.assertEqual("https://exemple.invalid/7", bilan["lien"])
+            attribuer.assert_not_awaited()
+            self.assertTrue(etat["clippers"]["42"]["liens_prets"])
+            await onboarding.attribuer_lien(SimpleNamespace(id=42), "Autre", creer=True)
+            attribuer.assert_awaited_once()                              # une autre créatrice garde le chemin normal
