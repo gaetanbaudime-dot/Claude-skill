@@ -10,6 +10,14 @@
 >
 > 11/10 : la vague 1 du recrutement est branchée au démarrage, testée, pas encore en production. Lis d'abord « 10/10 et 11/10 : ce qui change pour toi », juste en dessous.
 
+## 24/10 : six mois d'historique GAML (vertical et horizontal)
+
+**Pourquoi le vertical s'arrêtait au 3 octobre** : les pages des créatrices (bio Instagram, /fb, /ytb) n'étaient relues que sur 14 jours en arrière, et jamais avant le 05/10 (`CLICS_DEPUIS`, le début de la paie au clic) ; les liens des clippers sur 45 jours. Le Pilotage ne publiait que 62 jours.
+
+**Maintenant** : chaque lien connu du bot est relu jusqu'à 183 jours en arrière (`CLICS_HISTORIQUE_JOURS`), jamais avant sa création (lue dans son identifiant GAML), du jour le plus récent au plus ancien, les pages des créatrices d'abord à date égale. Un appel par jour (`/analytics/countries`), au plus 60 par passage de 15 minutes (`CLICS_HISTORIQUE_MAX`), en fin de passage : paie, veille et jour en cours passent avant. Environ 2 000 jours à relire : 8 à 10 heures. Aucune paie ne bouge (la paie au clic part du 05/10). Le Pilotage publie 183 jours (`PILOTAGE_JOURS`).
+
+**Bio de Sophie** : la note « Rianah Metricool + Compte de Créatrice » de son lien /3 n'était plus reconnue depuis le 16/10 : sa bio comptait en horizontal. Elle repasse en vertical.
+
 ## 24/10 : Instagram par le suivi RapidAPI, plus aucun appel Apify
 
 Gaëtan : « on n'utilise plus Apify, on utilise RapidAPI… pourquoi tu me parles encore de Apify ? ». Le suivi RapidAPI (`instagram_rapidapi.py`, GitHub Actions « Suivi Instagram », 3 passages par jour) relisait déjà chaque compte vivant du LOG DASHBOARD IG par son ID Instagram, mais le scan des états du bot (`etats_comptes.py`) payait encore Apify pour écrire Followers, Reels Hier et Reels 7 j, et le Dashboard affichait « Apify X $ / 25 $ ».
