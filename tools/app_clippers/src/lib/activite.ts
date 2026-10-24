@@ -67,7 +67,10 @@ export const reelsMesures = (c: CompteActivite, depuis: string) =>
 export function semaine(comptes: CompteActivite[], aujourdhui: string, clicsParJour: Record<string, number> | null): Semaine {
   const jours = joursClos(aujourdhui, 7);
   const lus = comptes.some((c) => reelsMesures(c, jours[0]));
-  const parJour = lus && comptes.some((c) => c.jours !== undefined);
+  // 24/10 : un compte du LOG DASHBOARD absent de la fiche du bot n'a pas de détail jour par jour ; ses Reels comptent quand même,
+  // par « Reels 7 j » (sans graphique) plutôt que d'être oubliés
+  const parJour = lus && comptes.some((c) => c.jours !== undefined)
+    && comptes.filter((c) => reelsMesures(c, jours[0])).every((c) => c.jours !== undefined);
   const detail: JourActivite[] = jours.map((j) => ({
     jour: j,
     reels: parJour ? comptes.reduce((s, c) => s + ((c.jours || {})[j] || 0), 0) : null,

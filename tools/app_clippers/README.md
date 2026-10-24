@@ -138,3 +138,14 @@ npm install
 cp .env.local.exemple .env.local   # puis remplir les six variables
 npm run dev
 ```
+
+## 24/10 — l'app part du LOG DASHBOARD (réalité d'abord)
+
+Gaëtan : « j'en ai marre qu'on n'ait pas un visuel entre la réalité et ce qu'on affiche… je mets tout le temps à jour le sheet, log dashboard, pars de là ». Les comptes d'un clipper (Mes comptes, Mon équipe, classement) viennent de `src/lib/comptesReels.ts` (testé par `tests/comptes-reels.cjs`) :
+
+- la colonne **Gérant** du LOG DASHBOARD (recopiée par le bot dans « Pilotage comptes ») décide : un @ de clipping dont le Gérant est le clipper s'affiche même s'il manque à la fiche du bot (n° 100+, sans « Modifier », le bot ne le connaît pas) ; un @ de sa fiche que la feuille donne à un autre, ou à personne, disparaît de chez lui ;
+- la fiche du bot (« Comptes app ») garde les n° du parcours, seuls modifiables par « Modifier le @ » ; ses anciens @ (état vide) restent masqués ;
+- **Mon équipe** montre tous les comptes actifs de chaque clipper, n° 4+ compris ; dans le classement, un compte actif hors des trois emplacements du parcours s'affiche en ➕, jamais promu à la place d'un 1, 2 ou 3 ;
+- chaque compte en ligne porte une **alerte de relevé** quand le chiffre affiché n'est peut-être pas la réalité : introuvable sur Instagram (rouge), lecture limitée, abonnés non relus depuis une date, Reels non lus, aucun Reel ou dernier Reel vu il y a 3 jours ou plus (orange). Elles remontent aussi dans « À suivre ».
+
+Cas qui l'ont motivé (24/10) : le meilleur compte de Mathieu (≈ 150 000 vues sur 7 jours) et celui de Pierre étaient invisibles, leur fiche du bot portant un @ à une lettre près de celui de la feuille ; le compte actif d'Esperance était son n° 5.

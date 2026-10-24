@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { signaler } from "@/lib/signal";
 import { etatAffiche, type Ton } from "@/lib/comptesVisibles";
+import { alerteMesure } from "@/lib/comptesReels";
 import { estPrive, type Semaine } from "@/lib/activite";
 import MaSemaine from "./MaSemaine";
 import MonEquipe from "./MonEquipe";
@@ -15,7 +16,8 @@ import MonEquipe from "./MonEquipe";
  *  24/10, plus tard (Gaëtan : « affiche la cadence sur les sept derniers jours, les vues, les followers et les clics ») : « Ma
  *  semaine » ouvre l'onglet (MaSemaine). Elle remplace « Mon activité », le pilotage de l'admin, qui parlait de coût clippers
  *  et de Rianah Metricool à un clipper. */
-type Compte = { n: number; handle: string; etat: string; creatrice: string; followers: number | null; reels7: number | null; vues7: number | null; role?: string };
+type Compte = { n: number; handle: string; etat: string; creatrice: string; followers: number | null; reels7: number | null; vues7: number | null; role?: string;
+  modifiable?: boolean; mesure?: string; dernierReel?: string };
 type Demande = { n: number; handle: string; statut: string; detail: string; date: string };
 const fmt = (n: number) => new Intl.NumberFormat("fr-FR").format(n);
 const TONS: Record<Ton, string> = {
@@ -68,6 +70,7 @@ function Ligne({ c, demande, jeton, recharger, metricool, rechargerMetricool }: 
     } finally { setEnvoi(false); }
   };
   const etat = etatAffiche(c.etat);
+  const alerte = etat.enLigne ? alerteMesure(c) : null;
   return (
     <div className="carte p-4 apparait">
       <div className="flex items-start justify-between gap-3">
@@ -91,6 +94,7 @@ function Ligne({ c, demande, jeton, recharger, metricool, rechargerMetricool }: 
         ) : null}
       </div>
       {!etat.enLigne ? <div className="mt-3 text-[12.5px] text-argent2">Pas encore créé. Tes accès sont dans ton salon Discord.</div> : null}
+      {alerte ? <div className={`mt-3 text-[12.5px] rounded-xl px-3 py-2 ${alerte.grave ? "bg-rose-400/10 text-rose-200" : "bg-amber-400/10 text-amber-200"}`}>⚠ {alerte.texte.charAt(0).toUpperCase() + alerte.texte.slice(1)}.</div> : null}
       {enAttente ? <div className="mt-3 text-[12.5px] rounded-xl px-3 py-2 bg-amber-400/10 text-amber-200">⏳ Changement vers @{demande!.handle} en cours : le bot le fait sous 15 minutes.</div> : null}
       {demande?.statut === "refusé" ? <div className="mt-3 text-[12.5px] rounded-xl px-3 py-2 bg-rose-400/10 text-rose-200">❌ @{demande.handle} refusé : {demande.detail}</div> : null}
       {edition ? (
@@ -100,7 +104,7 @@ function Ligne({ c, demande, jeton, recharger, metricool, rechargerMetricool }: 
           <button disabled={envoi || !saisie.trim()} onClick={envoyer} className="rounded-xl px-4 font-semibold bg-accent/90 text-[#071226] disabled:opacity-40">{envoi ? "…" : "OK"}</button>
           <button onClick={() => { setEdition(false); setMessage(""); }} className="rounded-xl px-3 text-argent2">✕</button>
         </div>
-      ) : (
+      ) : c.modifiable === false ? null : (
         <button onClick={() => setEdition(true)} className="mt-3 text-[13px] font-semibold text-accent">Ce n'est pas le bon @ ? Modifier</button>
       )}
       {message ? <div className="mt-2 text-[12.5px] text-rose-200">{message}</div> : null}

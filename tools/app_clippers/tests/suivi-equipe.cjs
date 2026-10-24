@@ -13,7 +13,9 @@ function load(file, deps = {}) {
 }
 
 // « À suivre » de Mon équipe : un compte GOOD ne remonte jamais, bans et appels d'abord marqués graves.
-const { pointsDe } = load('lib/suiviEquipe.ts');
+const reels = load('lib/comptesReels.ts');
+const visibles = load('lib/comptesVisibles.ts');
+const { pointsDe } = load('lib/suiviEquipe.ts', { './comptesReels': reels });
 const c = (n, etat, handle = `compte${n}`) => ({ n, handle, etat, followers: null, reels7: null, vues7: null });
 const m = (comptes, manquants = 0) => ({ cle: 'x', prenom: 'X', creatrice: 'Sarah', comptes, visites: null, auSeuil: false, manquants });
 
@@ -27,16 +29,23 @@ eq(pointsDe(m([c(1, 'BIZARRE')])).map(x => x.texte), ['bizarre']);
 // Les jours non relevés ne comptent que pour un clipper qui a un compte actif.
 assert.equal(pointsDe(m([c(1, 'à créer')], 2)).some(x => x.texte.startsWith('clics')), false);
 eq(pointsDe(m([c(1, 'GOOD')], 2)).map(x => x.texte), ['clics : 2 jour(s) pas encore relevé(s)']);
+// 24/10 : un compte actif dont le dernier relevé ne garantit pas le chiffre remonte aussi (introuvable = grave)
+p = pointsDe(m([{ ...c(1, 'GOOD'), mesure: 'introuvable · followers : classeur' }, { ...c(2, 'GOOD'), mesure: 'lu', dernierReel: 'il y a 9 j' },
+  { ...c(3, 'GOOD'), mesure: 'privé', dernierReel: 'aucun', role: 'privé' }]));
+eq(p.map(x => [x.handle, x.grave]), [['compte1', true], ['compte2', false]]);
+assert.match(p[1].texte, /9 jours/);
 
-// La route de l'équipe : 404 pour un jeton inconnu ou un clipper sans équipe, sinon seulement les clippers du TL et leurs comptes 1 à 3.
+// La route de l'équipe : 404 pour un jeton inconnu ou un clipper sans équipe, sinon seulement les clippers du TL et tous leurs
+// comptes selon le LOG DASHBOARD (24/10 : n° 4+ compris, @ hors fiche ajoutés, @ donnés à un autre retirés).
 const calc = load('components/pilotage/calc.ts');
 const model = load('lib/classement.ts', { '@/components/pilotage/calc': calc });
 const tl = { prenom: 'Yves', cle: 'yves', creatrice: 'Sarah' };
 const clipper = { prenom: 'Simon', cle: 'simon', creatrice: 'Sarah' };
-const equipe = [{ cle: 'simon', prenom: 'Simon', creatrice: 'Sarah', comptes: [c(1, 'GOOD', 'simon1'), c(2, 'GOOD', 'simon2'), c(4, 'GOOD', 'simon4')] }];
+const equipe = [{ cle: 'simon', prenom: 'Simon', creatrice: 'Sarah', comptes: [c(1, 'GOOD', 'simon1'), c(2, 'GOOD', 'simon2'), c(4, 'GOOD', 'simon4'), c(5, 'GOOD', 'donne')] }];
 const compte = (handle, gerant, numero) => ({ handle, gerant, numero, creatrice: 'Sarah', axe: 'Horizontal', type: 'Clipper', etat: 'GOOD' });
 const data = { aujourdhui: '2026-10-24', boutons: [{ x: 1 }], subs: [{ caMymEur: 1000 }],
-  comptes: [compte('simon1', 'Simon', 1), compte('simon2', 'Simon', 2), compte('simon4', 'Simon', 4), compte('autre', 'Romaric', 1)],
+  comptes: [compte('simon1', 'Simon', 1), compte('simon2', 'Simon', 2), compte('simon4', 'Simon', 4), compte('autre', 'Romaric', 1),
+    compte('donne', 'Romaric', 2), compte('horsfiche', 'Simon', undefined)],
   clippers: [{ uid: '1', prenom: 'Simon', role: 'Clipper', creatrice: 'Sarah', comptes: [{ handle: 'simon1', numero: 1 }, { handle: 'simon2', numero: 2 }, { handle: 'simon4', numero: 4 }] },
     { uid: '2', prenom: 'Romaric', role: 'Clipper', creatrice: 'Chloé', comptes: [{ handle: 'autre', numero: 1 }] }],
   clics: ['Simon', 'Romaric'].map(qui => ({ jour: '2026-10-23', qui, axe: 'Horizontal', source: 'Clipper', visites: 10, manquants: 0, creatrice: 'Sarah' })) };
@@ -47,6 +56,8 @@ const route = load('app/api/k/[token]/equipe/route.ts', {
   '@/lib/equipes': { equipeDe: async () => null },
   '@/lib/pilotage': { pilotage: async () => data },
   '@/lib/classement': model,
+  '@/lib/comptesVisibles': visibles,
+  '@/lib/comptesReels': reels,
 });
 (async () => {
   assert.equal((await route.GET({}, { params: { token: 'inconnu' } })).status, 404);
@@ -54,10 +65,12 @@ const route = load('app/api/k/[token]/equipe/route.ts', {
   const r = await route.GET({}, { params: { token: 'tl' } });
   assert.equal(r.status, 200);
   eq(r.body.membres.map(x => x.prenom), ['Simon']);
-  eq(r.body.membres[0].comptes.map(x => x.n), [1, 2]);
-  assert.ok(r.body.pilotage.comptes.every(x => x.gerant === 'Simon' && x.numero <= 3));
+  eq(r.body.membres[0].comptes.map(x => x.handle), ['simon1', 'simon2', 'simon4', 'horsfiche']);
+  eq(r.body.membres[0].comptes.map(x => x.modifiable), [true, true, true, false]);
+  assert.ok(r.body.pilotage.comptes.every(x => x.gerant === 'Simon'));
+  eq(r.body.pilotage.comptes.map(x => x.handle).sort(), ['horsfiche', 'simon1', 'simon2', 'simon4']);
   assert.ok(r.body.pilotage.clics.every(x => x.qui === 'Simon'));
   assert.equal(r.body.pilotage.subs.length, 0); assert.equal(r.body.pilotage.boutons.length, 0);
   assert.equal(r.headers['Cache-Control'], 'private, no-store');
-  console.log('Mon équipe : points à suivre, équipe du seul TL, comptes 1 à 3, ni subs ni CA vérifiés.');
+  console.log('Mon équipe : points à suivre et relevés, équipe du seul TL, comptes selon le LOG DASHBOARD, ni subs ni CA vérifiés.');
 })().catch(e => { console.error(e); process.exitCode = 1; });
