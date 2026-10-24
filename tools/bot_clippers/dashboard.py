@@ -1741,6 +1741,26 @@ def _resultat(ctx: _Ctx, rows: list, kinds: list, comptes_l: list, creatrices: s
             "pilotage": pil, "simple": simple}
 
 
+async def _completer_colonne_tl(E, comptes: list) -> int:
+    """24/10 (Jamel) : écrit le prénom du TL dans la colonne « Team Leader » des lignes d'un clipper qui n'en ont pas (le bot n'écrivait
+    que le Gérant). `TL_COLONNE_AUTO=0` l'éteint. Renvoie le nombre de cellules écrites ; les lignes lues reçoivent le prénom pour que
+    `maj_colonne`, juste après, le voie. Jamais plus de 30 cellules par passage."""
+    if os.environ.get("TL_COLONNE_AUTO", "1").strip().lower() in ("0", "non", "off", "false", "faux"):
+        return 0
+    creatrices = onboarding.creatrices_connues(comptes)
+    a_ecrire = E.colonne_a_completer(
+        comptes, exclure=lambda c: onboarding.est_ligne_creatrice(c, creatrices) or not onboarding.a_colonne("tl", c.get("onglet") or ""))
+    if not a_ecrire:
+        return 0
+    n = await google_api.sheets_ecrire_plusieurs(onboarding.CLASSEUR_LOGINS_ID,
+                                                 [(onboarding.cellule(c, "tl"), [[nom]]) for c, nom in a_ecrire])
+    for c, nom in a_ecrire:
+        c["tl"] = nom
+    journal.info("Colonne Team leader : %d cellule(s) complétée(s) (%s)", n,
+                 ", ".join(sorted({f"{c.get('gerant')} → {nom}" for c, nom in a_ecrire})))
+    return n
+
+
 # ------------------------------------------------------------------ le tableau simple (12/10)
 # Gaëtan (12/10) : « Ta feuille Dashboard est illisible, prends exemple sur le reste. » Le modèle : ses onglets créatrices — un
 # en-tête vert, une ligne par compte, ETAT en couleur, le Gérant et ses clics fusionnés sur ses comptes, la colonne Team Leader.
@@ -3504,6 +3524,10 @@ async def ecrire(force: bool = False, *, maintenant: datetime = None) -> dict:
             return bilan
         E = _module("equipes_tl") if _deps.get("pilotage") else None   # 12/10 : la colonne « Team leader » du classeur
         if E is not None and callable(getattr(E, "branche", None)) and E.branche():
+            try:
+                await _completer_colonne_tl(E, comptes)                  # 24/10 : le TL du clipper écrit dans le Sheets, plus à la main
+            except Exception as erreur:                                  # noqa: BLE001 — jamais au prix du Dashboard
+                journal.warning("Colonne Team leader à compléter : %s", erreur)
             try:
                 E.maj_colonne(comptes, onboarding._proprietaires(), onboarding._cle_handle)
             except Exception as erreur:                                  # noqa: BLE001 — jamais au prix du Dashboard
