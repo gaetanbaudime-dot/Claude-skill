@@ -11,6 +11,8 @@
 import { createHmac, timingSafeEqual } from "crypto";
 import { jetonGoogle } from "./google";
 import { tableur } from "./usage";
+import { suiviIg } from "./igSource";
+import { appliquerIg } from "./igSuivi";
 
 export const ONGLETS = { comptes: "Pilotage comptes", clics: "Pilotage clics", subs: "Pilotage subs", infos: "Pilotage infos",
   boutons: "Pilotage boutons", identites: "Référentiel clippers" };
@@ -109,7 +111,16 @@ async function lire(): Promise<Pilotage> {
     visites7: nb(l[19]), qualiteVisites: l[20] || "", reels7: nb(l[21]), anomalies: l[22] || "",
   }));
   const aujourdhui = new Intl.DateTimeFormat("fr-CA", { timeZone: "Europe/Paris", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
-  return { publie: infos["Publié"] || "", fraicheur: infos["Fraîcheur"] || "", taux: nb(infos["Taux USD→EUR"]) ?? 0.92, aujourdhui, comptes, clics, subs, boutons, clippers };
+  // 24/10 : followers, Reels et vues viennent du suivi RapidAPI quand il connaît le compte (lib/igSuivi) ; l'ancien relevé du bot
+  // ne voit pas les comptes « restreints » (Caroline, Yves…). Sans suivi lisible, rien ne change.
+  const ig = await suiviIg(aujourdhui).catch(() => null);
+  const comptesIg = ig ? comptes.map((c) => {
+    const x = appliquerIg({ handle: c.handle, followers: c.followers, reels7: c.reels7, vues7: c.vuesRecentes ?? c.vues7, role: c.roleCompte,
+      mesure: c.mesure, dernierReel: c.dernierReel }, ig, aujourdhui);
+    return { ...c, followers: x.followers, reels7: x.reels7, vues7: x.vues7, vuesRecentes: x.vues7, roleCompte: x.role || c.roleCompte,
+      mesure: x.mesure || c.mesure, dernierReel: x.dernierReel ?? c.dernierReel };
+  }) : comptes;
+  return { publie: infos["Publié"] || "", fraicheur: infos["Fraîcheur"] || "", taux: nb(infos["Taux USD→EUR"]) ?? 0.92, aujourdhui, comptes: comptesIg, clics, subs, boutons, clippers };
 }
 
 /** Les quatre onglets, lus en un appel (cache 2 minutes : le bot publie au plus toutes les 15). */

@@ -15,6 +15,7 @@ const model = load('lib/classement.ts', { '@/components/pilotage/calc': calc });
 const visibles = load('lib/comptesVisibles.ts');
 const dates = load('lib/dates.ts');
 const activite = load('lib/activite.ts', { './dates': dates });
+const igSuivi = load('lib/igSuivi.ts');
 const reels = load('lib/comptesReels.ts');
 const me = { prenom: 'Caroline', creatrice: 'Chloé', cle: 'caroline' };
 const compte = (handle, n, gerant) => ({ handle, n, numero: n, gerant, creatrice: 'Chloé', axe: 'Horizontal', type: 'Clipper', etat: 'GOOD' });
@@ -34,6 +35,8 @@ const route = load('app/api/k/[token]/comptes/route.ts', {
   '@/lib/comptesVisibles': visibles,
   '@/lib/comptesReels': reels,
   '@/lib/activite': activite,
+  '@/lib/igSuivi': igSuivi,
+  '@/lib/igSource': { suiviIg: async () => null },                                // suivi RapidAPI illisible : l'ancien relevé reste
   '@/lib/dates': dates,
 });
 (async () => {
