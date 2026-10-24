@@ -799,6 +799,13 @@ async def passage_complet(session) -> dict:
         "curseur_perdu": curseur_texte(_diag["curseur_perdu"]), "metricool": metricool_texte(bilan.get("metricool"))})
     etat["passages"] = etat["passages"][-90:]
     _sauver(store)
+    if comptes and not bilan["profils"] and not bilan["reels"]:
+        # 24/10 : le bot Railway (clé RapidAPI sans accès à FlashAPI) relisait 0 profil et réécrivait les onglets avec un
+        # historique vide, par-dessus le bon passage de GitHub : le Cockpit affichait « pas encore relu » partout. Un passage
+        # qui n'a rien pu relire n'écrit plus rien.
+        bilan["onglets_ecrits"] = False
+        journal.warning("Suivi Instagram : aucun profil ni Reel relu (%s requêtes) : onglets laissés tels quels", bilan.get("requetes"))
+        return bilan
     try:
         import paie_clics
         classeur = await paie_clics._classeur_usage()

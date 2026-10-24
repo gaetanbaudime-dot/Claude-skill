@@ -548,3 +548,36 @@ def test_publications_jamais_sous_les_reels_connus():
     assert I.lignes_comptes(suivis, store, T0)[0][9] == "16"
     store["comptes"]["k1"]["suivi"] = [["t", 156, 40]]
     assert I.lignes_comptes(suivis, store, T0)[0][9] == "40"
+
+
+def test_passage_sans_aucune_lecture_n_ecrase_pas_les_onglets(monkeypatch):
+    """24/10 : une clé sans accès (403 partout) ne doit pas réécrire les onglets avec un historique vide."""
+    import asyncio
+    import onboarding
+    import paie_clics
+    import pilotage
+    store = {}
+    I.configurer({"lire_json": lambda f, d: store.get("d", d), "ecrire_json": lambda f, d: store.__setitem__("d", d), "FICHIER": "x"})
+    ecrits = []
+
+    async def appeler(session, chemin, params):
+        I._jour["n"] += 1
+        return 403, {"message": "You are not subscribed to this API."}
+
+    async def lire_comptes():
+        return [{"onglet": "Sophie", "handle": "k1", "etat": "GOOD", "gerant": "Thia"}]
+
+    async def ecrire(classeur, titre, entete, lignes):
+        ecrits.append(titre)
+        return True
+
+    async def classeur():
+        return "C"
+    monkeypatch.setattr(I, "appeler", appeler)
+    monkeypatch.setattr(I, "RATTRAPAGE_J", 0)
+    monkeypatch.setattr(onboarding, "lire_comptes", lire_comptes)
+    monkeypatch.setattr(pilotage, "_ecrire", ecrire)
+    monkeypatch.setattr(paie_clics, "_classeur_usage", classeur)
+    I._jour.update({"jour": "", "n": 0, "restant": None})
+    bilan = asyncio.run(I.passage_complet(None))
+    assert bilan["onglets_ecrits"] is False and not any(t.startswith("IG · ") and t != "IG · Reels Metricool" for t in ecrits)
