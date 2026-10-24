@@ -61,8 +61,11 @@ class PremierPseudo(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(await p.envoyer_etape(self.salon, self.membre, 1))
         self.salon.send.assert_not_awaited()
 
-    async def test_compte2_garde_palier_reels_et_preuve_disponibilite(self):
+    async def test_compte2_garde_palier_reels_sans_preuve_de_disponibilite(self):
+        # 24/10 (Gaëtan, « GO ») : la preuve que l'@ est libre n'est plus exigée ; le palier de Reels de l'ancien parcours reste.
         self.assertFalse(await p.envoyer_etape(self.salon, self.membre, 2))
-        with patch.object(p, 'reels_pour', return_value=4):
-            self.assertFalse(await p.envoyer_etape(self.salon, self.membre, 2))
         self.salon.send.assert_not_awaited()
+        with patch.object(p, 'reels_pour', return_value=4):
+            self.assertTrue(await p.envoyer_etape(self.salon, self.membre, 2))
+        self.salon.send.assert_awaited()
+        self.assertNotIn('SECRET_FICTIF', self.salon.send.call_args.args[0])

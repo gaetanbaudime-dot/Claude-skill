@@ -1037,16 +1037,6 @@ def compte_deja_cree(uid, handle: str) -> bool:
     return any(onboarding.normaliser_handle(a.get("handle")).lower() == cle and a.get("cree") for a in accs)
 
 
-def disponibilite_prouvee(uid, handle: str) -> bool:
-    """La preuve que l'@ prévu est libre sur Instagram (process_pseudos.json, remplie par un opérateur) n'a de sens que pour un compte
-    À CRÉER. 24/10 (Rianah : son compte 2 Chloé existe déjà, « l'IA n'a toujours pas mis le 2e ») : un compte déjà créé passe."""
-    if compte_deja_cree(uid, handle):
-        return True
-    preuves = onboarding._deps["lire_json"](onboarding._deps["FICHIER_ONBOARDING"].parent / "process_pseudos.json", {})
-    return process_clippeur.pseudo_disponible(preuves.get(onboarding.normaliser_handle(handle).lower()) or {},
-                                              datetime.now(timezone.utc))
-
-
 async def renommer_telephone(uid: str, creatrice: str, n: int, nouveau: str) -> tuple:
     """24/10 (Rianah : son `!pseudo 1` de son compte Sarah, tapé dans son salon Chloé, a renommé son compte 1 CHLOÉ) : le compte n
     de ses comptes chez `creatrice` (fiche « telephones »), renommé quand la commande est tapée dans le salon de clipping de cette
@@ -1392,11 +1382,8 @@ async def envoyer_etape(salon, membre, n: int, pointer: bool = True) -> bool:
                 if identite != (uid, "reserved") or _cree(fiche_avant, 1):
                     raise RuntimeError("Premier compte non neuf : rapprochement requis")
                 pseudo_propose = handle
-            else:
-                if not disponibilite_prouvee(uid, handle):
-                    _garder_au_programme(uid, n, noter=True)
-                    journal.warning("Compte retenu : disponibilité Instagram non prouvée")
-                    return False
+            # 24/10 (Gaëtan, « GO ») : plus de preuve que l'@ prévu est libre sur Instagram avant les comptes 2 et 3. Personne ne
+            # la remplissait : aucun compte « à créer » ne partait. Un @ pris se règle avec `!pseudo`.
         except RuntimeError:
             _garder_au_programme(uid, n, noter=True)
             return False

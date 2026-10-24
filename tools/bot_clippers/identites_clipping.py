@@ -13,7 +13,7 @@ Dépôt dans la variable Railway IDENTITES_CLIPPING_JSON (les @ des comptes ne v
   "comptes": {créatrice: [@1, @2, @privé]},           # le trio de CETTE identité, le privé en dernier
   "remis": {créatrice: n},                            # autre créatrice : comptes déjà sur son téléphone
   "ban": [@…],                                        # cramés : ETAT BAN, rendus (Gérant vidé)
-  "lien": {créatrice: url},                           # autre créatrice : son lien déjà attribué
+  "lien": {créatrice: url},                           # son lien : imposé pour la principale, noté pour une autre
   "simple": true}]                                    # son parcours principal passe à la règle des 48 h
 
 Le Gérant des lignes d'un trio devient « Prénom Clipping Créatrice ». Ses autres lignes « Prénom Clipping Créatrice » de l'onglet
@@ -182,6 +182,26 @@ def _historique(uid: str, entree: dict) -> str:
     return f"📒 Journal des places : {registre.counts(uid)} (max {process_store.places_a_vie(uid)})"
 
 
+def _lien(uid: str, creatrice: str, url: str, principale: str) -> str:
+    """Le lien d'une identité : imposé pour la créatrice principale (onboarding.attribuer_lien le rend sans réserve de trackings),
+    noté dans « telephones » pour une autre créatrice."""
+    if not url.startswith("https://"):
+        return f"⚠️ {creatrice} : lien illisible"
+    etat = onboarding._lire_etat()
+    fiche = etat["clippers"].setdefault(uid, {})
+    if _n(creatrice) == _n(principale):
+        fiche.update(lien_impose=url, lien=url, liens_prets=True)
+    else:
+        tel = fiche.setdefault("telephones", {})
+        cle = next((k for k in tel if _n(k) == _n(creatrice)), None)
+        if cle is None or not isinstance(tel[cle], dict):
+            return f"⚠️ {creatrice} : aucun compte {creatrice} dans sa fiche, lien non noté"
+        tel[cle]["lien"] = url
+        tel[cle].pop("lien_du", None)
+    onboarding._ecrire_etat(etat)
+    return f"🔗 Lien {creatrice} : {url}"
+
+
 def _parcours_simple(uid: str) -> str:
     """Son parcours principal passe à la règle des 48 h ; le compte 2 est programmé s'il n'est pas encore parti."""
     d = parcours._lire()
@@ -215,6 +235,8 @@ async def appliquer(entree: dict) -> list:
         lignes.append(_historique(uid, entree))
     except RuntimeError as erreur:
         lignes.append(f"⚠️ Journal des places : {str(erreur)[:120]}")
+    for creatrice, url in (entree.get("lien") or {}).items():
+        lignes.append(_lien(uid, creatrice, str(url or "").strip(), principale))
     if entree.get("simple"):
         lignes.append(_parcours_simple(uid))
     if entree.get("salons") and _deps.get("ouvrir_salons"):

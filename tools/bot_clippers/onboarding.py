@@ -1153,7 +1153,18 @@ async def reservations_expirees(historique: dict, maintenant=None) -> list:
 
 # ------------------------------------------------------------------ livraison
 async def attribuer_lien(membre, creatrice: str, tous: list = None, comptes: list = None, creer: bool = True) -> dict:
-    """Liens uniques, réservations atomiques et reprise sans clonage répété."""
+    """Liens uniques, réservations atomiques et reprise sans clonage répété.
+    24/10 (Gaëtan, Rianah : « reprends un ancien GAML de Chloé, on s'en fout, pas besoin de tracker ses stats à elle ») : un lien
+    imposé par Gaëtan dans la fiche (« lien_impose », dépôt des identités de clipping) est son lien, sans réserve de trackings."""
+    uid = str(getattr(membre, "id", ""))
+    etat = _lire_etat()
+    fiche = etat.get("clippers", {}).get(uid) or {}
+    impose = str(fiche.get("lien_impose") or "").strip()
+    if impose and _norm(fiche.get("creatrice") or creatrice) == _norm(creatrice):
+        if fiche.get("lien") != impose or not fiche.get("liens_prets"):
+            etat["clippers"][uid].update(lien=impose, liens_prets=True)
+            _ecrire_etat(etat)
+        return {"lien": impose, "lid": "", "lignes": ["lien imposé par Gaëtan (ancien lien recyclé, sans tracking à lui)"]}
     return await process_adapters.attribuer(membre, creatrice, tous, creer)
 
 
@@ -2399,9 +2410,6 @@ async def lien_autre_creatrice(membre, creatrice: str, handles=(), creer: bool =
 # salon : un compte, puis le suivant TELEPHONE2_ATTENTE_H heures plus tard, le privé en dernier avec le lien de cette créatrice.
 # Les messages ne portent jamais d'e-mail ni de mot de passe (_bloc_acces, règle du 17/10) : le responsable remet les accès.
 # Sans salon dédié, la file héritée reste retenue pour remise humaine (17/10), inchangée.
-_RETENUS_SALON_DEDIE: set = set()                                       # (uid, créatrice, n) déjà journalisés une fois
-
-
 def salon_telephone(uid, creatrice: str):
     """Le salon de clipping dédié à `creatrice` pour ce clipper (dépendance « salon_telephone » du bot), sinon None."""
     f = _deps.get("salon_telephone")
@@ -2429,18 +2437,6 @@ async def _donner_salon_dedie(uid, membre, salon, creatrice: str, t: dict, maint
         if dernier is not None and (maintenant - dernier).total_seconds() < TELEPHONE2_ATTENTE_H * 3600:
             return 0
         a = acces[donnes] if isinstance(acces[donnes], dict) else {"handle": str(acces[donnes])}
-        try:
-            import parcours                                             # import tardif : parcours importe onboarding
-            libre = parcours.disponibilite_prouvee(uid, a.get("handle") or "")
-        except Exception:                                               # noqa: BLE001 — sans preuve lisible, on retient
-            libre = False
-        if not libre:                                                   # même règle que le parcours principal (compte à créer)
-            cle_r = (str(uid), _norm(creatrice), donnes + 1)
-            if cle_r not in _RETENUS_SALON_DEDIE:
-                _RETENUS_SALON_DEDIE.add(cle_r)
-                journal.warning("Salon de clipping %s de %s : compte %s retenu, disponibilité Instagram non prouvée",
-                                creatrice, uid, donnes + 1)
-            return 0
         if a.get("prive") and not lien:
             lien = await lien_autre_creatrice(membre, creatrice, [x.get("handle") for x in acces if isinstance(x, dict)])
             prive_sans_lien = not lien

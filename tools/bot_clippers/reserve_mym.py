@@ -103,6 +103,66 @@ async def lignes() -> list:
     return out
 
 
+# 24/10 (Gaëtan : « je vais te faire une grosse réserve dans le sheets de liens de tracking OF, MYM de toutes les créatrices […]
+# prépare-moi le sheets où je peux trier par créatrice et je balance tous les liens ») : un onglet unique, MYM et OF ensemble, sans
+# numéro de lien GAML. Le bot prend la première ligne libre de la créatrice pour chaque plateforme, la pose sur le lien du clipper
+# et remplit « Posé sur », « Clipper » et « Le ». L'onglet « Réserve trackings MYM » et la colonne Infloww restent lus après lui.
+ONGLET_RESERVE = "Réserve trackings"
+EN_TETE_RESERVE = ["Créatrice", "Plateforme", "Nom du tracking", "Lien de tracking", "Posé sur", "Clipper", "Le"]
+PREFIXES = {"mym": "https://mym.fans/", "of": "https://onlyfans.com/"}
+
+
+def _plage_reserve(a1: str) -> str:
+    return f"'{ONGLET_RESERVE}'!{a1}"
+
+
+def plateforme_de(texte: str, url: str = "") -> str:
+    """« MYM », « mym », « Miam » → mym ; « OF », « OnlyFans », « Infloww » → of ; sinon d'après l'adresse ; '' si rien."""
+    t = _n(texte)
+    if t in ("mym", "miam") or t.startswith("mym"):
+        return "mym"
+    if t in ("of", "onlyfans", "onlyfriends", "infloww") or t.startswith("only"):
+        return "of"
+    u = str(url or "").strip()
+    return next((k for k, pre in PREFIXES.items() if u.startswith(pre)), "")
+
+
+async def assurer_onglet_reserve() -> bool:
+    """L'onglet unique et son en-tête, créés s'ils manquent. Vrai s'il vient d'être créé."""
+    if not actif():
+        return False
+    cree = await google_api.sheets_creer_onglet(_classeur, ONGLET_RESERVE)
+    tete = await google_api.sheets_lire(_classeur, _plage_reserve("A1:G1"))
+    if not tete or not any(x.strip() for x in tete[0]):
+        await google_api.sheets_ecrire(_classeur, _plage_reserve("A1:G1"), [EN_TETE_RESERVE])
+    return cree
+
+
+def lignes_reserve_depuis(brut: list) -> list:
+    """Les lignes exploitables de l'onglet unique : créatrice, plateforme reconnue, lien de la bonne plateforme."""
+    out = []
+    for i, l in enumerate(brut or [], start=2):
+        l = (list(l) + [""] * 7)[:7]
+        creatrice, url = l[0].strip(), l[3].strip()
+        kind = plateforme_de(l[1], url)
+        if not creatrice or not kind or not url.startswith(PREFIXES[kind]):
+            continue
+        out.append({"ligne": i, "creatrice": creatrice, "kind": kind, "nom": l[2].strip(), "url": url,
+                    "pose": l[4].strip(), "clipper": l[5].strip()})
+    return out
+
+
+async def lignes_reserve() -> list:
+    if not actif():
+        return []
+    return lignes_reserve_depuis(await google_api.sheets_lire(_classeur, _plage_reserve("A2:G2000")))
+
+
+async def marquer_reserve(ligne: int, url_lien: str, clipper: str = ""):
+    jour = datetime.now(timezone.utc).strftime("%d/%m/%Y")
+    await google_api.sheets_ecrire(_classeur, _plage_reserve(f"E{ligne}:G{ligne}"), [[url_lien or "posé", clipper, jour]])
+
+
 async def _marquer(ligne: int, url_lien: str):
     jour = datetime.now(timezone.utc).strftime("%d/%m/%Y")
     await google_api.sheets_ecrire(_classeur, _plage(f"E{ligne}:F{ligne}"), [[url_lien or "posé", jour]])
