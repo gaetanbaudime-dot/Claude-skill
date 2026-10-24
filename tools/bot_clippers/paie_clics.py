@@ -33,6 +33,7 @@ import json
 import logging
 import os
 import re
+from types import SimpleNamespace
 import time
 import unicodedata
 from datetime import date, datetime, timedelta, timezone
@@ -3973,13 +3974,19 @@ async def commande_staff(message, texte: str) -> bool:
                 continue
             info = d["liens"].get(l.get("id"), {})
             h = somme(d, [l.get("id")], hier, hier)
-            qui = (f"→ {nom_de(info['uid'])}" if info.get("uid") else
+            parti = info.get("uid") and _deps.get("membre_par_id") and _deps["membre_par_id"](info["uid"]) is None
+            qui = (f"→ {nom_de(info['uid'])} · **parti du serveur** : `!lien {info['uid']} retirer`" if parti else
+                   f"→ {nom_de(info['uid'])}" if info.get("uid") else
                    "→ **hors clipping**" if info.get("hors_clipping") else
                    "→ **libre** (désactivé, réactivé à l'attribution)" if (l.get("enabled") is False or info.get("desactive")) else
                    "→ **libre**")
             hier_txt = ("hier non relevé" if non_releves(d, [l.get("id")], hier, hier)       # 10/10 : jamais un faux 0
                         else f"hier {_fmt(h['payes'])} payées")
-            lignes.append(f"· {str(l.get('name', '')).split()[0]} · {l.get('note')} · <{l.get('url')}> {qui}"
+            note_aff = str(l.get("note") or "")
+            m_uid = re.fullmatch(r"(X )?Clipping UID:(\d+)", note_aff)
+            if m_uid:                                                   # 24/10 : la note technique du processus du 15/10, lisible
+                note_aff = f"{m_uid.group(1) or ''}Clipping {str(nom_de(m_uid.group(2))).split(' - ')[0]}"
+            lignes.append(f"· {str(l.get('name', '')).split()[0]} · {note_aff} · <{l.get('url')}> {qui}"
                           + (f" · {hier_txt}" if info.get("uid") else ""))
         lignes.append("-# `!lien @clipper <url ou slug>` pour attribuer (`forcer` si le lien est déjà à quelqu'un) · "
                       "`!lien @clipper nouveau` pour cloner un lien de sa créatrice · `!lien @clipper retirer` (libéré pour le suivant, ses visites "
@@ -3988,12 +3995,24 @@ async def commande_staff(message, texte: str) -> bool:
         return True
 
     # !lien @clipper [url | slug | nouveau [Créatrice] | retirer]
-    if not message.mentions:
+    # 24/10 (Stéphane, Bab : partis du serveur, lien encore à leur nom, impossibles à mentionner) : `!lien <id> retirer` vise un
+    # ancien membre par son identifiant Discord, celui que montre `!liens`.
+    ident = next((m for m in mots[1:2] if m.isdigit() and len(m) >= 15), "") if not message.mentions else ""
+    if not message.mentions and not ident:
         await message.reply("Format : `!lien @clipper <url ou slug GAML>` (`forcer` à la fin pour un lien déjà à quelqu'un) · "
-                            "`!lien @clipper nouveau [Créatrice]` · `!lien @clipper retirer [erreur]` (le lien est libéré) · `!lien @clipper` pour voir.")
+                            "`!lien @clipper nouveau [Créatrice]` · `!lien @clipper retirer [erreur]` (le lien est libéré) · `!lien @clipper` pour voir."
+                            " Parti du serveur : `!lien <id> retirer`.")
         return True
-    membre = message.mentions[0]; uid = str(membre.id)
-    reste = [m for m in mots[1:] if not m.startswith("<@")]
+    if ident:
+        present = _deps["membre_par_id"](ident) if _deps.get("membre_par_id") else None
+        membre = present or SimpleNamespace(id=int(ident), display_name=f"id {ident}")
+    else:
+        membre = message.mentions[0]
+    uid = str(membre.id)
+    reste = [m for m in mots[1:] if not m.startswith("<@") and m != ident]
+    if ident and not present and reste and reste[0].lower() != "retirer":
+        await message.reply(f"{membre.display_name} n'est plus sur le serveur : seul `!lien {ident} retirer` marche pour lui.")
+        return True
     if not reste:
         lids = liens_de(d, uid)
         await message.reply(f"{membre.display_name} → " + (" · ".join(f"<{d['liens'][l].get('url')}>" for l in lids) if lids else "aucun lien")

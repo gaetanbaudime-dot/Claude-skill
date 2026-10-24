@@ -83,6 +83,8 @@ SUJET_SALON = "📩 Mon code : tes codes e-mail récents, dans une réponse visi
 TEXTE_ATTENTE = ("⏳ Pas encore reçu.\n\nJe guette 5 minutes : ton code s'affiche ici tout seul dès que l'e-mail arrive. "
                  "Pas besoin de rappuyer.\n\nL'écran demande une application d'authentification ? "
                  "Ce code ne vient pas par e-mail : `!aide-ig authentificateur`.")
+TEXTE_GARDE_CLIPPER = ("📨 Un e-mail d'Instagram est bien arrivé.\n\nIl touche à la sécurité du compte : je ne le donne pas tout seul. "
+                       "L'équipe est prévenue et te le donne si c'est bien pour toi.\n\nNe rappuie pas : attends sa réponse dans ton salon.")
 TEXTE_RIEN = ("😴 Toujours pas de code.\n\nVérifie que l'e-mail tapé dans l’application concernée est exactement celui de ton compte. "
               "Si l'écran propose l'envoi par e-mail, demande un renvoi puis rappuie sur 📩 Mon code. "
               "Respecte le délai affiché par l'application.\n\n"
@@ -582,7 +584,8 @@ SALUTATION = re.compile(r"\b(hi|hello|hey|bonjour|salut|hola|ola|ciao|hallo|merh
 ADRESSES = re.compile(r"[\w.+-]+@[\w-]+(?:\.[\w-]+)+")
 # La confirmation de l'e-mail à l'inscription : autorisée (le mot « e-mail » y est), mais ne suffit pas comme but.
 CONFIRMER_EMAIL = re.compile(
-    r"confirm your email( address)?|confirmez votre (adresse )?e-?mail|confirma tu (direccion de )?correo( electronico)?|"
+    r"confirm your email( address)?|confirmez votre (adresse )?e-?mail|confirmez votre adresse courriel|"
+    r"confirma tu (direccion de )?correo( electronico)?|"
     r"confirme (o )?seu (endereco de )?e-?mail|conferma il tuo indirizzo e-?mail|conferma la tua e-?mail|"
     r"bestatige deine e-?mail(-adresse)?")
 # 14/10 : la vérification d'identité (déblocage d'un compte) : neutralisée avant la liste noire, puis reconnue comme but.
@@ -936,6 +939,44 @@ def _inscription_instagram(sujet, corps) -> bool:
     return bool(_INSCRIPTION.search(debut)) and not _PAS_INSCRIPTION.search(debut)
 
 
+# 24/10 (Pierre, compte 1 : « Confirmez votre adresse courriel » gardé le 23/10 à 14 h 32 comme « e-mail ajouté ou changé »,
+# puis « code pas reçu » et un ticket support) : Instagram écrit « Vous avez récemment ajouté <adresse> à votre profil
+# Instagram. Veuillez confirmer cette adresse » quand le clipper rattache L'ADRESSE DE L'AGENCE au compte. Confirmer notre propre
+# adresse ne retire jamais la main à l'agence : le code est donné, au seul propriétaire de cette adresse, et seulement si
+# l'adresse confirmée est celle qui reçoit le mail (classer_mail). Jamais s'il parle de mot de passe, de téléphone, de 2FA,
+# de suppression, de pseudo ou de « ce n'était pas vous ».
+_AJOUT_ADRESSE_PROFIL = re.compile(
+    r"(?:vous avez recemment ajoute|you recently added)\s+([\w.+-]+@[\w-]+(?:\.[\w-]+)+)\s+(?:a|to)\s+"
+    r"(?:votre|your)\s+(?:(?:profil|compte|profile|account)\s+instagram|instagram\s+(?:profile|account))")
+_CONFIRMER_CETTE_ADRESSE = re.compile(r"confirm(?:er|ez)?\s+(?:cette|this)\s+(?:adresse|e-?mail|email address)|"
+                                      r"veuillez confirmer|please confirm")
+_PAS_AJOUT_PROFIL = re.compile(
+    r"password|mot de passe|reset|reinitialis|recover|recup|forgot|oubli|phone|telephone|numero|\bsms\b|two.factor|"
+    r"deux facteurs|\b2fa\b|authenticat|authentific|backup|secours|supprim|delet|desactiv|deactivat|disabl|\bremov|\bretir|"
+    r"pseudo|username|nom d.utilisateur|n.etait pas vous|wasn.t you|not you|changed|modifie|remplac|replac")
+
+
+LIBELLE_ADRESSE_AGENCE = "confirmation de l'adresse de l'agence sur le compte"
+
+
+def ajout_adresse_profil(sujet, corps, code) -> str:
+    """L'adresse que ce mail demande de confirmer sur le profil (minuscules), '' si ce n'est pas exactement ce modèle. Seul le
+    texte AVANT le code est lu (le pied de page Meta dit « keep your profile secure » sans rien changer)."""
+    if not code:
+        return ""
+    texte = plat(INVISIBLES.sub("", f"{sujet or ''} . {corps or ''}"))
+    i = texte.find(plat(str(code)))
+    if i < 0:
+        return ""
+    avant = texte[:i]
+    m = _AJOUT_ADRESSE_PROFIL.search(avant)
+    if not m or not _CONFIRMER_CETTE_ADRESSE.search(avant[m.end():]):
+        return ""
+    if _PAS_AJOUT_PROFIL.search(ADRESSES.sub(" ", avant)):
+        return ""
+    return m.group(1).lower().rstrip(".")
+
+
 def confirmation_email_fr(sujet):
     return bool(re.fullmatch(r"confirmer l'adresse e-?mail[.!]?", plat(sujet).strip()))
 
@@ -1021,6 +1062,9 @@ def _classer_base(from_header, sujet: str, corps: str, complets=None) -> dict:
         # mail Meta est donné ; le type ne sert qu'au libellé.
         typ = "creation" if CREATION_RE.search(blanc) else ("appel" if APPEL_RE.search(blanc) else "connexion")
         return dict(sortie, decision="donner", type=typ, libelle=QUOI.get(typ, "connexion"))
+    confirmee = ajout_adresse_profil(sujet, corps, code) if expediteur_instagram(from_header) else ""
+    if confirmee:                                                       # 24/10 : l'adresse de l'agence rattachée au compte
+        return dict(sortie, decision="donner", type="verification", libelle=LIBELLE_ADRESSE_AGENCE, adresse_confirmee=confirmee)
     for partie in [sujet, corps] + list(complets or []):
         pertinent, _ = _avertissements(_sans_pied(plat(partie), code), code)
         if (_MUTATION_CODE.search(pertinent) or re.search(
@@ -1168,6 +1212,10 @@ def classer_mail(msg) -> dict:
             info.update(decision="garder", code=None, libelle="confirmation e-mail : provenance ou alias non vérifiable")
         else:
             alias = alias or candidat
+    if info.get("adresse_confirmee") and info.get("decision") == "donner" and (
+            not alias or str(alias).strip().lower() != info["adresse_confirmee"]):
+        # 24/10 : le code ne sort que si l'adresse confirmée est celle qui reçoit le mail (une adresse de l'agence)
+        info.update(decision="garder", code=None, libelle="confirmation d'une adresse qui n'est pas celle qui reçoit le mail")
     info.update(alias=alias, sujet=sujet, date=date, mid=cle_du_mail(msg),
                 expediteur=adresse_expediteur(msg.get("From")), preuve=preuve)
     return info
@@ -2007,6 +2055,9 @@ async def _servir(adresses: set, dire, cle_guet: str, duree: int = None, minutes
                                     if str(t.get("libelle") or "").startswith("confirmation e-mail") and _date(t) >= depuis]
             if not montre and gardes_confirmation:
                 texte = "Un e-mail de confirmation a été reçu, mais sa provenance ou son alias n’est pas vérifiable. Aucun code livré ; fais vérifier le rattachement par l’équipe."
+            if not montre and fini and not gardes_confirmation and codes_recents(adresses, 15, decision="garder"):
+                # 24/10 (Pierre) : un code est arrivé mais touche à la sécurité du compte : on ne lui dit pas « rien reçu »
+                texte = TEXTE_GARDE_CLIPPER
             if not montre and bloques_confirmation:
                 texte = "Confirmation e-mail reçue, mais le compte exact n’est pas vérifiable pour ton UID. Fais vérifier son affectation ; aucun code livré."
             if texte != guet["texte"] or "envoye" not in guet:
@@ -2049,11 +2100,19 @@ def _cause_google() -> str:
 
 
 def texte_code_absent(uid: str, adresses: set, usage: str, panne: bool, n: int = 1, depuis_min: int = 0,
-                      cle_google: bool = False) -> str:
+                      cle_google: bool = False, gardes: list = None) -> str:
     """18/10 : la ligne admin quand un clipper a attendu son code pour rien (sans l'adresse en clair, sans code). 23/10 : le
     nombre de demandes de la série, combien d'adresses lui sont rattachées, et la clé Google refusée quand c'est elle."""
     formes = ", ".join(f"`{forme_adresse(a)}`" for a in sorted(adresses)[:3])
-    if panne:
+    garde = (gardes or [None])[0]
+    if garde:
+        # 24/10 (Pierre, 23/10 : « rien n'est arrivé » à 14 h 38 alors qu'un code lui était arrivé à 14 h 32, gardé) : on dit
+        # ce qui est arrivé et pourquoi il est gardé. Le code n'est jamais recopié ici.
+        minutes = max(0, int((_maintenant() - _date(garde)).total_seconds() // 60))
+        cause = (f"Un code est bien arrivé il y a {minutes} min sur une de ses adresses, mais je l'ai gardé : "
+                 f"{garde.get('libelle') or 'but non reconnu'}.\n\nSi c'est bien la création de son compte, lis le code dans la "
+                 "boîte et donne-le lui.")
+    elif panne:
         cause = "La boîte des codes est illisible en ce moment : c'est elle qu'il faut réparer."
     elif cle_google:
         cause = ("La clé Google est refusée (alerte 🔴) : l'adresse d'un compte remis depuis n'a pas pu être relue du classeur, "
@@ -2066,7 +2125,8 @@ def texte_code_absent(uid: str, adresses: set, usage: str, panne: bool, n: int =
         h, m = divmod(max(0, int(depuis_min)), 60)
         serie = f" · {n}ᵉ demande sans code depuis {f'{h} h {m:02d}' if h else f'{m} min'}"
     nb = len(adresses)
-    return (f"🚨 **Code Instagram pas reçu** : <@{uid}> a appuyé sur « 📩 Mon code » et rien n'est arrivé en "
+    quoi = "aucun code donné" if garde else "rien n'est arrivé"
+    return (f"🚨 **Code Instagram pas reçu** : <@{uid}> a appuyé sur « 📩 Mon code » et {quoi} en "
             f"{ATTENTE_SEC // 60} minutes{serie} ({usage or 'auto'}, {nb} adresse{'s' if nb > 1 else ''} rattachée"
             f"{'s' if nb > 1 else ''} : {formes or 'aucune'}).\n\n{cause}")
 
@@ -2092,8 +2152,10 @@ def _signaler_code_absent(cle_guet: str, adresses: set, usage: str):
         if not _une_fois(f"absent|{uid}", minutes=ABSENT_RAPPEL_MIN):
             return                                                      # 23/10 : comptée, sans nouveau message
         depuis = int((_maintenant() - serie["premiere"]).total_seconds() // 60)
+        gardes = codes_recents(adresses, 30, decision="garder")
         asyncio.get_running_loop().create_task(_admin(texte_code_absent(
-            uid, adresses, usage, lecteur_en_panne(), n=serie["n"], depuis_min=depuis, cle_google=bool(_cause_google()))))
+            uid, adresses, usage, lecteur_en_panne(), n=serie["n"], depuis_min=depuis, cle_google=bool(_cause_google()),
+            gardes=gardes)))
     except Exception as erreur:                                         # noqa: BLE001
         journal.warning("Codes : alerte « code pas reçu » : %s", _err(erreur))
 
