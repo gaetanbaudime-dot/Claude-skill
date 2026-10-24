@@ -1492,6 +1492,10 @@ async def envoyer_etape(salon, membre, n: int, pointer: bool = True) -> bool:
             # était invérifiable). Nouvel essai LIGNE_REESSAI_MIN minutes plus tard.
             journal.info("Parcours : étape %s de %s retenue (%s), nouvel essai dans %s min", n, uid, erreur, LIGNE_REESSAI_MIN)
             _garder_au_programme(uid, n, noter=True)
+            d_r = _lire()                                               # 24/10 : forcer_comptes2 lit la raison (historique)
+            if uid in d_r:
+                d_r[uid]["retenue"] = {"n": int(n), "raison": str(erreur)[:160], "date": _maintenant()}
+                _ecrire(d_r)
             return False
     if (n == 6 or n == n_prive(_lire().get(uid) or {})) and _deps.get("attribuer_lien"):
         # 05/10 (Gaëtan : « le lien que pour le troisième compte ») : le lien GAML n'existe pas avant le compte privé ; il est créé
@@ -1607,6 +1611,10 @@ async def envoyer_etape(salon, membre, n: int, pointer: bool = True) -> bool:
                 d[uid]["acces_en_attente"] = _maintenant()
         _ecrire(d)
     journal.info("Parcours : étape %s envoyée à %s", n, uid)            # 24/10 : un envoi se vérifie dans les logs
+    d_r = _lire()
+    if uid in d_r and int((d_r[uid].get("retenue") or {}).get("n") or 0) == int(n):
+        d_r[uid].pop("retenue", None)
+        _ecrire(d_r)
     if pseudo_propose and not identifiants:
         await alerter_acces_en_attente(membre, uid)
     if n == 1 and pointer and not (fiche_avant.get("messages") or {}).get("1"):
@@ -3117,6 +3125,25 @@ def au_compte_1(d: dict, maintenant) -> list:
 
 _COMPTE1_LISTE = {"dite": False}
 VETERAN_H = 7 * 24
+HISTO_NON_RAPPROCHE = "Historique à vie non rapproché"
+
+
+def _reprendre_historique(uid: str, prenom: str, classeur: dict) -> bool:
+    """24/10 : `!reprise` sans relance du parcours (reprise_ancien.reprendre) : les @ connus du bot pour ce clipper, ceux encore
+    « à créer » à son nom comptés réservés. Faux si refusé (départ enregistré, provenance) : revue humaine."""
+    import reprise_ancien
+    try:
+        handles = reprise_ancien.handles_connus(uid, onboarding._lire_etat(), _lire())
+        a_creer = {h for h in handles if onboarding._norm((classeur.get(onboarding._cle_handle(h)) or {}).get("etat", "")).strip()
+                   in onboarding.A_CREER}
+        bilan_r = reprise_ancien.reprendre(onboarding.process_adapters.store(), uid, handles,
+                                           {"source": "regle-gaetan-24/10-compte2-48h", "par": "bot (décision de Gaëtan, 24/10)",
+                                            "date": _maintenant()}, a_creer)
+    except Exception as erreur:                                         # noqa: BLE001 — Bloque compris : un humain tranche
+        journal.warning("Historique de %s (%s) non repris : %s", prenom, uid, erreur)
+        return False
+    journal.info("Historique de %s (%s) repris pour le compte 2 : %s compte(s) connu(s) sur 3", prenom, uid, bilan_r.get("comptes"))
+    return True
 
 
 async def forcer_comptes2(client, maintenant=None) -> list:
@@ -3143,7 +3170,9 @@ async def forcer_comptes2(client, maintenant=None) -> list:
             continue                                                    # déjà dit : son compte 2 existe et sert déjà
         en_attente = [_instant_iso(x.get("quand")) for x in f.get("programme") or []
                       if x.get("type") == "etape" and int(x.get("n") or 0) == 2 and x.get("ligne")]
-        if any(q is not None and q > maintenant for q in en_attente):
+        retenue = f.get("retenue") or {}
+        histo = int(retenue.get("n") or 0) == 2 and str(retenue.get("raison") or "").startswith(HISTO_NON_RAPPROCHE)
+        if any(q is not None and q > maintenant for q in en_attente) and not histo:
             ecartes.append(f"{prenom} ({uid}) : retenu, nouvel essai par le programme")   # programme_du_jour retente à son heure
             continue
         essai = _instant_iso(f.get("force_2_essai"))
@@ -3181,6 +3210,20 @@ async def forcer_comptes2(client, maintenant=None) -> list:
                 _ecrire(d)
             ecartes.append(f"{prenom} ({uid}) : compte 2 {handles[1]} déjà en service au classeur ({etat2}), fiche close")
             continue
+        if histo:
+            # 24/10 (Diamondra, Tassiana, Alvaro : compte 2 retenu des jours par « Historique à vie non rapproché ») : la décision de
+            # Gaëtan (« tous ceux qui sont bloqués au compte un, tu leur donnes leur compte deux ») tient lieu de `!reprise`, sans
+            # relancer le parcours : l'historique est écrit d'après ce que le bot connaît (reprise_ancien, additif, ses comptes
+            # comptent dans ses trois places), puis le compte 2 — déjà à son nom — part tout de suite.
+            if not _reprendre_historique(uid, prenom, classeur):
+                ecartes.append(f"{prenom} ({uid}) : historique non repris, revue humaine")
+                continue
+            d = _lire()
+            if uid in d:
+                d[uid]["programme"] = [x for x in d[uid].get("programme") or []
+                                       if not (x.get("type") == "etape" and int(x.get("n") or 0) == 2 and x.get("ligne"))]
+                d[uid]["force_2_essai"] = ""                            # l'essai part maintenant
+                _ecrire(d)
         d = _lire()
         if uid not in d:
             continue
