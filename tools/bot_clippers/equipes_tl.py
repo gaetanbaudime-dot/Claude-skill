@@ -710,6 +710,54 @@ def organigramme_va(texte: str = None, fiches=None) -> dict:
     return va
 
 
+def _tl_du_clipper(gerant, creatrice, fiches: dict, tl_de: dict) -> str:
+    """Le prénom du TL à écrire sur les lignes de `gerant`, ou "" au moindre doute : le Gérant n'est qu'un membre du registre, ni
+    admin, ni manager, ni TL, de la créatrice de la ligne, et cette créatrice a exactement un TL dont le prénom retrouve ce TL."""
+    uid = uid_par_nom(gerant, fiches)
+    if not uid or not _n(creatrice):
+        return ""
+    f = fiches.get(uid) or {}
+    if uid in _admins() or _a_role_manager(_membre(uid)) or str(f.get("chef") or "").strip() or f.get("manager_de"):
+        return ""
+    if _n(f.get("creatrice")) != _n(creatrice):
+        return ""
+    tls = tl_de.get(_n(creatrice)) or []
+    if len(tls) != 1 or tls[0] == uid:
+        return ""
+    nom = (nom_de(tls[0], fiches.get(tls[0])).split() or [""])[0]
+    return nom if nom and uid_par_nom(nom, fiches) == tls[0] else ""
+
+
+def colonne_a_completer(comptes: list, fiches=None, exclure=None, plafond: int = 30) -> list:
+    """24/10 (Gaëtan : « pourquoi Jamel n'a pas eu automatiquement son team leader ? ») : le bot écrivait le Gérant sur les lignes d'un
+    nouveau clipper mais jamais la colonne « Team Leader », que seul Gaëtan remplissait : Discord donnait bien le TL (celui de la
+    créatrice), le Sheets et le cockpit restaient vides. Pur : [(ligne de compte, prénom du TL)] pour chaque ligne à Team Leader vide
+    d'un clipper dont la créatrice a un TL. Le prénom écrit est celui que `lire_colonne` retrouve (même TL que la règle du 10/10 :
+    l'équipe = la créatrice du TL) : rien ne change pour la paie. Jamais une cellule remplie, fusionnée, ni une ligne `exclure(c)`
+    (compte de la créatrice, colonne absente de l'onglet). `plafond` lignes au plus par passage."""
+    fiches = _fiches() if fiches is None else (fiches or {})
+    exclure = exclure or (lambda c: False)
+    tl_de = {}
+    for uid, f in fiches.items():
+        if isinstance(f, dict) and str(f.get("chef") or "").strip():
+            tl_de.setdefault(_n(f["chef"]), []).append(str(uid))
+    deja, out = {}, []
+    for c in comptes or []:
+        if len(out) >= plafond:
+            break
+        if not isinstance(c, dict) or str(c.get("tl") or "").strip() or "tl" in (c.get("fusions") or {}) or not c.get("ligne"):
+            continue
+        gerant = str(c.get("gerant") or "").strip()
+        if not gerant or exclure(c):
+            continue
+        cle = (_n(gerant), _n(c.get("creatrice")))
+        if cle not in deja:
+            deja[cle] = _tl_du_clipper(gerant, c.get("creatrice"), fiches, tl_de)
+        if deja[cle]:
+            out.append((c, deja[cle]))
+    return out
+
+
 def tl_par_va() -> dict:
     """{uid VA : uid TL} : l'organigramme (TL_ORGANIGRAMME), puis la colonne « Team leader » du classeur par-dessus."""
     try:
