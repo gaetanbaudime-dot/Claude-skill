@@ -34,7 +34,7 @@ export default function PrimeVolume({ jeton, clics, libelle }: { jeton: string; 
 
       {!r && !erreur ? <div className="squelette h-20 mt-3" /> : null}
       {erreur && !r ? <p className="text-[12.5px] text-argent2 mt-3">Tes Reels sont en cours de mise à jour. <button onClick={charger} className="text-accent font-semibold">Réessayer</button></p> : null}
-      {r && !r.mesure ? <p className="text-[12.5px] text-argent2 mt-3">Tes Reels sont en cours de relevé. Ta moyenne s'affiche sous peu.</p> : null}
+      {r && !r.mesure ? <p className="text-[12.5px] text-argent2 mt-3">Le bot ne lit pas encore les Reels de tes comptes de croissance. Ta moyenne s'affiche dès qu'il les voit.</p> : null}
       {r && r.mesure && r.joursEcoules === 0 ? <p className="text-[12.5px] text-argent2 mt-3">La période commence aujourd'hui. Ta moyenne s'affiche demain.</p> : null}
 
       {r && r.mesure && moyenne !== null ? (

@@ -56,16 +56,21 @@ export type Semaine = {
   parJour: boolean;               // la colonne jour par jour est publiée : le graphique peut s'afficher
 };
 
+/** Un compte dont le bot a vu au moins un Reel, ou dont « Reels 7 j » est relevé (0 compris). Sinon ses Reels sont inconnus :
+ *  24/10 (après déploiement : 0 Reel affiché pour un clipper à 1 129 clics dont aucun compte n'était lu). */
+export const reelsMesures = (c: CompteActivite) => c.reels7 !== null || Object.keys(c.jours || {}).length > 0;
+
 /** Les 7 derniers jours clos du clipper, sur tous les comptes qu'il gère (déjà triés par comptesAffiches). */
 export function semaine(comptes: CompteActivite[], aujourdhui: string, clicsParJour: Record<string, number> | null): Semaine {
   const jours = joursClos(aujourdhui, 7);
-  const parJour = comptes.some((c) => c.jours !== undefined);
+  const lus = comptes.some(reelsMesures);
+  const parJour = lus && comptes.some((c) => c.jours !== undefined);
   const detail: JourActivite[] = jours.map((j) => ({
     jour: j,
     reels: parJour ? comptes.reduce((s, c) => s + ((c.jours || {})[j] || 0), 0) : null,
     clics: clicsParJour ? clicsParJour[j] || 0 : null,
   }));
-  const reels = parJour ? detail.reduce((s, d) => s + (d.reels || 0), 0) : somme(comptes.map((c) => c.reels7));
+  const reels = !lus ? null : parJour ? detail.reduce((s, d) => s + (d.reels || 0), 0) : somme(comptes.map((c) => c.reels7));
   return {
     jours: detail,
     reels,
@@ -83,7 +88,7 @@ export type ReelsPrime = {
   reels: number;                  // Reels publiés sur ses comptes de croissance pendant ces jours
   moyenne: number | null;         // Reels par jour et par compte de croissance ; null avant le premier jour clos
   comptes: number;                // comptes de croissance trouvés
-  mesure: boolean;                // false : le bot ne publie pas encore les Reels jour par jour
+  mesure: boolean;                // false : colonne pas publiée, ou aucun compte de croissance lu par le bot
 };
 
 /** Les Reels de la période de paie sur ses comptes de croissance (le compte privé ne compte pas). */
@@ -98,7 +103,7 @@ export function reelsPrime(comptes: CompteActivite[], debut: string, fin: string
     debut, fin, joursEcoules: jours.length, reels,
     moyenne: jours.length ? Math.round((reels / jours.length / COMPTES_CROISSANCE) * 10) / 10 : null,
     comptes: croissance.length,
-    mesure: comptes.some((c) => c.jours !== undefined),
+    mesure: comptes.some((c) => c.jours !== undefined) && croissance.some(reelsMesures),
   };
 }
 
