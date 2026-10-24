@@ -1252,10 +1252,10 @@ def _ligne_vide() -> list:
 
 
 # 24/10 (Gaëtan : « on n'utilise plus Apify, on utilise RapidAPI ») : le suivi RapidAPI relit Instagram par GitHub Actions
-# (.github/workflows/suivi-instagram.yml, cron « 0 5,12,19 * * * », heures UTC) ; le bot relit ses onglets. Au-delà de
-# SUIVI_IG_VIEUX_H heures sans relevé, le titre le dit en alerte.
-SUIVI_IG_HEURES_UTC = [int(x) for x in os.environ.get("SUIVI_IG_HEURES_UTC", "5,12,19").split(",") if x.strip().isdigit()]
-SUIVI_IG_VIEUX_H = float(os.environ.get("SUIVI_IG_VIEUX_H", "14") or 14)
+# (.github/workflows/suivi-instagram.yml, cron « 17 4,8,12,16,20 * * * », heures UTC, 5 passages par jour) ; le bot relit ses
+# onglets. Au-delà de SUIVI_IG_VIEUX_H heures sans relevé (deux passages manqués), le titre le dit en alerte.
+SUIVI_IG_HEURES_UTC = [int(x) for x in os.environ.get("SUIVI_IG_HEURES_UTC", "4,8,12,16,20").split(",") if x.strip().isdigit()]
+SUIVI_IG_VIEUX_H = float(os.environ.get("SUIVI_IG_VIEUX_H", "10") or 10)
 
 
 def _suivi_rapidapi(ctx: _Ctx):
@@ -2364,7 +2364,7 @@ def _fraicheur_apify(ctx: _Ctx) -> tuple:
             return (f"⚠ suivi RapidAPI pas relu depuis le {quand}",
                     ("⚠ RapidAPI", "important", f"le suivi Instagram (RapidAPI, GitHub Actions « Suivi Instagram ») n'a rien relu "
                      f"depuis le {quand} : followers, Reels et vues restent à ce relevé. Regarder le dernier passage du workflow."))
-        return f"suivi RapidAPI 3 fois par jour{prochain}", None
+        return f"suivi RapidAPI {len(SUIVI_IG_HEURES_UTC)} fois par jour{prochain}", None
     st = budget_apify(ctx.etats.get("apify_budget"), ctx.maintenant)
     if st is None:
         return "Apify : budget pas encore lu", None

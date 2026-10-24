@@ -26,8 +26,24 @@ Gaëtan : « on n'utilise plus Apify, on utilise RapidAPI… pourquoi tu me parl
 - Plus juste qu'Apify : les comptes « restreints » sont lus (Caroline, Yves, les comptes Metricool de Sophie…), tous les Reels des 60 jours sont comptés (Apify en voyait 12), un compte renommé reste suivi par son ID.
 - Jamais un faux chiffre : un @ que le suivi ne relit pas (à créer, BAN, appel à faire) n'est pas scanné ; un profil pas relu depuis 30 h (`SOURCE_IG_FRAICHEUR_H`) est « non lu » ; des Reels relus avant minuit (Paris) ne réécrivent pas « Reels Hier ». Le passage du matin attend le relevé RapidAPI du jour (le cron GitHub part avec du retard) jusqu'à 13 h (`ETATS_MATIN_ATTENTE_MAX_H`).
 - Plus de budget Apify : ni garde, ni relecture sautée, ni alerte. Le titre du Dashboard donne l'heure du relevé RapidAPI (« Instagram 08h11 » = l'heure où RapidAPI a lu les comptes) et « ⚠ suivi RapidAPI pas relu depuis… » au-delà de 14 h sans relevé (`SUIVI_IG_VIEUX_H`).
-- Ce qui ne se fait plus : la recherche des @ changés sous une variante (le suivi relit par ID), la vérification « @ à créer déjà pris » par le scan (faite par `pseudos_uniques` dans le workflow), la lecture du lien en bio des comptes privés (C10 garde son dernier relevé), la légende et la couverture des Reels (contrôle des liens en légende, image du premier Reel fêté).
-- Railway : `APIFY_TOKEN` peut être retiré ; rien à ajouter (le bot lit les onglets avec sa clé Google). Testé par `tests/test_source_rapidapi.py`.
+- Contrôles refaits avec RapidAPI (24/10, suite : « tout ce qui est contrôle, fraîcheur et faux chiffres, développe-le avec RapidAPI ») :
+  - **@ légèrement changé** : un compte « introuvable » sans ID connu est cherché par le workflow sous ses 6 @ proches (chiffre final, point ↔ tiret bas…), une fois par jour, 12 comptes au plus par passage ; résultats dans « IG · Variantes ». Le bot renomme partout quand exactement une variante porte la bio du bot (`est_a_nous`), prévient le clipper quand aucune ne l'est, ne conclut rien tant qu'une variante n'a pas été cherchée.
+  - **@ changé sur Instagram** : le suivi relit par ID ; un compte vu sous un autre @ (« Renommé en ») est renommé partout (`parcours.compte_retrouve(renomme=True)`, message « ton compte s'appelle maintenant… »), jamais vers un @ déjà pris par une autre ligne.
+  - **Bio et lien en bio** (colonnes « Nom », « Bio », « Lien en bio » de « IG · Comptes ») : le contrôle du lien du privé (C10) et la reconnaissance des comptes retrouvés repartent de RapidAPI.
+  - **Légendes, format et couverture des Reels** (« IG · Reels », colonnes L à P) : lien ou @ dans une légende → alerte, review des Reels avec légende et dimensions, premier Reel fêté avec sa couverture.
+  - **Faux 0** : une chute à 0 follower d'un compte qui en avait plus de 20 n'est jamais écrite par le suivi (relevé d'avant gardé).
+  - **Fraîcheur** : 5 passages par jour (4 h 17, 8 h 17, 12 h 17, 16 h 17, 20 h 17 UTC) au lieu de 3, décalés de l'heure pile ; alerte du Dashboard au-delà de 10 h sans relevé.
+- Seule vérification qui reste au workflow : « @ à créer déjà pris » (`pseudos_uniques`).
+- Railway : `APIFY_TOKEN` peut être retiré ; rien à ajouter (le bot lit les onglets avec sa clé Google). Testé par `tests/test_source_rapidapi.py` et `tests/test_controles_rapidapi_2410.py`.
+
+## 24/10 : un compte toutes les 48 h pour tout le monde
+
+Gaëtan : « dans tous les cas, on leur donne un compte Instagram toutes les 48 heures. On arrête ce truc de quatre posts… comme ça on est sûr que le clipper ait vraiment tous ses comptes. On donne le lien au troisième compte, mais c'est quand même cool de s'assurer aussi que le clipper poste bien sur les comptes. »
+
+- La règle du 23/10 (compte 2 48 h après la création du compte 1, compte 3 privé avec le lien 48 h après la création du compte 2, aucun Reel à compter) vaut pour **tous** les parcours, ceux d'avant le 23/10 compris (`PARCOURS_SIMPLE_TOUS`, 1 par défaut ; 0 remet la règle du 23/10).
+- Un compte suivant programmé sans délai par l'ancienne règle part 48 h après la création du compte d'avant (`parcours.quand_etape`) : au déploiement, ceux qui attendaient leurs 4 Reels depuis plus de 48 h reçoivent leur compte suivant au passage suivant du programme (10 min), s'il reste une ligne « à créer » chez leur créatrice.
+- Les 4 Reels deviennent un objectif dit, jamais une condition : à l'ouverture du compte suivant, une ligne « 📌 Compte 1 : 2 Reels vus pour l'instant. L'objectif reste 4 Reels par compte. » quand il en manque ; le bravo « 4 Reels vus sur ton compte 1 » quand l'objectif est tenu. Les clippers qui ne publient pas restent visibles dans l'app des TL (« À suivre ») et le rapport du jour ; la sortie à 10 jours sans visite payée (L7) ne change pas.
+- Base de l'assistant v23, règle 32 du prompt, annonce `annonce-48h-tous-2410` dans #annonces au démarrage. Testé par `tests/test_parcours_48h_2410.py`.
 
 ## 21/10 : onglets créatrices triés, comptes créés par jour, salon admin allégé
 

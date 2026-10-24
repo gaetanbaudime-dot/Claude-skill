@@ -83,14 +83,27 @@ PAUSE = float(os.environ.get("RAPIDAPI_PAUSE", "0.4") or 0.4)
 ACTIF = os.environ.get("RAPIDAPI_SUIVI", "1").strip() != "0"
 ONGLET_COMPTES, ONGLET_REELS, ONGLET_TOP = "IG · Comptes", "IG · Reels", "IG · Top Reels"
 ONGLET_ARCHIVE, ONGLET_PASSAGES = "IG · Archive Reels", "IG · Passages"
+ONGLET_VARIANTES = "IG · Variantes"
+# 24/10 (Gaëtan : « tout ce qui est contrôle, fraîcheur et faux chiffres, développe-le avec RapidAPI plutôt qu'Apify ») : le profil
+# donne aussi le nom, la bio et le lien en bio (contrôle du lien du privé, reconnaissance d'un compte sous un @ proche) ; chaque Reel
+# sa légende (lien ou @ interdits), ses dimensions et sa durée. Une chute à 0 follower d'un compte qui en avait plus de
+# SUSPECT_FOLLOWERS n'est pas crue (relevé gardé, « followers suspects »).
+SUSPECT_FOLLOWERS = int(os.environ.get("RAPIDAPI_SUSPECT_FOLLOWERS", "20") or 20)
+BIO_MAX, LEGENDE_MAX = 300, 300
+# 24/10 : un compte « introuvable » sans ID connu (jamais vu sous ce @, faute de frappe, @ changé à la création) est cherché sous
+# les @ proches (etats_comptes.variantes : chiffre final, point ↔ tiret bas…), une fois par jour, VARIANTES_COMPTES comptes au plus
+# par passage. Résultats dans « IG · Variantes » : le bot renomme quand exactement une variante porte la bio du bot.
+VARIANTES_COMPTES = int(os.environ.get("RAPIDAPI_VARIANTES_COMPTES", "12") or 12)
 ENTETE_PASSAGES = ["Début (UTC)", "Durée (min)", "Comptes", "Profils relus", "Reels relus", "Pages lues", "Pages en échec",
                    "Requêtes", "Quota restant", "Rattrapage", "Arrêt", "Fenêtre relue",
                    "Page pleine sans suite (pagination)", "Curseur perdu (page suivante vide)",
                    "Metricool (Reels officiels)"]
 ENTETE_COMPTES = ["Créatrice", "Gérant", "Type", "@", "ID Instagram", "Statut", "Followers", "Δ 24 h", "Δ 7 j", "Publications",
                   "Reels 24 h", "Reels 7 j", "Reels 15 j", "Reels 30 j", "Reels 60 j", "Vues 7 j", "Vues 15 j", "Vues 30 j",
-                  "Vues 60 j", "Dernier Reel", "Profil relu le", "Reels relus le", "Renommé en"]
+                  "Vues 60 j", "Dernier Reel", "Profil relu le", "Reels relus le", "Renommé en", "Nom", "Bio", "Lien en bio"]
 ENTETE_REELS = ["Créatrice", "Gérant", "Type", "@", "Code", "Lien", "Publié le", "Vues", "Likes", "Commentaires", "Relu le"]
+ENTETE_REELS_DETAIL = ENTETE_REELS + ["Légende", "Largeur", "Hauteur", "Durée (s)", "Couverture"]
+ENTETE_VARIANTES = ["@ du LOG", "Créatrice", "Gérant", "Variante", "Statut", "ID Instagram", "Followers", "Nom", "Bio", "Cherché le"]
 ENTETE_TOP = ["Créatrice", "Rang", "@", "Lien", "Publié le", "Vues", "Likes", "Commentaires"]
 ETATS_VIVANTS = ("good", "prive", "privé", "private")
 
@@ -163,6 +176,28 @@ def lire_profil(corps) -> dict:
             "prive": chercher(base, ["is_private"])}
 
 
+def lire_bio(corps) -> dict:
+    """24/10 : réponse de /ig/info/ (objet `user`) → {lu, nom, bio, liens}. `lu` faux si la réponse ne porte ni bio ni lien (champ
+    absent : rien n'est conclu) ; une bio vide relue est "" (vraiment vide)."""
+    u = chercher(corps, ["data.user", "user", "graphql.user"]) if isinstance(corps, dict) else None
+    u = u if isinstance(u, dict) else (corps if isinstance(corps, dict) else {})
+    lu = any(k in u for k in ("biography", "external_url", "bio_links"))
+    liens = [u.get("external_url")] + [x.get("url") or x.get("link_url") for x in (u.get("bio_links") or []) if isinstance(x, dict)]
+    vus = []
+    for l in liens:
+        if isinstance(l, str) and l.strip() and l.strip() not in vus:
+            vus.append(l.strip())
+    return {"lu": lu, "nom": str(u.get("full_name") or "")[:120], "bio": str(u.get("biography") or "")[:BIO_MAX], "liens": vus[:5]}
+
+
+def suspect(suivi: list, followers) -> bool:
+    """Pur : 0 follower relu alors que le dernier relevé crédible en comptait plus de SUSPECT_FOLLOWERS (réponse dégradée)."""
+    if followers != 0:
+        return False
+    precedents = [x[1] for x in suivi or [] if isinstance(x, (list, tuple)) and len(x) > 1 and isinstance(x[1], int)]
+    return bool(precedents) and precedents[-1] > SUSPECT_FOLLOWERS
+
+
 def lire_id(corps):
     """Réponse de /id → l'ID Instagram (texte) ou None."""
     v = chercher(corps, ["user_id", "pk", "id", "data.user_id"]) if corps is not None else None
@@ -226,10 +261,19 @@ def lire_reels(corps, videos_seules: bool = False) -> tuple:
         vues = m.get("ig_play_count")
         if vues in (None, ""):
             vues = m.get("play_count") or m.get("view_count") or m.get("video_view_count") or m.get("video_play_count")
+        legende = m.get("caption")
+        legende = legende.get("text") if isinstance(legende, dict) else legende
+        cands = ((m.get("image_versions2") or {}).get("candidates") or []) if isinstance(m.get("image_versions2"), dict) else []
+        image = cands[0].get("url") if cands and isinstance(cands[0], dict) else (m.get("display_uri") or m.get("thumbnail_url"))
         reels.append({"code": code, "publie": quand.isoformat(timespec="seconds"), "vues": _entier(vues),
                       "epingle": bool(m.get("clips_tab_pinned_user_ids") or m.get("timeline_pinned_user_ids")),
                       "likes": _entier(m.get("like_count") or (m.get("edge_liked_by") or {}).get("count")),
-                      "commentaires": _entier(m.get("comment_count") or (m.get("edge_media_to_comment") or {}).get("count"))})
+                      "commentaires": _entier(m.get("comment_count") or (m.get("edge_media_to_comment") or {}).get("count")),
+                      # 24/10 : de quoi contrôler le Reel sans autre appel (légende, format vertical, durée, couverture)
+                      "legende": None if legende is None else str(legende)[:LEGENDE_MAX],
+                      "largeur": _entier(m.get("original_width")), "hauteur": _entier(m.get("original_height")),
+                      "duree": m.get("video_duration") if isinstance(m.get("video_duration"), (int, float)) else None,
+                      "image": str(image) if isinstance(image, str) else None})
     plus = chercher(corps, ["paging_info.more_available", "more_available", "has_next_page", "page_info.has_next_page"])
     curseur = chercher(corps, ["paging_info.max_id", "next_max_id", "max_id", "end_cursor", "page_info.end_cursor"])
     return reels, (str(curseur) if curseur and plus is not False else None)
@@ -323,11 +367,13 @@ def lignes_comptes(suivis: list, store: dict, maintenant: datetime) -> list:
                     txt(dernier[1]), txt(ecart(suivi, 24, maintenant)), txt(ecart(suivi, 168, maintenant)), txt(dernier[2] if len(dernier) > 2 else None),
                     *[(str(f[f"reels{j}"]) if lu_reels else "") for j in (1, 7, 15, 30, 60)],
                     *[(str(f[f"vues{j}"]) if lu_reels else "") for j in (7, 15, 30, 60)],
-                    f["dernier"], e.get("profil_le") or "", e.get("reels_le") or "", e.get("renomme_en") or ""])
+                    f["dernier"], e.get("profil_le") or "", e.get("reels_le") or "", e.get("renomme_en") or "",
+                    # 24/10 : vide tant que la bio n'a pas été relue ; « aucun » = bio relue, sans lien
+                    e.get("nom") or "", e.get("bio") or "", (" ".join(e.get("liens") or []) or "aucun") if e.get("bio_le") else ""])
     return out
 
 
-def lignes_reels(suivis: list, store: dict, maintenant: datetime, jours: int = 60) -> list:
+def lignes_reels(suivis: list, store: dict, maintenant: datetime, jours: int = 60, detail: bool = False) -> list:
     out = []
     infos = {s["handle"]: s for s in suivis}
     for h, reels in (store.get("reels") or {}).items():
@@ -338,10 +384,32 @@ def lignes_reels(suivis: list, store: dict, maintenant: datetime, jours: int = 6
             quand = _instant(r.get("publie"))
             if quand is None or maintenant - quand > timedelta(days=jours):
                 continue
-            out.append([s["creatrice"], s["gerant"], s["type"], h, code, f"https://www.instagram.com/reel/{code}/", r["publie"],
-                        "" if r.get("vues") is None else str(r["vues"]), "" if r.get("likes") is None else str(r["likes"]),
-                        "" if r.get("commentaires") is None else str(r["commentaires"]), r.get("maj") or ""])
+            ligne = [s["creatrice"], s["gerant"], s["type"], h, code, f"https://www.instagram.com/reel/{code}/", r["publie"],
+                     "" if r.get("vues") is None else str(r["vues"]), "" if r.get("likes") is None else str(r["likes"]),
+                     "" if r.get("commentaires") is None else str(r["commentaires"]), r.get("maj") or ""]
+            if detail:                                                   # 24/10 : « IG · Reels » seulement (l'archive reste légère)
+                recent = maintenant - quand <= timedelta(days=3)         # la couverture (URL qui expire) des Reels récents seulement
+                ligne += ["" if r.get("legende") is None else str(r["legende"]),
+                          *["" if r.get(k) is None else str(r[k]) for k in ("largeur", "hauteur", "duree")],
+                          (r.get("image") or "") if recent else ""]
+            out.append(ligne)
     out.sort(key=lambda x: x[6], reverse=True)
+    return out
+
+
+def lignes_variantes(suivis: list, store: dict) -> list:
+    """24/10 : « IG · Variantes », une ligne par @ proche cherché pour un compte introuvable du LOG (statut existe / introuvable /
+    déjà suivi / non lu ; nom et bio du profil trouvé, pour reconnaître la bio du bot)."""
+    infos = {s["handle"]: s for s in suivis}
+    out = []
+    for h, v in sorted((store.get("variantes") or {}).items()):
+        s = infos.get(h)
+        if not s or not isinstance(v, dict):
+            continue
+        for var, r in (v.get("resultats") or {}).items():
+            out.append([h, s["creatrice"], s["gerant"], var, r.get("statut") or "non lu", str(r.get("id") or ""),
+                        "" if r.get("followers") is None else str(r["followers"]), r.get("nom") or "", r.get("bio") or "",
+                        v.get("le") or ""])
     return out
 
 
@@ -373,7 +441,7 @@ def fusionner_reels(ancien: dict, nouveaux: list, maintenant: datetime) -> dict:
     for r in nouveaux or []:
         e = dict(d.get(r["code"]) or {})
         e["publie"] = r["publie"]
-        for k in ("vues", "likes", "commentaires"):
+        for k in ("vues", "likes", "commentaires", "legende", "largeur", "hauteur", "duree", "image"):
             if r.get(k) is not None:
                 e[k] = r[k]
         if r.get("epingle"):
@@ -524,9 +592,17 @@ async def relire_profil(session, store: dict, handle: str, maintenant: datetime)
     if p["username"] and _n(p["username"]) != _n(handle):
         e["renomme_en"] = p["username"]
     e["statut"] = "privé" if p["prive"] is True else "public"
-    if p["followers"] is not None:
+    if p["followers"] is not None and suspect(e.get("suivi"), p["followers"]):
+        # 24/10 : jamais un faux 0 — le relevé d'avant reste, la chute est notée (le prochain passage tranche)
+        e["followers_suspect"] = maintenant.isoformat(timespec="seconds")
+        journal.info("Followers de %s : 0 relu après %s, relevé ignoré", handle, e["suivi"][-1][1])
+    elif p["followers"] is not None:
         e.setdefault("suivi", []).append([maintenant.isoformat(timespec="seconds"), p["followers"], p["publications"]])
         e["suivi"] = e["suivi"][-200:]
+        e.pop("followers_suspect", None)
+    b = lire_bio(corps)
+    if b["lu"]:
+        e.update({"nom": b["nom"], "bio": b["bio"], "liens": b["liens"], "bio_le": maintenant.isoformat(timespec="seconds")})
     e["profil_le"] = maintenant.isoformat(timespec="seconds")
     return True
 
@@ -665,6 +741,67 @@ async def passage_parcours(session) -> list:
     return faits
 
 
+async def chercher_variantes(session, store: dict, suivis: list, maintenant: datetime) -> dict:
+    """24/10 (Gaëtan : « développe la recherche d'un Instagram légèrement changé avec RapidAPI ») : chaque compte du LOG
+    « introuvable » sans ID connu (jamais vu sous ce @ : faute de frappe, @ pris et changé à la création) est cherché sous ses @
+    proches (etats_comptes.variantes), une fois par jour (une recherche interrompue reprend au passage suivant), VARIANTES_COMPTES
+    comptes au plus par passage, sous la garde du quota. Un @ proche qui est déjà une ligne suivie n'est pas demandé (« déjà
+    suivi »). Une variante qui existe garde son ID, ses followers, son nom et sa bio : le bot décide si elle est à nous."""
+    try:
+        import etats_comptes
+        variantes_de = etats_comptes.variantes
+    except Exception as erreur:                                         # noqa: BLE001
+        return {"erreur": type(erreur).__name__}
+    jour = _paris(maintenant).date().isoformat()
+    suivis_h = {s["handle"] for s in suivis}
+    memo = store.setdefault("variantes", {})
+    for h in list(memo):                                                # plus introuvable, ou sorti du LOG : oublié
+        if h not in suivis_h or ((store.get("comptes") or {}).get(h) or {}).get("statut") != "introuvable":
+            memo.pop(h, None)
+    ids_suivis = {str(e.get("id")) for k, e in (store.get("comptes") or {}).items() if k in suivis_h and e.get("id")}
+    faits = existantes = 0
+    for s in suivis:
+        h = s["handle"]
+        e = (store.get("comptes") or {}).get(h) or {}
+        if e.get("statut") != "introuvable" or e.get("id"):
+            continue
+        avant = memo.get(h) or {}
+        if avant.get("jour") == jour and avant.get("complet"):
+            continue
+        if faits >= VARIANTES_COMPTES or not _quota_ok(RESERVE):
+            break
+        cands = variantes_de(h)
+        res = {}
+        for v in cands:
+            if v in suivis_h:
+                res[v] = {"statut": "déjà suivi"}
+                continue
+            if not _quota_ok(RESERVE):
+                break
+            chemin, params = API["id"]
+            code, corps = await appeler(session, chemin, params(v))
+            i = lire_id(corps) if code == 200 else None
+            if not i:
+                fini = introuvable(code, corps) or (code == 200 and isinstance(corps, dict) and corps.get("status") is False)
+                res[v] = {"statut": "introuvable" if fini else "non lu"}
+                continue
+            if str(i) in ids_suivis:                                    # renommé : c'est un compte déjà suivi sous un autre @
+                res[v] = {"statut": "déjà suivi", "id": i}
+                continue
+            chemin, params = API["profil"]
+            code, corps = await appeler(session, chemin, params(i))
+            if code != 200 or not isinstance(corps, dict):
+                res[v] = {"statut": "non lu", "id": i}
+                continue
+            p, b = lire_profil(corps), lire_bio(corps)
+            res[v] = {"statut": "existe", "id": i, "followers": p["followers"], "nom": b["nom"], "bio": b["bio"]}
+        complet = len(res) == len(cands) and all(r.get("statut") != "non lu" for r in res.values())
+        memo[h] = {"jour": jour, "le": maintenant.isoformat(timespec="seconds"), "complet": complet, "resultats": res}
+        faits += 1
+        existantes += sum(1 for r in res.values() if r.get("statut") == "existe")
+    return {"comptes": faits, "existantes": existantes}
+
+
 # ------------------------------------------------------------------ 2 et 3. suivi complet et top Reels
 def a_rattraper(e: dict, jours: int) -> bool:
     """Pur : le compte n'a pas encore été relu sur `jours` jours (rattrapage en cours)."""
@@ -776,6 +913,11 @@ async def passage_complet(session) -> dict:
             store["reels"][h] = {c: r for c, r in (store["reels"].get(h) or {}).items() if (_instant(r.get("publie")) or maintenant) >= limite}
         if k % 10 == 0:
             _sauver(store)
+    if not (bilan["arret_quota"] or bilan["arret_temps"]):              # 24/10 : les @ proches des comptes introuvables
+        try:
+            bilan["variantes"] = await chercher_variantes(session, store, comptes, maintenant)
+        except Exception as erreur:                                     # noqa: BLE001 — le suivi est fait
+            bilan["variantes"] = {"erreur": str(erreur)[:160]}
     # 22/10 : Reels des comptes branchés à Metricool (source officielle ; l'API RapidAPI en voit une partie seulement)
     try:
         import metricool_reels
@@ -811,7 +953,8 @@ async def passage_complet(session) -> dict:
         classeur = await paie_clics._classeur_usage()
         if classeur:
             await pilotage._ecrire(classeur, ONGLET_COMPTES, ENTETE_COMPTES, lignes_comptes(comptes, store, maintenant))
-            await pilotage._ecrire(classeur, ONGLET_REELS, ENTETE_REELS, lignes_reels(comptes, store, maintenant))
+            await pilotage._ecrire(classeur, ONGLET_REELS, ENTETE_REELS_DETAIL, lignes_reels(comptes, store, maintenant, detail=True))
+            await pilotage._ecrire(classeur, ONGLET_VARIANTES, ENTETE_VARIANTES, lignes_variantes(comptes, store))
             await pilotage._ecrire(classeur, ONGLET_TOP, ENTETE_TOP, lignes_top(comptes, store, maintenant=maintenant))
             await pilotage._ecrire(classeur, ONGLET_ARCHIVE, ENTETE_REELS, lignes_reels(comptes, store, maintenant, jours=max(GARDE_REELS_J, jours_r)))
             await pilotage._ecrire(classeur, ONGLET_PASSAGES, ENTETE_PASSAGES, lignes_passages(etat["passages"]))

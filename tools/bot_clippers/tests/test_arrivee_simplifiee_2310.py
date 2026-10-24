@@ -168,8 +168,14 @@ class MarqueSimpleTests(unittest.TestCase):
             self.assertEqual({}, parcours._marque_simple())
 
     def test_simple_lit_la_marque(self):
-        self.assertTrue(parcours.simple({"simple": "2026-10-24T00:00:00+00:00"}))
-        self.assertFalse(parcours.simple({}))
+        with patch.object(parcours, "SIMPLE_POUR_TOUS", False):                 # la règle du 23/10 (PARCOURS_SIMPLE_TOUS=0)
+            self.assertTrue(parcours.simple({"simple": "2026-10-24T00:00:00+00:00"}))
+            self.assertFalse(parcours.simple({}))
+            self.assertFalse(parcours.simple(None))
+
+    def test_depuis_le_24_10_tout_parcours_est_simple(self):
+        self.assertTrue(parcours.simple({}))
+        self.assertTrue(parcours.simple({"etape": 2, "ordre": "prive3"}))
         self.assertFalse(parcours.simple(None))
 
 
@@ -184,16 +190,19 @@ class EcheanceTests(unittest.TestCase):
         self.assertFalse(parcours._a_traiter(f, {**self.futur, "n": 3}, MAINTENANT))
 
     def test_ancien_parcours_n_est_pas_touche(self):
-        self.assertTrue(parcours._a_traiter({}, self.futur, MAINTENANT), "15/10 : les anciens délais ne retardent pas le palier")
-        self.assertTrue(parcours._a_traiter({}, {**self.futur, "n": 3}, MAINTENANT))
+        with patch.object(parcours, "SIMPLE_POUR_TOUS", False):
+            self.assertTrue(parcours._a_traiter({}, self.futur, MAINTENANT), "15/10 : les anciens délais ne retardent pas le palier")
+            self.assertTrue(parcours._a_traiter({}, {**self.futur, "n": 3}, MAINTENANT))
 
     def test_pas_de_reels_a_compter_pour_un_parcours_simple(self):
         f = {"simple": "x", "ordre": "prive3"}
         self.assertEqual([], parcours.sources_reels(f, 2))
         self.assertEqual([], parcours.sources_reels(f, 3))
         self.assertEqual(0, parcours._bloque_sources("1", f, 2))
-        self.assertEqual([1], parcours.sources_reels({"ordre": "prive3"}, 2), "un ancien compte garde ses 4 Reels")
-        self.assertEqual([2], parcours.sources_reels({"ordre": "prive3"}, 3))
+        self.assertEqual([], parcours.sources_reels({"ordre": "prive3"}, 2), "24/10 : un ancien non plus")
+        with patch.object(parcours, "SIMPLE_POUR_TOUS", False):
+            self.assertEqual([1], parcours.sources_reels({"ordre": "prive3"}, 2), "un ancien compte garde ses 4 Reels")
+            self.assertEqual([2], parcours.sources_reels({"ordre": "prive3"}, 3))
 
 
 class OuvertureTests(unittest.IsolatedAsyncioTestCase):
@@ -211,7 +220,8 @@ class OuvertureTests(unittest.IsolatedAsyncioTestCase):
             return faits, envoyer, m["p"]["1"]
 
     def fiche(self, quand, **plus):
-        return clipper(etape=2, salon_id="5", dates={"1": "2026-10-24T09:00:00+00:00", "1_fait": "2026-10-24T09:30:00+00:00"},
+        # compte 1 créé le 24/10 à 8 h : ses 48 h sont faites le 26/10 à 8 h (MAINTENANT : 26/10, 9 h)
+        return clipper(etape=2, salon_id="5", dates={"1": "2026-10-24T07:30:00+00:00", "1_fait": "2026-10-24T08:00:00+00:00"},
                        programme=[{"quand": quand, "type": "etape", "n": 2}], **plus)
 
     async def test_simple_apres_48_h_sans_reel_le_compte_2_part(self):
@@ -228,8 +238,15 @@ class OuvertureTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(1, len(f["programme"]), "l'élément reste au programme")
         self.assertNotIn("attente_dite", f, "aucun « je vois N Reels » : il n'y a pas de Reels à attendre")
 
-    async def test_ancien_parcours_attend_toujours_ses_reels(self):
+    async def test_ancien_parcours_part_aussi_48_h_apres_la_creation_sans_reel(self):
+        # 24/10 (Gaëtan : « dans tous les cas, un compte toutes les 48 heures ») : un ancien, sans marque « simple », part aussi
         faits, envoyer, f = await self.passer(self.fiche(iso(MAINTENANT - timedelta(hours=60))), MAINTENANT)
+        envoyer.assert_awaited_once()
+        self.assertEqual([("1", "etape", 2)], faits)
+
+    async def test_ancien_parcours_sous_l_ancienne_regle_attend_ses_reels(self):
+        with patch.object(parcours, "SIMPLE_POUR_TOUS", False):
+            faits, envoyer, f = await self.passer(self.fiche(iso(MAINTENANT - timedelta(hours=60))), MAINTENANT)
         envoyer.assert_not_awaited()
         self.assertEqual([], faits)
         self.assertEqual(1, len(f["programme"]))
@@ -264,8 +281,13 @@ class FermetureTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(timedelta(hours=48), quand - creation.replace(microsecond=0))
 
     async def test_ancien_parcours_garde_son_programme_sans_delai(self):
-        f, creation = await self.fermer(1, clipper(etape=2, ordre="prive3"))
+        with patch.object(parcours, "SIMPLE_POUR_TOUS", False):                 # la règle du 23/10 pour une fiche d'avant
+            f, creation = await self.fermer(1, clipper(etape=2, ordre="prive3"))
         self.assertEqual(creation.replace(microsecond=0), datetime.fromisoformat(self.etape(f)["quand"]))
+
+    async def test_depuis_le_24_10_un_ancien_aussi_attend_48_h(self):
+        f, creation = await self.fermer(1, clipper(etape=2, ordre="prive3"))
+        self.assertEqual(timedelta(hours=48), datetime.fromisoformat(self.etape(f)["quand"]) - creation.replace(microsecond=0))
 
 
 # ------------------------------------------------------------------------------------------------ les mots dits au clipper
@@ -278,7 +300,8 @@ class TextesDesDelaisTests(unittest.TestCase):
             self.assertIn("Aucune condition de Reels", texte, fiche)
 
     def test_regle_des_comptes_d_un_ancien_garde_les_4_reels(self):
-        texte = parcours.regle_comptes({"etape": 3, "dates": {"1": "2026-10-10T00:00:00+00:00"}, "ordre": "prive3"})
+        with patch.object(parcours, "SIMPLE_POUR_TOUS", False):                 # 24/10 : seulement sous PARCOURS_SIMPLE_TOUS=0
+            texte = parcours.regle_comptes({"etape": 3, "dates": {"1": "2026-10-10T00:00:00+00:00"}, "ordre": "prive3"})
         self.assertIn("quatre Reels", texte)
         self.assertNotIn("48 h", texte)
 

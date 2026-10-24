@@ -55,6 +55,8 @@ class AnciennesReglesRefuseesTests(unittest.TestCase):
         (r"20 000 à 30 000", "pas de chiffre d'agence dans la base (en-tête)"),
         (r"ancien qui était au fixe", "un fixe ne touche pas aussi le clic (P3)"),
         (r"Madagascar, Bénin :", "plus de moyen de paiement par pays : USDC pour tous, quelques virements décidés avec Gaëtan (P4)"),
+        (r"(dès|quand) (que )?4 Reels (sont )?publiés", "24/10 : plus aucun compte n'attend 4 Reels, pour personne (C12)"),
+        (r"gardent? (les |leurs )?4 Reels", "24/10 : les arrivés avant le 23/10 ont aussi la règle des 48 h (C12)"),
     ]
 
     def test_aucune_ancienne_regle(self):
@@ -86,14 +88,13 @@ class AnciennesReglesRefuseesTests(unittest.TestCase):
 
 class ReglesDu2310EcritesTests(unittest.TestCase):
     ATTENDUS = [
-        ("4 Reels sont publiés sur le compte 1", "C4 : compte 2 dès 4 Reels sur le compte 1"),
-        ("4 Reels sont publiés sur le compte 2", "C5 : compte 3 dès 4 Reels sur le compte 2"),
-        ("Aucun délai en plus", "C4 : aucun délai en plus"),
+        ("pour tout le monde depuis le 24 octobre 2026", "C12 (journal du 24/10) : 48 h entre les comptes pour tous, C4 et C5 retirés"),
+        ("L'objectif reste 4 Reels par compte", "24/10 : les 4 Reels, un objectif dit, jamais une condition"),
         ("48 h après la création de ton compte 1", "23/10 (arrivées simplifiées) : compte 2 48 h après la création du compte 1"),
         ("48 h après la création de ton compte 2", "23/10 (arrivées simplifiées) : compte 3 48 h après la création du compte 2"),
         ("Bienvenue dans l'agence", "23/10 : un seul message d'arrivée"),
         ("Il y voit ton numéro", "23/10 : le TL voit le numéro du clipper pour créer le groupe"),
-        ("Arrivé avant le 23 octobre 2026", "23/10 : les anciens gardent leurs 4 Reels"),
+        ("Arrivé avant le 23 octobre 2026", "C11 : l'app des arrivés avant le 23/10 vient avec leurs 3 comptes"),
         ("au jour 3", "C11 : l'app au jour 3"),
         ("duplicateur de Reels", "C11 : le duplicateur est dans l'app"),
         ("rushes bruts", "C11 : rushes bruts seulement"),

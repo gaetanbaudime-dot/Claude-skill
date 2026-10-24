@@ -1,11 +1,16 @@
 name: Suivi Instagram (RapidAPI)
 
-# 22/10 : followers, Reels et vues de tous les comptes du LOG DASHBOARD IG, 3 fois par jour, indépendamment de Railway.
-# Écrit les onglets « IG · Comptes », « IG · Reels », « IG · Top Reels », « IG · Archive Reels » et « IG · Passages » du tableur
-# App clippers · usage. Un passage dure au plus 320 min (SUIVI_BUDGET_MIN) : un rattrapage plus long reprend au passage suivant.
+# 22/10 : followers, Reels et vues de tous les comptes du LOG DASHBOARD IG, indépendamment de Railway.
+# Écrit les onglets « IG · Comptes », « IG · Reels », « IG · Top Reels », « IG · Archive Reels », « IG · Variantes » et
+# « IG · Passages » du tableur App clippers · usage. Un passage dure au plus 320 min (SUIVI_BUDGET_MIN) : un rattrapage plus long
+# reprend au passage suivant.
+# 24/10 (Gaëtan : « la fraîcheur, développe-la avec RapidAPI ») : 5 passages par jour au lieu de 3, à la 17e minute (les crons
+# GitHub à l'heure pile partent avec plus d'une heure de retard : « 5 h UTC » lancé à 6 h 11 le 24/10). Environ 200 requêtes par
+# passage, 1 000 par jour, sous la garde du quota (RAPIDAPI_QUOTA_JOUR, RAPIDAPI_RESERVE). Le bot (Dashboard, passage du matin)
+# lit ces heures dans SUIVI_IG_HEURES_UTC.
 on:
   schedule:
-    - cron: "0 5,12,19 * * *"          # 7 h, 14 h, 21 h à Paris (heure d'été ; 6 h, 13 h, 20 h en hiver)
+    - cron: "17 4,8,12,16,20 * * *"    # 5 h 17, 9 h 17, 13 h 17, 17 h 17, 21 h 17 à Paris en hiver (une heure de plus en été)
   workflow_dispatch:
     inputs:
       rattrapage_jours:
