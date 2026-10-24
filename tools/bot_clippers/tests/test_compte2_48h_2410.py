@@ -147,6 +147,10 @@ class Compte1ConfirmeApres(unittest.IsolatedAsyncioTestCase):
 
 class AccesDeRianah(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
+        remise_compte1.RAISONS.clear()
+        pause = patch.object(identites_clipping, "PAUSE_CLASSEUR_S", 0)
+        pause.start()
+        self.addCleanup(pause.stop)
         self.mdp = {h: secrets.token_hex(6) for h in ("fictif-a1", "fictif-a2", "fictif-a3", "fictif-b1", "fictif-b2", "fictif-b3")}
         self.etat = {"clippers": {"42": {"lien_impose": "https://exemple.invalid/7", "telephones": {"Bêta": {
             "acces": [{"handle": "fictif-b1"}, {"handle": "fictif-b2"}, {"handle": "fictif-b3", "prive": True}],
@@ -207,3 +211,69 @@ class LigneDAcces(unittest.TestCase):
     def test_le_texte_des_etapes_porte_la_ligne_remplacable(self):
         for n in (2, 3):
             self.assertIn(parcours.ACCES_A_CONFIRMER, parcours.ETAPES[n]["texte"])
+
+
+class AccesDeRianahReprise(AccesDeRianah):
+    test_principale_dans_son_salon_le_prive_avec_son_lien = None           # déjà joués par la classe mère
+    test_autre_creatrice_dans_son_salon_de_clipping_comptes_notes_remis = None
+    test_controle_refuse_rien_n_est_envoye = None
+
+    async def test_deja_remis_ne_repart_pas(self):
+        await self.remettre("Bêta")
+        self.salons[200].send.reset_mock()
+        ligne = await self.remettre("Bêta")
+        self.assertTrue(ligne.startswith("= Bêta"))
+        self.salons[200].send.assert_not_awaited()
+
+    async def test_classeur_sature_le_depot_repart_au_demarrage_suivant(self):
+        remise_compte1.RAISONS["42"] = "erreur technique (RuntimeError)"
+        with self.assertRaises(identites_clipping.Passager):
+            await self.remettre("Bêta", identifiants=False)
+        self.assertNotIn("acces_remis", self.etat["clippers"]["42"])
+        self.assertTrue(issubclass(identites_clipping.Passager, LookupError))   # demarrage ne le marque pas fait
+
+
+class RelanceDesAcces(unittest.IsolatedAsyncioTestCase):
+    async def passer(self, d, contenu=""):
+        def ecrire(x):
+            d.clear(); d.update(deepcopy(x))
+        salon = SimpleNamespace(id=11, guild=None, send=AsyncMock(),
+                                fetch_message=AsyncMock(return_value=SimpleNamespace(content=contenu)))
+        client = SimpleNamespace(get_channel=lambda i: salon)
+        mdp = secrets.token_hex(6)
+        with patch.object(parcours, "_lire", side_effect=lambda: deepcopy(d)), \
+             patch.object(parcours, "_ecrire", side_effect=ecrire), \
+             patch.object(parcours, "_comptes_ordonnes", return_value=["fictif-un", "fictif-deux", "fictif-prive"]), \
+             patch.object(parcours, "_onb", return_value={"gerant": "Fictif"}), \
+             patch.object(parcours, "mention_salon_codes", return_value="#codes"), \
+             patch.object(remise_compte1, "identifiants_compte", AsyncMock(return_value=("b@exemple.invalid", mdp))), \
+             patch.dict(parcours._deps, {"membre_par_id": lambda uid: SimpleNamespace(mention=f"<@{uid}>")}):
+            remis = await parcours.relancer_acces(client, MAINTENANT)
+        return remis, salon, mdp
+
+    async def test_compte_parti_sans_acces_les_recoit_ensuite(self):
+        d = {"42": {"salon_id": "11", "dates": {"2": il_y_a(2)}, "messages": {"2": "9"}, "acces_etape": {"2": "a_remettre"}}}
+        with patch.object(parcours, "ACCES_SUIVI_DEPUIS", il_y_a(24)):
+            remis, salon, mdp = await self.passer(d)
+        self.assertEqual([("42", 2)], remis)
+        self.assertIn(f"Mot de passe : `{mdp}`", salon.send.await_args.args[0])
+        self.assertIn("@fictif-deux", salon.send.await_args.args[0])
+        self.assertEqual("remis", d["42"]["acces_etape"]["2"])
+
+    async def test_envoi_d_avant_le_suivi_lu_une_fois_dans_discord(self):
+        d = {"42": {"salon_id": "11", "dates": {"2": il_y_a(2)}, "messages": {"2": "9"}},
+             "43": {"salon_id": "11", "dates": {"2": il_y_a(3)}, "messages": {"2": "8"}}}
+        with patch.object(parcours, "ACCES_SUIVI_DEPUIS", il_y_a(24)):
+            remis, salon, _ = await self.passer(d, contenu=f"x\n\n{parcours.ACCES_A_CONFIRMER}")
+        self.assertEqual({("42", 2), ("43", 2)}, set(remis))
+        with patch.object(parcours, "ACCES_SUIVI_DEPUIS", il_y_a(24)):
+            remis, _, _ = await self.passer({"44": {"salon_id": "11", "dates": {"2": il_y_a(2)}, "messages": {"2": "7"}}},
+                                            contenu="E-mail : `x`")
+        self.assertEqual([], remis)
+
+    async def test_envois_d_avant_le_24_ne_sont_pas_repris(self):
+        d = {"42": {"salon_id": "11", "dates": {"2": il_y_a(100)}, "messages": {"2": "9"}, "acces_etape": {"2": "a_remettre"}}}
+        with patch.object(parcours, "ACCES_SUIVI_DEPUIS", il_y_a(24)):
+            remis, salon, _ = await self.passer(d)
+        self.assertEqual([], remis)
+        salon.send.assert_not_awaited()

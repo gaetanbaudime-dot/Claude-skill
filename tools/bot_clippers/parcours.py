@@ -1445,6 +1445,7 @@ async def envoyer_etape(salon, membre, n: int, pointer: bool = True) -> bool:
     uid = str(membre.id)
     fiche_avant = _lire().get(uid) or {}
     pseudo_propose = None
+    ACCES_ETAPE.pop((uid, int(n)), None)
     if n == 1 and pointer and (fiche_avant.get("messages") or {}).get("1"):
         return True
     if n in (2, 3) and not (fiche_avant.get("messages") or {}).get(str(n)) and not _sans_reels(fiche_avant, n) \
@@ -1593,6 +1594,8 @@ async def envoyer_etape(salon, membre, n: int, pointer: bool = True) -> bool:
     d = _lire()
     if uid in d:
         d[uid].setdefault("messages", {})[str(n)] = str(msg.id)
+        if n in (2, 3) and (str(uid), n) in ACCES_ETAPE:                 # 24/10 : sans accès, relancer_acces les remet ensuite
+            d[uid].setdefault("acces_etape", {})[str(n)] = "inclus" if ACCES_ETAPE[(str(uid), n)] == "inclus" else "a_remettre"
         if n == 1 and d[uid].get("accueil_unique"):
             d[uid]["messages"].setdefault("bienvenue", str(msg.id))
         if pseudo_propose:
@@ -2998,7 +3001,89 @@ async def programme_du_jour(client, maintenant=None) -> list:
             faits += await forcer_comptes2(client, maintenant)
         except Exception as erreur:                                     # noqa: BLE001
             journal.warning("Compte 2 à 48 h : %s", erreur)
+        try:                                                            # 24/10 : les accès d'un compte 2 ou 3 parti sans eux
+            await relancer_acces(client, maintenant)
+        except Exception as erreur:                                     # noqa: BLE001
+            journal.warning("Relance des accès : %s", erreur)
         return faits
+
+
+# 24/10 : les comptes 2 et 3 envoyés depuis cette date sans e-mail ni mot de passe (classeur saturé, @ de la fiche absent du
+# classeur, salon lisible par un tiers) reçoivent leurs accès dès que les contrôles passent. Les envois d'avant ne sont pas repris.
+ACCES_SUIVI_DEPUIS = os.environ.get("PARCOURS_ACCES_SUIVI_DEPUIS", "2026-10-24T00:00:00+00:00")
+
+
+async def relancer_acces(client, maintenant=None) -> list:
+    """24/10 (Gaëtan : « le compte deux avec identifiant, username, mail et mot de passe ») : un compte 2 ou 3 parti avec « Accès : à
+    confirmer auprès de ton responsable » reçoit ses accès dans un second message, dès que remise_compte1.identifiants_compte les
+    donne. État par compte dans la fiche (« acces_etape » : inclus, a_remettre, remis) ; un envoi d'avant ce suivi est lu une fois
+    dans Discord. Un essai toutes les LIGNE_REESSAI_MIN minutes, la raison au journal quand elle change. Renvoie [(uid, n)] remis."""
+    maintenant = maintenant or datetime.now(timezone.utc)
+    depuis = _instant_iso(ACCES_SUIVI_DEPUIS)
+    remis = []
+    for uid, f in list(_lire().items()):
+        if not isinstance(f, dict):
+            continue
+        for k in ("2", "3"):
+            mid = (f.get("messages") or {}).get(k)
+            envoi = _instant_iso((f.get("dates") or {}).get(k))
+            etat = (f.get("acces_etape") or {}).get(k)
+            if not mid or envoi is None or (depuis and envoi < depuis) or etat in ("inclus", "remis"):
+                continue
+            essai = _instant_iso((f.get("acces_essai") or {}).get(k))
+            if essai and maintenant - essai < timedelta(minutes=LIGNE_REESSAI_MIN):
+                continue
+            salon = client.get_channel(int(f.get("salon_id", 0) or 0))
+            membre = _deps["membre_par_id"](uid) if _deps.get("membre_par_id") else None
+            if salon is None or membre is None:
+                continue
+            d = _lire()
+            if uid not in d:
+                continue
+            d[uid].setdefault("acces_essai", {})[k] = _maintenant()
+            _ecrire(d)
+            if etat is None:                                            # envoyé avant ce suivi : le message dit-il ses accès ?
+                try:
+                    contenu = (await salon.fetch_message(int(mid))).content or ""
+                except (discord.NotFound, discord.Forbidden, discord.HTTPException, ValueError):
+                    continue
+                etat = "a_remettre" if ACCES_A_CONFIRMER in contenu else "inclus"
+                d = _lire()
+                d.setdefault(uid, {}).setdefault("acces_etape", {})[k] = etat
+                _ecrire(d)
+                if etat == "inclus":
+                    continue
+            n = int(k)
+            handles = _comptes_ordonnes(uid, fiche_p=f)
+            if len(handles) < n:
+                continue
+            import remise_compte1
+            acces = await remise_compte1.identifiants_compte(
+                getattr(salon, "guild", None), salon, uid, handles[n - 1], _onb(uid).get("gerant") or "", f.get("creatrice") or "",
+                _deps.get("ADMIN_IDS") or set(), _deps.get("est_staff") or (lambda m: False))
+            if not acces:
+                raison = remise_compte1.RAISONS.get(uid, "") or "contrôle non passé"
+                d = _lire()
+                if uid in d and (d[uid].get("acces_raison") or {}).get(k) != raison:
+                    d[uid].setdefault("acces_raison", {})[k] = raison
+                    _ecrire(d)
+                    journal.info("Accès du compte %s de %s toujours à remettre : %s", n, uid, raison)
+                continue
+            try:
+                await salon.send((f"{membre.mention} 🔑 **Accès de ton compte {n} · @{handles[n - 1]}**\n\n"
+                                  f"E-mail : `{acces[0]}`\n\nMot de passe : `{acces[1]}`\n\n"
+                                  f"Les codes de connexion arrivent dans {mention_salon_codes()} : appuie sur « 📩 Mon code ».")[:1990])
+            except (discord.Forbidden, discord.HTTPException) as erreur:
+                journal.warning("Accès du compte %s de %s : %s", n, uid, erreur)
+                continue
+            d = _lire()
+            if uid in d:
+                d[uid].setdefault("acces_etape", {})[k] = "remis"
+                (d[uid].get("acces_raison") or {}).pop(k, None)
+                _ecrire(d)
+            journal.info("Accès du compte %s remis à %s (second message)", n, uid)
+            remis.append((uid, n))
+    return remis
 
 
 def _instant_iso(valeur):
@@ -3044,24 +3129,27 @@ async def forcer_comptes2(client, maintenant=None) -> list:
         _COMPTE1_LISTE["dite"] = True
         journal.info("Clippers au compte 1 sans compte 2 (%s) : %s", len(liste), " · ".join(
             f"{p} ({u}) {h} h{' simple' if s else ''}{' confirmé' if c else ''}" for u, p, h, s, c in liste) or "aucun")
-    faits, bilan = [], []
+    faits, bilan, ecartes = [], [], []
     for uid, prenom, heures, _, confirme in liste:
         if heures < FORCE_COMPTE2_H:
             continue
         f = d0.get(uid) or {}
         if any(x.get("type") == "etape" and int(x.get("n") or 0) == 2 and x.get("ligne") for x in f.get("programme") or []):
-            continue                                                    # retenu faute de ligne : programme_du_jour retente
+            ecartes.append(f"{prenom} ({uid}) : retenu, nouvel essai par le programme")   # programme_du_jour retente à son heure
+            continue
         essai = _instant_iso(f.get("force_2_essai"))
         if essai and maintenant - essai < timedelta(minutes=LIGNE_REESSAI_MIN):
             continue
         try:
             if onboarding.process_adapters.store().get("sortie:" + uid):
-                continue                                                # départ enregistré : aucune nouvelle allocation
+                ecartes.append(f"{prenom} ({uid}) : départ enregistré")  # aucune nouvelle allocation
+                continue
         except Exception:                                               # noqa: BLE001 — journal illisible : reserve() tranchera
             pass
         salon = client.get_channel(int(f.get("salon_id", 0) or 0))
         membre = _deps["membre_par_id"](uid) if _deps.get("membre_par_id") else None
         if salon is None or membre is None:
+            ecartes.append(f"{prenom} ({uid}) : {'salon perso introuvable' if salon is None else 'plus sur le serveur'}")
             continue
         d = _lire()
         if uid not in d:
@@ -3092,6 +3180,9 @@ async def forcer_comptes2(client, maintenant=None) -> list:
             etat = (("compte 2 envoyé, accès inclus" if acces == "inclus" else f"compte 2 envoyé, accès à remettre ({acces or '?'})")
                     if ok else "retenu : pas de ligne libre, journal des places ou salon, nouvel essai automatique")
             bilan.append(f"{'✅' if ok else '⏸️'} **{prenom}** (<@{uid}>) · {int(heures)} h après son compte 1 · {etat}")
+    if ecartes and not _COMPTE1_LISTE.get("ecartes_dits"):             # une fois par démarrage : pourquoi rien n'est parti
+        _COMPTE1_LISTE["ecartes_dits"] = True
+        journal.info("Compte 2 à 48 h, non envoyé : %s", " · ".join(ecartes))
     if bilan and _deps.get("canal_admin"):
         try:
             canal = await _deps["canal_admin"]()
