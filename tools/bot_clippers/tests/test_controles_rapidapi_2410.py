@@ -37,6 +37,10 @@ class ReleveTests(unittest.TestCase):
         self.assertEqual(b["liens"], ["https://exemple.invalid/a", "https://exemple.invalid/b"])
         self.assertEqual(I.lire_bio({"user": {"pk": 9, "biography": ""}})["lu"], True, "bio vide relue : vraiment vide")
         self.assertEqual(I.lire_bio({"user": {"pk": 9}})["lu"], False, "champ absent : rien conclu")
+        # 24/10, premier passage réel : FlashAPI masque parfois le nom
+        masque = {"user": {"pk": 9, "full_name": "Access delayed. Only the owner of the page can access this information", "biography": "x"}}
+        self.assertEqual(I.lire_bio(masque)["nom"], "")
+        self.assertEqual(I.nom_propre("Sophie fan"), "Sophie fan")
 
     def test_legende_dimensions_et_couverture_des_reels(self):
         corps = {"items": [{"media": {"code": "R1", "taken_at": 1761134400, "ig_play_count": 10, "caption": {"text": "go @quelquun"},
