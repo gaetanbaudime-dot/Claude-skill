@@ -14,7 +14,7 @@ Next.js 14 (App Router), Tailwind, Recharts, TypeScript. Déployée sur Vercel (
 
 | Variable | Contenu |
 |---|---|
-| `GOOGLE_SERVICE_ACCOUNT_JSON` | le JSON du compte de service de l'agence (lecture Sheets + Drive, écriture du seul tableur d'usage) |
+| `GOOGLE_SERVICE_ACCOUNT_JSON` | le JSON du compte de service de l'agence (lecture Sheets + Drive, écriture du seul tableur d'usage). Toujours la même clé que le bot sur Railway (projet « BOT Marketing », service « Claude-skill ») : si elle change là-bas, la recoller ici et dans app-clippers, puis redéployer (« Google OAuth 400 » dans les logs = clé refusée, panne du 22 au 24/10) |
 | `DATA_GM_ID` | l'identifiant du classeur Data G&M |
 | `CREATRICES_JSON` | un objet `{ "<jeton>": { "prenom", "onglet", "racine", "reels", "photos", "feed", "scripts" } }` par créatrice, le jeton étant un secret aléatoire de 12 à 64 caractères (`[A-Za-z0-9_-]`) |
 
