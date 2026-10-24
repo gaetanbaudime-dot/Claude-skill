@@ -10,6 +10,17 @@
 >
 > 11/10 : la vague 1 du recrutement est branchée au démarrage, testée, pas encore en production. Lis d'abord « 10/10 et 11/10 : ce qui change pour toi », juste en dessous.
 
+## 24/10 : Instagram par le suivi RapidAPI, plus aucun appel Apify
+
+Gaëtan : « on n'utilise plus Apify, on utilise RapidAPI… pourquoi tu me parles encore de Apify ? ». Le suivi RapidAPI (`instagram_rapidapi.py`, GitHub Actions « Suivi Instagram », 3 passages par jour) relisait déjà chaque compte vivant du LOG DASHBOARD IG par son ID Instagram, mais le scan des états du bot (`etats_comptes.py`) payait encore Apify pour écrire Followers, Reels Hier et Reels 7 j, et le Dashboard affichait « Apify X $ / 25 $ ».
+
+- `source_rapidapi.py` relit « IG · Comptes » et « IG · Reels » (tableur d'usage) et rend des fiches au format que le scan lisait chez Apify : passages du matin et légers, file du parcours, séries, Dashboard, pilotage et apps restent identiques. `SOURCE_INSTAGRAM=apify` remet l'ancien scan (avec `APIFY_TOKEN`).
+- Plus juste qu'Apify : les comptes « restreints » sont lus (Caroline, Yves, les comptes Metricool de Sophie…), tous les Reels des 60 jours sont comptés (Apify en voyait 12), un compte renommé reste suivi par son ID.
+- Jamais un faux chiffre : un @ que le suivi ne relit pas (à créer, BAN, appel à faire) n'est pas scanné ; un profil pas relu depuis 30 h (`SOURCE_IG_FRAICHEUR_H`) est « non lu » ; des Reels relus avant minuit (Paris) ne réécrivent pas « Reels Hier ». Le passage du matin attend le relevé RapidAPI du jour (le cron GitHub part avec du retard) jusqu'à 13 h (`ETATS_MATIN_ATTENTE_MAX_H`).
+- Plus de budget Apify : ni garde, ni relecture sautée, ni alerte. Le titre du Dashboard donne l'heure du relevé RapidAPI (« Instagram 08h11 » = l'heure où RapidAPI a lu les comptes) et « ⚠ suivi RapidAPI pas relu depuis… » au-delà de 14 h sans relevé (`SUIVI_IG_VIEUX_H`).
+- Ce qui ne se fait plus : la recherche des @ changés sous une variante (le suivi relit par ID), la vérification « @ à créer déjà pris » par le scan (faite par `pseudos_uniques` dans le workflow), la lecture du lien en bio des comptes privés (C10 garde son dernier relevé), la légende et la couverture des Reels (contrôle des liens en légende, image du premier Reel fêté).
+- Railway : `APIFY_TOKEN` peut être retiré ; rien à ajouter (le bot lit les onglets avec sa clé Google). Testé par `tests/test_source_rapidapi.py`.
+
 ## 21/10 : onglets créatrices triés, comptes créés par jour, salon admin allégé
 
 **Tri des onglets créatrices** (chaque matin, dans le passage du scan, sous son verrou : `onboarding.plan_regroupement`). L'onglet se range en sections : les pods qui ont un GOOD (le compte de la créatrice en tête, puis les pods dans leur ordre actuel), les pods en appel à faire, les autres états, les pods des nouveaux clippers (tout « à créer »), tous les BAN, le stock « à créer » sans Gérant, les lignes vides. Dans un pod : GOOD, appel, à créer. Un BAN est définitif : il quitte le pod de son ancien Gérant (le nom reste écrit), il sort des blocs de mise en forme et des Clics. `TRI_COMPTES=0` remet le regroupement du 30/09. Ne trie pas l'onglet à la main entre 9 h et 10 h 30 (Paris) : le passage du matin écrit par numéro de ligne.
