@@ -17,6 +17,19 @@ import series
 
 T = datetime(2026, 10, 14, 10, tzinfo=timezone.utc)
 
+
+def setUpModule():
+    # 24/10 : le bot lit Instagram par le suivi RapidAPI (source_rapidapi) ; ces tests gardent l'ancien chemin Apify, toujours
+    # disponible (SOURCE_INSTAGRAM=apify), sous contrôle.
+    global _source
+    _source = patch.object(etats, 'SOURCE_IG', 'apify')
+    _source.start()
+
+
+def tearDownModule():
+    _source.stop()
+
+
 def mesure():
     return {'lu': True, 'existe': True, 'followers': 100, 'serie_reels': [], 'reels_7j': 1}
 

@@ -67,6 +67,10 @@ même sa partie sans Instagram (clics, liens GAML, parcours, réservations, vér
   - les comptes de la file relus sans ligne vivante passent au crible des faux 0 et vont aux séries, et une fiche qui ne montre
     aucune publication ne touche plus au compteur du parcours ;
   - `!cadence` refusé pour la réserve dit ce qui est gardé, pour quoi et jusqu'à quand (phrase_reserve).
+24/10 (Gaëtan : « on n'utilise plus Apify, on utilise RapidAPI ») : Instagram vient du suivi RapidAPI (GitHub Actions, onglets
+« IG · Comptes » et « IG · Reels », lus par source_rapidapi.py) ; tout ce qui parle d'Apify plus haut ne vaut plus qu'avec
+SOURCE_INSTAGRAM=apify. Un @ hors du suivi n'est pas scanné, un profil trop vieux est non lu, des Reels relus avant minuit ne
+réécrivent pas « Reels Hier », aucune garde de budget, aucune recherche de variantes (le suivi relit par ID).
 Le module ne connaît pas bot_discord : dépendances dans `configurer(deps)` (lire_json, ecrire_json, FICHIER_ETATS,
 normaliser, canal_admin, notifier, est_staff ; `scanner` optionnel pour les tests ; `FICHIER_SERIES` facultatif, sinon
 series_comptes.json à côté de FICHIER_ETATS)."""
@@ -91,6 +95,10 @@ from historique_instagram import HistoriqueReleves
 journal = logging.getLogger("etats_comptes")
 
 APIFY_TOKEN = os.environ.get("APIFY_TOKEN", "").strip()
+# 24/10 (Gaëtan : « on n'utilise plus Apify, on utilise RapidAPI… pourquoi tu me parles encore de Apify ? ») : Instagram vient du
+# suivi RapidAPI (onglets « IG · Comptes » et « IG · Reels », source_rapidapi.py) ; plus aucun appel Apify, ni budget à garder.
+# SOURCE_INSTAGRAM=apify remet l'ancien scan (APIFY_TOKEN requis), le temps d'un retour en arrière.
+SOURCE_IG = (os.environ.get("SOURCE_INSTAGRAM", "rapidapi").strip().lower() or "rapidapi")
 ACTOR_IG = os.environ.get("APIFY_ACTOR_IG", "apify~instagram-profile-scraper").strip()
 ACTIF = (os.environ.get("ETATS_CLASSEUR", "1").strip() or "1") != "0"
 GOOD_JOURS = int(os.environ.get("ETATS_GOOD_JOURS", "3") or 3)         # jours de publication de suite pour GOOD
@@ -218,8 +226,18 @@ def configurer(deps: dict):
         series.configurer({"lire_json": deps["lire_json"], "ecrire_json": deps["ecrire_json"], "FICHIER_SERIES": fichier})
 
 
+def _rapidapi() -> bool:
+    """24/10 : Instagram vient du suivi RapidAPI (défaut), pas d'Apify. Un faux scanner de test (`_deps["scanner"]`) garde l'ancien
+    chemin, garde du budget comprise."""
+    return SOURCE_IG != "apify" and not _deps.get("scanner")
+
+
+def _source_nom() -> str:
+    return "le suivi RapidAPI" if _rapidapi() else "Apify"
+
+
 def actif() -> bool:
-    return ACTIF and bool(APIFY_TOKEN) and onboarding.actif()
+    return ACTIF and (SOURCE_IG != "apify" or bool(APIFY_TOKEN)) and onboarding.actif()
 
 
 def _norm(t: str) -> str:
@@ -279,7 +297,7 @@ def _ecrire(d: dict):
 # Apify, heures légères faites, alertes du jour, essais de la boucle) : le passage complet, qui réécrit à la fin l'état lu au
 # début, les reprend du disque au lieu de les écraser (avant : la dépense des recherches de variantes et « legers » perdues)
 CLES_EXTERNES = ("apify_budget", "apify_local", "legers", "leger_iso", "alertes_legeres", "essais", "soir", "dashboard_masques",
-                 "dashboard_exclus", "parcours_matin")
+                 "dashboard_exclus", "parcours_matin", "source_instagram", "attente_releve")
 
 
 def _ecrire_passage(d: dict):
@@ -311,6 +329,8 @@ async def scanner(handles: list, priorite: str = "releve", forcer: bool = False)
     cles = list(dict.fromkeys(k for h in handles or [] if (k := _cle(h))))
     if not cles:
         return {}
+    if _rapidapi():                                                     # 24/10 : gratuit, déjà en cache (source_rapidapi)
+        return await _scanner_rapidapi(cles)
     # Une lecture de grille ne satisfait pas une demande de l'onglet Reels.
     scope = (REELS_JOURS_PARCOURS if priorite == "parcours" else REELS_JOURS_MATIN) \
         if REELS_ONGLET and priorite in ("matin", "parcours") else 0
@@ -367,6 +387,57 @@ async def _scanner_sans_cache(handles: list, priorite: str = "releve") -> dict:
                  len(cles), len(items), sum(1 for f in out.values() if f["lu"]), sum(1 for f in out.values() if f["lu"] and not f["existe"]),
                  sum(1 for f in out.values() if f["restreint"]), sum(1 for f in out.values() if not f["lu"]))
     return out
+
+
+async def _scanner_rapidapi(cles: list) -> dict:
+    """24/10 : les fiches du suivi RapidAPI (source_rapidapi), au format de _scanner_sans_cache ; None si les onglets sont
+    illisibles (on ne conclut rien). Un @ que le suivi ne relit pas est `hors_suivi` (non lu, jamais compté comme un passage
+    manqué) ; un profil relu il y a plus de source_rapidapi.FRAICHEUR_H heures est non lu."""
+    import source_rapidapi
+    onglets = await source_rapidapi.lire_onglets()
+    if onglets is None:
+        return None
+    maintenant = datetime.now(timezone.utc)
+    items, infos = source_rapidapi.fiches(cles, onglets[0], onglets[1], maintenant)
+    out = source_rapidapi.ajuster(_lire_items(items, cles, maintenant), infos)
+    lus = [f for f in out.values() if f.get("lu")]
+    journal.info("Suivi RapidAPI (états) : %d demandés, %d lus, %d introuvables, %d hors suivi, %d pas relus depuis %d h, "
+                 "%d sans Reels relus aujourd'hui", len(cles), len(lus), sum(1 for f in lus if not f.get("existe")),
+                 sum(1 for f in out.values() if f.get("hors_suivi")), sum(1 for f in out.values() if f.get("vieux")),
+                 int(source_rapidapi.FRAICHEUR_H), sum(1 for f in lus if f.get("existe") and not f.get("prive") and not f.get("reels_lus")))
+    _noter_releve(source_rapidapi.dernier_releve(onglets[0], maintenant))
+    return out
+
+
+def _noter_releve(releve: str) -> None:
+    """24/10 : l'heure du dernier relevé du suivi RapidAPI, pour le titre du Dashboard (« source_instagram »)."""
+    if not releve or not _etat_configure():
+        return
+    try:
+        s = _lire().get("source_instagram")
+        if not isinstance(s, dict) or s.get("source") != "rapidapi" or releve > str(s.get("releve") or ""):
+            _maj_etat({"source_instagram": {"source": "rapidapi", "releve": releve}})
+    except Exception as erreur:                                         # noqa: BLE001
+        journal.info("Suivi RapidAPI : heure du relevé non notée (%s)", type(erreur).__name__)
+
+
+async def noter_source_instagram() -> str:
+    """24/10 : au démarrage, l'heure du dernier relevé RapidAPI notée tout de suite (le Dashboard cesse de parler d'Apify sans
+    attendre le premier passage). Renvoie cette heure, '' si les onglets sont illisibles."""
+    if not _rapidapi():
+        return ""
+    import source_rapidapi
+    if _etat_configure():
+        d = _lire()
+        if "apify_budget" in d:
+            # le dernier budget Apify publié ne bouge plus : le Dashboard et le contrôle (C12, C15) ne doivent plus le lire
+            # (« budget atteint, plus aucun scan » resterait affiché pour toujours). La dépense notée (« apify_local ») reste.
+            d.pop("apify_budget", None)
+            _ecrire(d)
+    onglets = await source_rapidapi.lire_onglets()
+    releve = source_rapidapi.dernier_releve(onglets[0]) if onglets else ""
+    _noter_releve(releve)
+    return releve
 
 
 def _handle_item(item: dict) -> str:
@@ -1439,14 +1510,19 @@ async def _executer(ecrire: bool = True, priorite: str = "matin") -> dict:
         refus_budget = bool(_erreur_budget(t_refus))
         jour_r = datetime.now(timezone.utc).strftime("%Y-%m-%d")
         sans_apify = await _passage_sans_apify(comptes, jour_r) if ecrire and refus_budget else None
-        texte = _erreur_budget(t_refus, sans_apify=sans_apify is not None) or "Instagram illisible aujourd'hui (Apify), rien changé"
+        texte = _erreur_budget(t_refus, sans_apify=sans_apify is not None) or f"Instagram illisible aujourd'hui ({_source_nom()}), rien changé"
         # 10/10 (lot L7) : le passage du matin refusé ne fige plus le parcours — la file des clippers qui attendent leur compte suivant
         # est relue à part (priorité « parcours », qui ne bute que sur le plafond), une fois par jour
         file_p = await _parcours_sans_matin(jour_r) if ecrire and refus_budget and priorite == "matin" else None
         return {"changements": [], "scannes": 0, "erreur": texte,
                 **({"clics": sans_apify.get("clics", 0), "liens": sans_apify.get("liens", 0), "sans_apify": True} if sans_apify else {}),
                 **({"parcours": file_p} if file_p else {})}
-    if ecrire:                                                          # 10/10 (lot L7) : le coût d'un passage, pour la réserve du matin
+    if _rapidapi():
+        # 24/10 : un @ que le suivi RapidAPI ne relit pas (à créer, BAN, état hors suivi) n'est pas scanné : ni non lu, ni compté
+        lignes = [c for c in lignes if not (mesures.get(_cle(c["handle"])) or {}).get("hors_suivi")]
+        if not lignes:
+            return {"changements": [], "scannes": 0, "erreur": "aucun compte du classeur dans le suivi RapidAPI (« IG · Comptes »), rien changé"}
+    elif ecrire:                                                        # 10/10 (lot L7) : le coût d'un passage, pour la réserve du matin
         _noter_cout("cout_matin_usd", len(cles_scan) * APIFY_PRIX_1000 / 1000 * REDEMANDE)
     d = _lire()
     jour = datetime.now(timezone.utc).strftime("%Y-%m-%d")
@@ -1476,7 +1552,8 @@ async def _executer(ecrire: bool = True, priorite: str = "matin") -> dict:
             non_lus.append(c)
     if non_lus and len(non_lus) * 2 > len(lignes):
         return {"changements": [], "scannes": len(lignes), "non_lus": [],
-                "erreur": f"Apify n'a lu que {len(lignes) - len(non_lus)} compte(s) sur {len(lignes)}, rien changé (nouvel essai plus tard)"}
+                "erreur": f"{_source_nom()[0].upper() + _source_nom()[1:]} n'a lu que {len(lignes) - len(non_lus)} compte(s) sur "
+                          f"{len(lignes)}, rien changé (nouvel essai plus tard)"}
     ids_non_lus = {id(c) for c in non_lus}
     maintenant = datetime.now(timezone.utc)
     # 09/10 (dashboard) : les faux 0 écartés avant toute décision ou écriture, puis un relevé par compte lu dans sa série
@@ -1583,7 +1660,9 @@ async def _executer(ecrire: bool = True, priorite: str = "matin") -> dict:
     limite_vu = (date.fromisoformat(jour) - timedelta(days=JOURS_HISTORIQUE)).isoformat()
     for k in [k for k, v in vu_sous.items() if not isinstance(v, str) or v < limite_vu]:
         vu_sous.pop(k, None)
-    if ecrire and a_chercher:                                           # 09/10 : les @ légèrement changés
+    # 24/10 : avec le suivi RapidAPI, un compte est relu par son ID (un @ changé reste suivi, « Renommé en ») et les variantes d'un
+    # @ ne sont pas dans les onglets : pas de recherche
+    if ecrire and a_chercher and not _rapidapi():                       # 09/10 : les @ légèrement changés
         # 09/10 (revue) : les comptes créés d'abord (WARMUP, PRIVE), les BAN récents ensuite ; une fois par jour et par compte
         # (`!dashboard` relance le scan), noté seulement pour ceux vraiment cherchés ; le reste attend le passage suivant.
         # 10/10 (passe 3) : parmi les comptes créés, ceux dont le BAN attend cette recherche passent en premier — après les autres,
@@ -2024,7 +2103,8 @@ async def _lire_file_parcours(depuis_iso: str, client=None) -> dict:
     cles = _file_parcours()
     if not cles:
         return {"lus": 0, "ouverts": [], "faits": []}
-    _noter_cout_parcours(len(cles))
+    if not _rapidapi():
+        _noter_cout_parcours(len(cles))
     mesures = await scanner(cles, priorite="parcours")
     if mesures is None:
         return {"lus": None, "ouverts": [], "faits": []}
@@ -2084,13 +2164,21 @@ async def _executer_leger(ecrire: bool = True) -> dict:
     if mesures is None:
         erreur_b = _erreur_budget(t_refus)
         return {**vide, "scannes": len(cles), "budget": bool(erreur_b),
-                "erreur": erreur_b or "Instagram illisible (Apify), passage léger sans effet"}
+                "erreur": erreur_b or f"Instagram illisible ({_source_nom()}), passage léger sans effet"}
+    if _rapidapi():                                                     # 24/10 : hors du suivi RapidAPI = pas relu, pas compté
+        hors_s = {k for k, m in mesures.items() if isinstance(m, dict) and m.get("hors_suivi")}
+        lignes = [c for c in lignes if _cle(c["handle"]) not in hors_s]
+        hors = [k for k in hors if k not in hors_s]
+        cles = [_cle(c["handle"]) for c in lignes] + hors
+        if not cles:
+            return vide
     lus_ok = lambda k: isinstance(mesures.get(k), dict) and mesures[k].get("lu", True)   # noqa: E731
     non_lus = [c for c in lignes if not lus_ok(_cle(c["handle"]))]
     n_non_lus = len(non_lus) + sum(1 for k in hors if not lus_ok(k))
     if n_non_lus and n_non_lus * 2 > len(cles):
         return {**vide, "scannes": len(cles),
-                "erreur": f"Apify n'a lu que {len(cles) - n_non_lus} compte(s) sur {len(cles)}, passage léger sans effet"}
+                "erreur": f"{_source_nom()[0].upper() + _source_nom()[1:]} n'a lu que {len(cles) - n_non_lus} compte(s) sur "
+                          f"{len(cles)}, passage léger sans effet"}
     ids_non_lus = {id(c) for c in non_lus}
     d = _lire()                                                         # lecture seule : historique (Reels 7 j, garde des faux 0)
     maintenant = datetime.now(timezone.utc)
@@ -2130,12 +2218,14 @@ async def _executer_leger(ecrire: bool = True) -> dict:
                 m = mesures.get(h)
                 if id(c) not in ids_non_lus and isinstance(m, dict) and m.get("lu", True) and m.get("existe"):
                     d2["non_lus"].pop(h, None)
-        loc = d2.get("apify_local") if isinstance(d2.get("apify_local"), dict) else {}
-        # le prochain, estimé ; 10/10 (lot L7) : avec les redemandes (× REDEMANDE), la file du parcours comprise
-        loc["cout_leger_usd"] = round(len(cles) * APIFY_PRIX_1000 / 1000 * REDEMANDE, 4)
-        d2["apify_local"] = loc
+        if not _rapidapi():                                             # 24/10 : RapidAPI ne coûte rien au bot
+            loc = d2.get("apify_local") if isinstance(d2.get("apify_local"), dict) else {}
+            # le prochain, estimé ; 10/10 (lot L7) : avec les redemandes (× REDEMANDE), la file du parcours comprise
+            loc["cout_leger_usd"] = round(len(cles) * APIFY_PRIX_1000 / 1000 * REDEMANDE, 4)
+            d2["apify_local"] = loc
         _ecrire(d2)
-        _noter_cout_parcours(len(file_p))
+        if not _rapidapi():
+            _noter_cout_parcours(len(file_p))
     # 10/10 (lot L7) : les Reels vus depuis le passage du matin ouvrent le compte suivant tout de suite (programme_du_jour)
     faits_p = await _noter_parcours(mesures, _lire().get("scan_iso"), None) if ecrire else []
     ouverts = [f for f in faits_p if len(f) > 1 and f[1] == "etape"]
@@ -2379,6 +2469,8 @@ async def apify_budget(forcer: bool = False, publier: bool = False, maintenant: 
     maintenant = maintenant or datetime.now(timezone.utc)
     if not _etat_configure():
         return etat_budget({}, maintenant)
+    if _rapidapi():                                                     # 24/10 : plus d'Apify, rien à relire chez eux
+        return etat_budget(_lire(), maintenant)
     d = _lire()
     loc = d.get("apify_local") if isinstance(d.get("apify_local"), dict) else {}
     t_api = _instant((loc.get("api") or {}).get("t")) if isinstance(loc.get("api"), dict) else None
@@ -2731,7 +2823,8 @@ async def passage_leger_si_du(maintenant: datetime = None) -> str:
             return False
         return True
 
-    if not await _budget_permet(await apify_budget(maintenant=maintenant), d):
+    # 24/10 : le suivi RapidAPI ne coûte rien au bot : aucune garde de budget
+    if not _rapidapi() and not await _budget_permet(await apify_budget(maintenant=maintenant), d):
         return "budget"
     async with _verrou_passages():
         d = _lire()
@@ -2740,7 +2833,7 @@ async def passage_leger_si_du(maintenant: datetime = None) -> str:
             return "recent"
         # la dépense du passage qui vient de finir comptée ; 09/10 (revue 3) : à l'heure d'APRÈS l'attente du verrou (avec l'heure
         # d'avant, une dépense notée plus de 5 min après elle était ignorée)
-        if not await _budget_permet(etat_budget(d, max(maintenant, datetime.now(timezone.utc))), d):
+        if not _rapidapi() and not await _budget_permet(etat_budget(d, max(maintenant, datetime.now(timezone.utc))), d):
             return "budget"
         bilan = await _executer_leger(True)
     if bilan.get("budget"):                                             # 10/10 (lot L7) : refusé par la garde, même règle
@@ -3136,14 +3229,17 @@ def texte_bilan(bilan: dict, test: bool = False) -> str:
         entete += (f"\n🔒 **Restreints** (vivants, cachés aux visiteurs non connectés : followers et Reels illisibles pour le scan, "
                    f"jamais passés BAN) : {', '.join(bilan['restreints'])}")
     if bilan.get("non_lus"):                                            # 05/10 : Apify muet sur ces comptes, rien conclu
-        entete += (f"\n⚠️ **Non lus par Apify** ({len(bilan['non_lus'])}, laissés tels quels, ni BAN ni 0 ; absents s'ils restent "
+        entete += (f"\n⚠️ **Non lus par {'le suivi RapidAPI' if _rapidapi() else 'Apify'}** ({len(bilan['non_lus'])}, laissés tels "
+                   f"quels, ni BAN ni 0 ; absents s'ils restent "
                    f"non lus {NON_LU_JOURS} passages de suite) : {', '.join(bilan['non_lus'][:25])}")
     if bilan.get("suspects"):                                           # 09/10 (dashboard) : faux 0 écartés
         entete += (f"\n⚠️ **Followers suspects** ({len(bilan['suspects'])}, 0 lu alors que le compte en avait plus de "
                    f"{SUSPECT_FOLLOWERS} : cellule gardée) : {', '.join(bilan['suspects'][:25])}")
     if bilan.get("reels_non_lus"):
-        entete += (f"\n⚠️ **Reels non lus** ({len(bilan['reels_non_lus'])}, Apify n'a rendu aucune publication alors que le compte "
-                   f"en a : cellules gardées) : {', '.join(bilan['reels_non_lus'][:25])}")
+        quoi_r = ("les Reels n'ont pas été relus depuis minuit par le suivi RapidAPI" if _rapidapi()
+                  else "Apify n'a rendu aucune publication alors que le compte en a")
+        entete += (f"\n⚠️ **Reels non lus** ({len(bilan['reels_non_lus'])}, {quoi_r} : cellules gardées) : "
+                   f"{', '.join(bilan['reels_non_lus'][:25])}")
     if bilan.get("perdues"):                                            # 09/10 (dashboard) : jamais une écriture perdue en silence
         entete += (f"\n❌ **Cellules non écrites** ({len(bilan['perdues'])}) : " + " · ".join(bilan["perdues"][:15]))
     if bilan.get("mode") == "leger":
@@ -3172,9 +3268,15 @@ async def boucle(client) -> None:
     puis les passages légers aux heures de Paris ETATS_HEURES_LEGERES (passage_leger_si_du), sous garde du budget Apify ; le
     budget du mois (« apify_budget ») est republié à chaque tour (15 min) pour le Dashboard."""
     if not actif():
-        journal.info("États du classeur désactivés (APIFY_TOKEN / classeur absents ou ETATS_CLASSEUR=0)")
+        journal.info("États du classeur désactivés (classeur absent, ETATS_CLASSEUR=0, ou SOURCE_INSTAGRAM=apify sans APIFY_TOKEN)")
         return
+    journal.info("États du classeur : Instagram lu par %s", _source_nom())
     await client.wait_until_ready()
+    try:
+        if _rapidapi():
+            journal.info("Suivi RapidAPI : dernier relevé %s", await noter_source_instagram() or "illisible")
+    except Exception as erreur:                                         # noqa: BLE001
+        journal.info("Suivi RapidAPI : relevé non noté au démarrage (%s)", type(erreur).__name__)
     _CLIENT["c"] = client                                               # 10/10 (lot L7) : programme_du_jour après une relecture
     while not client.is_closed():
         try:
@@ -3191,7 +3293,7 @@ async def boucle(client) -> None:
                 d = _lire(); d["dashboard_version"] = DASHBOARD_VERSION; _ecrire(d)
                 journal.info("Dashboard réécrit (structure v%s)", DASHBOARD_VERSION)
             if maintenant.hour >= HEURE_UTC and (d.get("dernier") != jour or d.get("version") != VERSION) \
-                    and int(d.get("essais", {}).get(jour, 0)) < 3:
+                    and int(d.get("essais", {}).get(jour, 0)) < 3 and not await _attendre_releve_du_matin(maintenant):
                 bilan = await executer(ecrire=True, priorite="matin")  # 10/10 (lot L7) : la réserve du parcours seule le retient
                 if bilan.get("erreur"):
                     d = _lire(); d.setdefault("essais", {})[jour] = int(d.get("essais", {}).get(jour, 0)) + 1; _ecrire(d)
@@ -3209,12 +3311,13 @@ async def boucle(client) -> None:
                         await _deps["notifier"]("🚫 **Comptes marqués Ban — vérifier la preuve mail datée** : "
                                                 + ", ".join(bans) + ". Aucun remplacement ; les créations restent comptées à vie.")
             try:                                                        # 09/10 : le budget du mois (contrat C6a), frais pour le Dashboard
-                st_b = await apify_budget(publier=True)
-                # 11/10 (reprise, R1b) : le passage du matin de ce jour qui ne passera pas est dit dès minuit, avec son propre texte
-                t_b = datetime.now(timezone.utc)
-                matin_hors = _matin_hors_budget(st_b, _lire(), t_b)
-                if (st_b.get("reserve_entamee") or matin_hors) and not _jour_hors_cycle(st_b, t_b):
-                    await _alerter_reserve(st_b, matin_refuse=matin_hors)   # 10/10 (lot L7) : la seule alerte avant le plafond
+                if not _rapidapi():                                     # 24/10 : plus d'Apify, plus de budget à surveiller
+                    st_b = await apify_budget(publier=True)
+                    # 11/10 (reprise, R1b) : le passage du matin de ce jour qui ne passera pas est dit dès minuit, avec son propre texte
+                    t_b = datetime.now(timezone.utc)
+                    matin_hors = _matin_hors_budget(st_b, _lire(), t_b)
+                    if (st_b.get("reserve_entamee") or matin_hors) and not _jour_hors_cycle(st_b, t_b):
+                        await _alerter_reserve(st_b, matin_refuse=matin_hors)   # 10/10 (lot L7) : la seule alerte avant le plafond
             except Exception as erreur:                                 # noqa: BLE001
                 journal.warning("Budget Apify : %s", type(erreur).__name__)
             try:                                                        # 09/10 (dashboard) : passages légers ; 10/10 : 12 h à 22 h
@@ -3231,7 +3334,7 @@ async def boucle(client) -> None:
                 d["soir"] = jour; _ecrire(d)                            # une fois par jour, même si Apify échoue
                 if _relu_depuis(d, maintenant, SECOURS_DEPUIS_H):
                     journal.info("Scan du soir inutile : une relecture a lu la file du parcours depuis %d h", SECOURS_DEPUIS_H)
-                elif not _soir_dans_budget(_lire(), datetime.now(timezone.utc)):
+                elif not _rapidapi() and not _soir_dans_budget(_lire(), datetime.now(timezone.utc)):
                     # 11/10 (reprise, R1) : la 2e lecture du jour ne prend pas la lecture d'un jour qui reste
                     journal.info("Scan du soir sauté : le budget Apify garde une lecture de la file du parcours pour chaque jour "
                                  "qui reste")
@@ -3240,6 +3343,32 @@ async def boucle(client) -> None:
         except Exception as erreur:                                      # noqa: BLE001 — jamais tuer le bot
             journal.exception("Boucle états du classeur : %s", erreur)
         await asyncio.sleep(900)
+
+
+# 24/10 : le cron GitHub du suivi RapidAPI part avec du retard (passage de « 5 h UTC » lancé à 6 h 11 le 24/10) : le passage du
+# matin attend un relevé fait après minuit (Paris) — sinon « Reels Hier » ne verrait la veille qu'à moitié — jusqu'à
+# MATIN_ATTENTE_MAX_H heures de Paris, puis passe quand même (les Reels attendent alors la relecture suivante).
+MATIN_ATTENTE_MAX_H = int(os.environ.get("ETATS_MATIN_ATTENTE_MAX_H", "13") or 13)
+
+
+async def _attendre_releve_du_matin(maintenant: datetime) -> bool:
+    """Vrai tant que le passage du matin doit attendre le relevé RapidAPI du jour (aucun après minuit, Paris, et avant
+    MATIN_ATTENTE_MAX_H h). Faux avec Apify, onglets illisibles compris (le passage le dira lui-même)."""
+    if not _rapidapi() or _paris(maintenant).hour >= MATIN_ATTENTE_MAX_H:
+        return False
+    import source_rapidapi
+    onglets = await source_rapidapi.lire_onglets()
+    if not onglets:
+        return False
+    releve = _instant(source_rapidapi.dernier_releve(onglets[0], maintenant))
+    if releve is not None and releve >= _debut_jour_paris(maintenant):
+        return False
+    jour = _paris(maintenant).date().isoformat()
+    if _lire().get("attente_releve") != jour:
+        _maj_etat({"attente_releve": jour})
+        journal.info("Passage du matin en attente : le suivi RapidAPI n'a pas encore relu les comptes depuis minuit (dernier relevé %s)",
+                     releve.isoformat(timespec="minutes") if releve else "inconnu")
+    return True
 
 
 def _soir_dans_budget(d: dict, maintenant: datetime) -> bool:
@@ -3274,7 +3403,7 @@ async def scan_du_soir(client, depuis_iso: str) -> list:
     (un compte ouvert plus tôt ne demande aucun geste)."""
     res = await _lire_file_parcours(depuis_iso, client)
     if not res.get("lus"):
-        journal.info("Scan du soir : %s", "aucun compte en attente de Reels" if res.get("lus") == 0 else "Apify illisible, rien conclu")
+        journal.info("Scan du soir : %s", "aucun compte en attente de Reels" if res.get("lus") == 0 else f"{_source_nom()} illisible, rien conclu")
         return []
     journal.info("Scan du soir : %d compte(s) relu(s), %d compte(s) ouvert(s)", res["lus"], len(res["ouverts"]))
     return res["faits"]
@@ -3323,7 +3452,7 @@ async def commande_staff(message, texte: str) -> bool:
         # le passage complet (Instagram, états, followers, Reels hier, clics, regroupement) avant l'onglet. 09/10 (dashboard) : le
         # Dashboard se tient à jour seul (passages légers, séries) ; `!dashboard` réécrit l'onglet SANS scan (gratuit), et
         # `!dashboard scan` lance d'abord le passage complet payant. « rapide » / « vite » restent acceptés (sans scan).
-        st = etat_budget() if actif() and len(mots) > 1 and mots[1].lower() == "scan" else {}
+        st = etat_budget() if actif() and not _rapidapi() and len(mots) > 1 and mots[1].lower() == "scan" else {}
         if st.get("coupe"):                                             # 09/10 (budget de Gaëtan) : plus aucun appel Apify ce mois
             await message.reply(f"⛔ Budget Apify du mois atteint ({_euros(st.get('usage_usd'))} $ sur {_euros(st.get('budget_usd'))} $) : "
                                 f"pas de scan jusqu'au {_jusqu_au(st)}. Je réécris le Dashboard sans relire Instagram.")
@@ -3341,7 +3470,8 @@ async def commande_staff(message, texte: str) -> bool:
             import capacite
             scan = len(mots) > 1 and mots[1].lower() == "scan"
             await message.reply(f"✅ Onglet « {ONGLET_DASHBOARD} » du classeur des logins réécrit ({n} lignes) : une ligne par compte, un sous-total par clipper, par créatrice."
-                                + ("" if scan else "\nSans relire Instagram : `!dashboard scan` lance d'abord le passage complet (payant).")
+                                + ("" if scan else "\nSans relire Instagram : `!dashboard scan` lance d'abord le passage complet"
+                                   + (" (relevé du suivi RapidAPI)." if _rapidapi() else " (payant)."))
                                 + (f"\n{capacite.texte_resume(CAPACITE)}" if CAPACITE else "")
                                 + (f"\nMasqués : {', '.join(exclus)} (`!dashboard inclure Prénom` pour remettre quelqu'un)." if exclus
                                    else "\nPersonne n'est masqué, Julien et Rianah compris (`!dashboard exclure Prénom` pour masquer)."))

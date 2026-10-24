@@ -1251,8 +1251,33 @@ def _ligne_vide() -> list:
     return [""] * NB
 
 
+# 24/10 (Gaëtan : « on n'utilise plus Apify, on utilise RapidAPI ») : le suivi RapidAPI relit Instagram par GitHub Actions
+# (.github/workflows/suivi-instagram.yml, cron « 0 5,12,19 * * * », heures UTC) ; le bot relit ses onglets. Au-delà de
+# SUIVI_IG_VIEUX_H heures sans relevé, le titre le dit en alerte.
+SUIVI_IG_HEURES_UTC = [int(x) for x in os.environ.get("SUIVI_IG_HEURES_UTC", "5,12,19").split(",") if x.strip().isdigit()]
+SUIVI_IG_VIEUX_H = float(os.environ.get("SUIVI_IG_VIEUX_H", "14") or 14)
+
+
+def _suivi_rapidapi(ctx: _Ctx):
+    """L'heure du dernier relevé du suivi RapidAPI (etats_comptes.json, « source_instagram »), None si le bot lit encore Apify."""
+    s = ctx.etats.get("source_instagram") if isinstance(ctx.etats.get("source_instagram"), dict) else {}
+    if s.get("source") != "rapidapi":
+        return None
+    try:
+        import etats_comptes                                             # import tardif : etats_comptes importe ce module
+        if getattr(etats_comptes, "SOURCE_IG", "rapidapi") == "apify":
+            return None
+    except Exception:                                                   # noqa: BLE001
+        pass
+    return _instant(s.get("releve"))
+
+
 def _dernier_instagram(ctx: _Ctx):
-    """L'heure du dernier relevé Instagram (passage complet ou relecture), None si jamais lu."""
+    """L'heure du dernier relevé Instagram (passage complet ou relecture), None si jamais lu. 24/10 : avec le suivi RapidAPI,
+    l'heure où RapidAPI a relu les comptes — pas celle où le bot a relu ses onglets (un passage de 16 h relit le relevé de 14 h)."""
+    t = _suivi_rapidapi(ctx)
+    if t is not None:
+        return t
     ts = [t for t in (_instant(x) for x in ((ctx.dp or {}).get("t"), ctx.etats.get("leger_iso"), ctx.etats.get("scan_iso"))) if t]
     return max(ts) if ts else None
 
@@ -2320,6 +2345,23 @@ def _fraicheur_apify(ctx: _Ctx) -> tuple:
     annonce la suivante (_texte_relecture). Il reste deux alertes : « ⛔ » au plafond, « ⚠ … réserve entamée » quand la dépense
     sûre plus les réserves des passages du matin et de la file du parcours dépasse le budget (`reserve_entamee` du lot L7) : les
     relectures s'arrêtent jusqu'à la fin du cycle, et le seul geste possible est de monter APIFY_BUDGET_MOIS."""
+    t_s = _suivi_rapidapi(ctx)
+    if t_s is not None:                                                  # 24/10 : plus d'Apify, plus de budget
+        prochain = ""
+        for k in range(2):
+            j = (ctx.maintenant.astimezone(timezone.utc) + timedelta(days=k)).date()
+            dus = [datetime.combine(j, dtime(h), tzinfo=timezone.utc) for h in sorted(SUIVI_IG_HEURES_UTC)]
+            suivant = next((t for t in dus if t > ctx.maintenant), None)
+            if suivant is not None:
+                prochain = f", prochain vers {_paris(suivant).hour} h"
+                break
+        age = (ctx.maintenant - t_s).total_seconds() / 3600
+        if age > SUIVI_IG_VIEUX_H:
+            quand = _paris(t_s).strftime("%d/%m %Hh%M")
+            return (f"⚠ suivi RapidAPI pas relu depuis le {quand}",
+                    ("⚠ RapidAPI", "important", f"le suivi Instagram (RapidAPI, GitHub Actions « Suivi Instagram ») n'a rien relu "
+                     f"depuis le {quand} : followers, Reels et vues restent à ce relevé. Regarder le dernier passage du workflow."))
+        return f"suivi RapidAPI 3 fois par jour{prochain}", None
     st = budget_apify(ctx.etats.get("apify_budget"), ctx.maintenant)
     if st is None:
         return "Apify : budget pas encore lu", None
@@ -2395,7 +2437,7 @@ def _fraicheur(ctx: _Ctx, e: dict, comptes_l: list) -> tuple:
     parts, alertes = [], []
     t_ig = _dernier_instagram(ctx)
     # 11/10 (lot L8) : la relecture qui tourne, ou la suivante que la garde du budget laissera partir
-    rel = _texte_relecture(ctx, budget_apify(ctx.etats.get("apify_budget"), ctx.maintenant))
+    rel = "" if _suivi_rapidapi(ctx) is not None else _texte_relecture(ctx, budget_apify(ctx.etats.get("apify_budget"), ctx.maintenant))
     parts.append("Instagram " + (_hm(t_ig, ctx.j0) if t_ig else "jamais lu") + (f" · {rel}" if rel else ""))
     # 09/10 (revue DASH : « Clics 16h45 » quand un autre lien n'avait pas été relu depuis 09h00) : l'heure du relevé le plus ancien
     # des liens actifs relus aujourd'hui aussi, s'il a plus de CLICS_VIEUX_MIN minutes de retard sur le plus récent
