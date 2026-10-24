@@ -198,6 +198,26 @@ async def identifiants_surs(guild, salon, uid, handle, fiche, admin_ids, est_sta
     return None
 
 
+def _squelette(h) -> str:
+    return re.sub(r"[._@\s]", "", str(h or "").lower())
+
+
+def ligne_proche(tous, handle, gerant, creatrice) -> list:
+    """24/10 (Moutakabirou : l'@ de la fiche sans les points de celui du classeur ; Georgial : l'@ du classeur prolonge celui de la
+    fiche) : la fiche garde l'@ prévu, le classeur porte l'@ réel. Parmi les lignes de CE Gérant et de
+    cette créatrice seulement, celle dont l'@ sans points ni tirets bas est le même, sinon commence par celui de la fiche. Une
+    seule, sinon rien (jamais de devinette entre deux comptes)."""
+    s = _squelette(handle)
+    if not s or not str(gerant or '').strip():
+        return []
+    siennes = [c for c in tous if onboarding._norm(c.get('gerant', '')) == onboarding._norm(gerant)
+               and (not creatrice or onboarding._norm(c.get('creatrice', '')) == onboarding._norm(creatrice))]
+    memes = [c for c in siennes if _squelette(c.get('handle')) == s]
+    if memes:
+        return memes
+    return [c for c in siennes if _squelette(c.get('handle')).startswith(s)]
+
+
 async def identifiants_compte(guild, salon, uid, handle, gerant, creatrice, admin_ids, est_staff):
     """24/10 (Gaëtan : « le compte deux avec identifiant, username, mail et mot de passe ») : (mail, mdp) d'un compte 2 ou 3 pour son
     message d'étape, ou pour un salon de clipping (gerant « Prénom Clipping Créatrice »). Mêmes contrôles de lecteurs que le compte 1 ;
@@ -206,10 +226,14 @@ async def identifiants_compte(guild, salon, uid, handle, gerant, creatrice, admi
     RAISONS.pop(str(uid), None)
     try:
         verifier_lecteurs(guild, salon, str(uid), creatrice or '', admin_ids, est_staff)
-        lignes = [c for c in await onboarding.lire_comptes() if c.get('handle', '').lower().lstrip('@') == str(handle).lower().lstrip('@')]
+        tous = await onboarding.lire_comptes()
+        lignes = [c for c in tous if c.get('handle', '').lower().lstrip('@') == str(handle).lower().lstrip('@')]
+        if not lignes:
+            lignes = ligne_proche(tous, handle, gerant, creatrice)
         if len(lignes) != 1:
             raise Retenue('Ligne unique du classeur non confirmée.')
-        return tuple(valeurs_compte(lignes[0], gerant, creatrice))
+        # 24/10 : le 3e élément est l'@ du classeur (source de vérité), quand la fiche porte un @ un peu différent
+        return tuple(valeurs_compte(lignes[0], gerant, creatrice)) + (str(lignes[0].get('handle') or handle).lstrip('@'),)
     except Retenue as erreur:
         RAISONS[str(uid)] = str(erreur)
         parcours.journal.warning("Accès de %s pour %s non remis : %s", handle, uid, erreur)

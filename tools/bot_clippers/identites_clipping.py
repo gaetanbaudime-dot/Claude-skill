@@ -317,7 +317,8 @@ async def _remettre_acces(uid: str, membre, prenom: str, creatrice: str, numeros
                 raise Passager(f"{creatrice} : classeur indisponible ({raison})")
             return f"⚠️ {creatrice} : compte {n} `{h}` — {raison}, rien envoyé"
         prive = n == len(handles) == 3
-        bloc = (f"**Compte {n}{', le privé' if prive else ''} · @{h}**\n\nE-mail : `{acces[0]}`\n\nMot de passe : `{acces[1]}`")
+        reel = acces[2] if len(acces) > 2 and acces[2] else h               # l'@ du classeur fait foi
+        bloc = (f"**Compte {n}{', le privé' if prive else ''} · @{reel}**\n\nE-mail : `{acces[0]}`\n\nMot de passe : `{acces[1]}`")
         if prive and lien:
             bloc += f"\n\nLien à mettre dans sa bio : {lien}"
         blocs.append(bloc)
