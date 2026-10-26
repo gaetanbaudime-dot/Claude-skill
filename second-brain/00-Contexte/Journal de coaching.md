@@ -22,6 +22,16 @@ tags: [contexte/coaching]
 
 ## Décisions prises
 
+### 2026-10-26 (apps, paie) — Plus de coût dans l'app des TL ; Rianah au salaire, sortie des chiffres de clippers
+
+> [!tip] Verdict
+> L'app d'un TL et celle d'un clipper n'affichent plus le coût des clippers : il reste dans le seul pilotage admin. Rianah est au salaire : au fixe, clipping compris, hors du classement (app et lundi dans #dopamine), du coût, des comptes GOOD, des équipes de TL et du parrainage des cinq premiers. Elle garde son app. L'admin voit son trafic sur une ligne « Au salaire », hors classement.
+
+- **Demande de Gaëtan (26/10)** : « Enlève le coût des clippers de l'application des TL stp. Enlève Rianah de tous les trucs aussi, elle est au salaire. »
+- **Revient sur** la décision du 13/10 (« Rianah au clic pour son clipping »).
+- **Avocat du diable** : si son clipping devait rester payé à la visite en plus du salaire, ses visites de la période du 20/10 au 04/11 sortent de la paie au clic du 05/11. Un `!paie @Rianah clic` suffit à la remettre au clic.
+- **Prédiction (26/10, revue le 09/11)** : aucune question de TL sur un « coût » d'ici la fin de la période, et la paie du 05/11 sort sans ligne au clic pour Rianah.
+
 ### 2026-10-24 (parcours, Instagram) — Un compte toutes les 48 h pour tous ; Instagram lu par RapidAPI, Apify coupé côté bot
 
 > [!tip] Verdict

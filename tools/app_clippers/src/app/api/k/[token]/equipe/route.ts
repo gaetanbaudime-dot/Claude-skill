@@ -8,6 +8,7 @@ import { pilotage } from "@/lib/pilotage";
 import { pilotageEquipe } from "@/lib/classement";
 import { comptesAffiches } from "@/lib/comptesVisibles";
 import { comptesReels } from "@/lib/comptesReels";
+import { estSalarie } from "@/lib/salaries";
 
 export const dynamic = "force-dynamic";
 const ENTETES = { "Cache-Control": "private, no-store" };
@@ -16,7 +17,9 @@ export async function GET(_req: Request, { params }: { params: { token: string }
   const c = await clipperParJeton(params.token).catch(() => null);
   if (!c) return NextResponse.json({ erreur: "lien invalide" }, { status: 404 });
   try {
-    const [membres, eq] = await Promise.all([monEquipe(c.cle), equipeDe(c.cle).catch(() => null)]);
+    const [tous, eq] = await Promise.all([monEquipe(c.cle), equipeDe(c.cle).catch(() => null)]);
+    // 26/10 (Gaëtan : « enlève Rianah de tous les trucs, elle est au salaire ») : jamais dans l'équipe d'un TL
+    const membres = tous.filter((m) => !estSalarie(m.prenom));
     if (!membres.length) return NextResponse.json({ erreur: "pas de team leader" }, { status: 404, headers: ENTETES });
     // 24/10 (Gaëtan : « pars du sheet ») : les comptes de chaque clipper selon le LOG DASHBOARD, n° 4+ et @ hors fiche compris,
     // et le pilotage de l'équipe sur tous ses comptes actifs (plus seulement les n° 1 à 3)

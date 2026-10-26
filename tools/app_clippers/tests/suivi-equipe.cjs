@@ -38,10 +38,12 @@ assert.match(p[1].texte, /9 jours/);
 // La route de l'équipe : 404 pour un jeton inconnu ou un clipper sans équipe, sinon seulement les clippers du TL et tous leurs
 // comptes selon le LOG DASHBOARD (24/10 : n° 4+ compris, @ hors fiche ajoutés, @ donnés à un autre retirés).
 const calc = load('components/pilotage/calc.ts');
-const model = load('lib/classement.ts', { '@/components/pilotage/calc': calc });
+const salaries = load('lib/salaries.ts');
+const model = load('lib/classement.ts', { '@/components/pilotage/calc': calc, '@/lib/salaries': salaries });
 const tl = { prenom: 'Yves', cle: 'yves', creatrice: 'Sarah' };
 const clipper = { prenom: 'Simon', cle: 'simon', creatrice: 'Sarah' };
-const equipe = [{ cle: 'simon', prenom: 'Simon', creatrice: 'Sarah', comptes: [c(1, 'GOOD', 'simon1'), c(2, 'GOOD', 'simon2'), c(4, 'GOOD', 'simon4'), c(5, 'GOOD', 'donne')] }];
+const equipe = [{ cle: 'simon', prenom: 'Simon', creatrice: 'Sarah', comptes: [c(1, 'GOOD', 'simon1'), c(2, 'GOOD', 'simon2'), c(4, 'GOOD', 'simon4'), c(5, 'GOOD', 'donne')] },
+  { cle: 'rianah', prenom: 'Rianah', creatrice: 'Sarah', comptes: [c(1, 'GOOD', 'demo.rianah')] }];   // 26/10 : au salaire, jamais affichée
 const compte = (handle, gerant, numero) => ({ handle, gerant, numero, creatrice: 'Sarah', axe: 'Horizontal', type: 'Clipper', etat: 'GOOD' });
 const data = { aujourdhui: '2026-10-24', boutons: [{ x: 1 }], subs: [{ caMymEur: 1000 }],
   comptes: [compte('simon1', 'Simon', 1), compte('simon2', 'Simon', 2), compte('simon4', 'Simon', 4), compte('autre', 'Romaric', 1),
@@ -58,6 +60,7 @@ const route = load('app/api/k/[token]/equipe/route.ts', {
   '@/lib/classement': model,
   '@/lib/comptesVisibles': visibles,
   '@/lib/comptesReels': reels,
+  '@/lib/salaries': salaries,
 });
 (async () => {
   assert.equal((await route.GET({}, { params: { token: 'inconnu' } })).status, 404);

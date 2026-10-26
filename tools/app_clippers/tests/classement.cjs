@@ -11,7 +11,8 @@ function load(file, deps = {}) {
   return exports;
 }
 const calc = load('components/pilotage/calc.ts');
-const { classementClippers, pilotageEquipe, identiteDe, liensPublics } = load('lib/classement.ts', { '@/components/pilotage/calc': calc });
+const salaries = load('lib/salaries.ts');
+const { classementClippers, pilotageEquipe, identiteDe, liensPublics } = load('lib/classement.ts', { '@/components/pilotage/calc': calc, '@/lib/salaries': salaries });
 const compte = (numero, patch = {}) => ({ creatrice: 'Chloé', axe: 'Horizontal', type: 'Clipper', gerant: 'Caroline',
   numero, handle: `compte${numero}`, etat: 'GOOD', followers: 123, reels7: 7, reelsHier: 1, vuesRecentes: 1000,
   clics7: null, ...patch });
@@ -71,4 +72,15 @@ const waiting = pilotageEquipe(d, [{ prenom: 'Nouveau', creatrice: 'Sarah', comp
 assert.equal(classementClippers(waiting).length, 1); assert.equal(waiting.clics.length, 0);
 assert.equal(liensPublics('javascript:alert(1) · https://chloe-callista.fr/3').length, 1);
 assert.equal(classementClippers(d, 'Sarah').length, 0);
-console.log('Classement: fenêtres 7j, totaux croissance, bans, privé en 2, données absentes, homonymes et cloisonnement TL validés.');
+// 26/10 (Gaëtan : « enlève Rianah de tous les trucs, elle est au salaire ») : toutes ses identités sont au salaire ; le pilotage de
+// l'admin (sansSalaries) la retire du classement, son app à elle garde sa fiche, sous son prénom
+for (const nom of ['Rianah', 'Rianah Clipping Chloé', 'Rianah Metricool', 'Rianah (Metricool)', 'RIANAH']) assert.equal(salaries.estSalarie(nom), true, nom);
+for (const nom of ['Caroline', 'Riana', '', 'Clipping Rianah']) assert.equal(salaries.estSalarie(nom), false, nom);
+const avecRianah = { ...d, clippers: [...d.clippers, ref('9', 'Rianah', [{ handle: 'demo.rianah', numero: 1 }])],
+  comptes: [...d.comptes, compte(1, { handle: 'demo.rianah', gerant: 'Rianah Clipping Chloé' })],
+  clics: [...d.clics, clic('2026-10-16', 5000, { qui: 'Rianah Clipping Chloé' })] };
+assert.equal(classementClippers(avecRianah, '', { sansSalaries: true }).some(x => /rianah/i.test(x.prenom)), false);
+assert.equal(classementClippers(avecRianah, '', { sansSalaries: true }).length, classementClippers(d).length);
+const sienne = classementClippers(avecRianah).find(x => x.id === '9');
+assert.equal(sienne.prenom, 'Rianah'); assert.equal(sienne.clics7, 5000);
+console.log('Classement: fenêtres 7j, totaux croissance, bans, privé en 2, données absentes, homonymes, cloisonnement TL et salaire validés.');

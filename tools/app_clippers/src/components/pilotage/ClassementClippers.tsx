@@ -69,8 +69,8 @@ export function CarteClipper({ fiche: l, rang }: { fiche: FicheClipper; rang: nu
   </article>;
 }
 
-export default function ClassementClippers({ d, filtre = "" }: { d: Pilotage; filtre?: string }) {
-  const fiches = useMemo(() => classementClippers(d, filtre), [d, filtre]);
+export default function ClassementClippers({ d, filtre = "", sansSalaries = false }: { d: Pilotage; filtre?: string; sansSalaries?: boolean }) {
+  const fiches = useMemo(() => classementClippers(d, filtre, { sansSalaries }), [d, filtre, sansSalaries]);
   return <div className="space-y-3">
     {fiches.map((l, i) => <CarteClipper key={l.id} fiche={l} rang={i + 1} />)}
     {!fiches.length ? <div className="carte p-4 text-[13px] text-argent2 text-center">Aucun clipper sur cette équipe.</div> : null}

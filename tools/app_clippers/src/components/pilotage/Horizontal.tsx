@@ -1,96 +1,41 @@
 "use client";
 import { useMemo } from "react";
-import type { Clic, Compte, Pilotage } from "@/lib/pilotage";
-import { couleur, decaler, estGood, fenetre, fmt, fmtUsd, jours, meme, normaliser, serieParJour, somme, variation, type Periode } from "./calc";
-import { ouvrirInstagram } from "@/lib/instagram";
-import { BarresJour, Delta, Ecart, Kpi, Titre } from "./ui";
+import type { Clic, Pilotage } from "@/lib/pilotage";
+import { decaler, estGood, fenetre, fmt, fmtUsd, meme, serieParJour, somme, variation, type Periode } from "./calc";
+import { estSalarie } from "@/lib/salaries";
+import { BarresJour, Delta, Kpi, Titre } from "./ui";
 import ClassementClippers from "./ClassementClippers";
 
-/** Horizontal = la machine des clippers : leurs liens GAML (visites payables, celles de la paie), leurs comptes Instagram, plus
- *  les comptes Metricool de Rianah et les liens libérés. Le coût est celui de la paie : 0,05 $ par visite payable d'un clipper. */
+/** Horizontal = la machine des clippers : leurs liens GAML (visites payables, celles de la paie) et leurs comptes Instagram.
+ *  26/10 (Gaëtan : « Enlève le coût des clippers de l'application des TL ; enlève Rianah de tous les trucs aussi, elle est au
+ *  salaire ») : le coût (0,05 $ par visite payable d'un clipper, la paie) ne s'affiche que dans le pilotage de l'admin ; l'app d'un
+ *  TL et celle d'un clipper n'en parlent plus. Rianah (clipping et Metricool) sort des visites des clippers, du coût, des comptes
+ *  GOOD et du classement ; l'admin garde ce trafic sur une seule ligne « Au salaire », hors classement. Les données d'un TL et d'un
+ *  clipper sont déjà réduites à leur équipe par le serveur. */
 const TAUX = 0.05;
 const COULEURS_SOURCES: Record<string, string> = { Clipper: "#7aa7ff", Metricool: "#ffb74d", "Libéré": "#90a4ae" };
 const HORS_CLASSEMENT = new Set(["Avant reprise", "Sans détenteur"]);
-/** 13/10 (Gaëtan : « deux Rianah : une Rianah clipping et une Rianah Metricool ; Metricool au classement et dans les statistiques
- *  de tout le monde, mais pas dans le coût clipper : c'est un fixe ») : tous les liens Metricool font une seule ligne. */
-const RIANAH_METRICOOL = "Rianah Metricool";
-const libelle = (qui: string) => (normaliser(qui) === "rianah" ? "Rianah clipping" : qui);
+const AU_SALAIRE = "Au salaire";
 
-type Ligne = { qui: string; creatrices: string[]; visites: number; avant: number; manquants: number; serie: (number | null)[]; comptes: Compte[]; metricool: boolean };
-
-function rattacher(qui: string, comptes: Compte[]): Compte[] {
-  const n = normaliser(qui);
-  const exacts = comptes.filter((c) => normaliser(c.gerant) === n);
-  if (exacts.length) return exacts;
-  const premier = n.split(/\s+/)[0];
-  const parPrenom = comptes.filter((c) => normaliser(c.gerant).split(/\s+/)[0] === premier);
-  const gerants = new Set(parPrenom.map((c) => normaliser(c.gerant)));
-  return gerants.size === 1 ? parPrenom : [];                          // deux Gérants du même prénom : on ne devine pas
-}
-
-function Detail({ comptes }: { comptes: Compte[] }) {
-  if (!comptes.length) return <div className="text-[12px] text-argent2 py-2">Aucun compte GOOD à son nom au classeur.</div>;
-  return (
-    <div className="mt-2 space-y-1.5">
-      {[...comptes].sort((a, b) => (b.followers || 0) - (a.followers || 0)).map((c) => (
-        <div key={c.handle} className="flex items-center justify-between gap-2 rounded-xl bg-white/[0.04] px-3 py-2">
-          <div className="min-w-0">
-            <button onClick={() => ouvrirInstagram(c.handle)} className="block max-w-full text-left text-[13.5px] font-semibold truncate text-white active:opacity-60">
-              @{c.handle} <span className="text-accent text-[12px]">↗</span>
-            </button>
-            <div className="text-[11px] text-argent2 truncate">{c.etat || "–"} · Reels 7 j {c.reels7 ?? "–"} · vues {c.vues7 !== null ? fmt(c.vues7) : "–"}</div>
-          </div>
-          <div className="text-right shrink-0">
-            <div className="text-[13px] font-semibold tabular-nums">{c.followers !== null ? fmt(c.followers) : "–"}</div>
-            <div className="text-[11px]"><Ecart v={c.d7} /> <span className="text-argent2">7 j · {c.clics7 ?? "–"} clics</span></div>
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-export default function Horizontal({ d, periode, filtre }: { d: Pilotage; periode: Periode; filtre: string }) {
+export default function Horizontal({ d, periode, filtre, admin = false }: { d: Pilotage; periode: Periode; filtre: string; admin?: boolean }) {
   const f = fenetre(d.aujourdhui, periode);
   const garde = (cr: string) => !filtre || meme(cr, filtre);
   const clics = useMemo(() => d.clics.filter((c) => c.axe === "Horizontal" && garde(c.creatrice)), [d, filtre]);  // eslint-disable-line react-hooks/exhaustive-deps
   const comptes = useMemo(() => d.comptes.filter((c) => c.axe === "Horizontal" && garde(c.creatrice)), [d, filtre]); // eslint-disable-line react-hooks/exhaustive-deps
-  const deClippers = (c: Clic) => c.source === "Clipper";
-  const deMetricool = (c: Clic) => c.source === "Metricool";
-  const auClassement = (c: Clic) => deMetricool(c) || (deClippers(c) && !HORS_CLASSEMENT.has(c.qui));
+  const salarie = (c: Clic) => admin && (c.source === "Metricool" || estSalarie(c.qui));
+  const deClippers = (c: Clic) => c.source === "Clipper" && !salarie(c);
+  const auClassement = (c: Clic) => deClippers(c) && !HORS_CLASSEMENT.has(c.qui);
   const cur = somme(clics, f.debut, f.fin, deClippers), avant = somme(clics, f.avantDebut, f.avantFin, deClippers);
-  const met = somme(clics, f.debut, f.fin, deMetricool), metAvant = somme(clics, f.avantDebut, f.avantFin, deMetricool);
+  const actifs = useMemo(() => new Set(clics.filter((c) => auClassement(c) && c.visites > 0 && c.jour >= f.debut && c.jour <= f.fin)
+    .map((c) => c.qui)).size, [clics, f.debut, f.fin]);                 // eslint-disable-line react-hooks/exhaustive-deps
 
-  const j14 = jours(decaler(d.aujourdhui, -13), d.aujourdhui);
-  const lignes: Ligne[] = useMemo(() => {
-    const par = new Map<string, Ligne>();
-    for (const c of clics) {
-      if (!deClippers(c) && !deMetricool(c)) continue;
-      const qui = deMetricool(c) ? RIANAH_METRICOOL : libelle(c.qui);
-      const l = par.get(qui) || { qui, creatrices: [], visites: 0, avant: 0, manquants: 0, serie: j14.map(() => null), comptes: [], metricool: deMetricool(c) };
-      if (!l.creatrices.some((x) => meme(x, c.creatrice))) l.creatrices.push(c.creatrice);
-      if (c.jour >= f.debut && c.jour <= f.fin) { l.visites += c.visites; l.manquants += c.manquants; }
-      if (c.jour >= f.avantDebut && c.jour <= f.avantFin) l.avant += c.visites;
-      const i = j14.indexOf(c.jour);
-      if (i >= 0) l.serie[i] = (l.serie[i] || 0) + c.visites;
-      par.set(qui, l);
-    }
-    // 13/10 (Gaëtan : « uniquement les comptes qui sont verts ; les comptes bannis, je m'en fous ») : GOOD seulement
-    const clippersComptes = comptes.filter((c) => c.type === "Clipper" && estGood(c.etat));
-    const metricoolComptes = comptes.filter((c) => c.type === "Metricool" && estGood(c.etat));
-    return [...par.values()].map((l) => ({ ...l, comptes: l.metricool ? metricoolComptes : rattacher(l.qui === "Rianah clipping" ? "Rianah" : l.qui, clippersComptes) }))
-      .filter((l) => l.visites || l.avant || l.serie.some((v) => v))
-      .sort((a, b) => b.visites - a.visites || b.avant - a.avant);
-  }, [clics, comptes, f.debut, f.fin, f.avantDebut, f.avantFin]);       // eslint-disable-line react-hooks/exhaustive-deps
-
-  const classement = lignes.filter((l) => !HORS_CLASSEMENT.has(l.qui));
-  const actifs = classement.filter((l) => l.visites > 0 && !l.metricool).length;
   const autres = useMemo(() => {
     const m = new Map<string, { source: string; qui: string; visites: number; avant: number }>();
     for (const c of clics) {
       if (auClassement(c)) continue;
-      const k = `${c.source}|${c.qui}`;
-      const x = m.get(k) || { source: c.source, qui: c.qui, visites: 0, avant: 0 };
+      const source = salarie(c) ? "Salaire" : c.source, qui = salarie(c) ? AU_SALAIRE : c.qui;
+      const k = `${source}|${qui}`;
+      const x = m.get(k) || { source, qui, visites: 0, avant: 0 };
       if (c.jour >= f.debut && c.jour <= f.fin) x.visites += c.visites;
       if (c.jour >= f.avantDebut && c.jour <= f.avantFin) x.avant += c.visites;
       m.set(k, x);
@@ -100,10 +45,10 @@ export default function Horizontal({ d, periode, filtre }: { d: Pilotage; period
 
   const debutGraph = decaler(d.aujourdhui, -29);
   const graph = useMemo(() => filtre
-    ? serieParJour<Clic>(clics, (c) => c.jour, (c) => c.source, (c) => c.visites, debutGraph, d.aujourdhui)
+    ? serieParJour<Clic>(clics.filter((c) => !salarie(c)), (c) => c.jour, (c) => c.source, (c) => c.visites, debutGraph, d.aujourdhui)
     : serieParJour<Clic>(clics.filter(auClassement), (c) => c.jour, (c) => c.creatrice, (c) => c.visites, debutGraph, d.aujourdhui),
   [clics, filtre, debutGraph, d.aujourdhui]);                            // eslint-disable-line react-hooks/exhaustive-deps
-  const verts = comptes.filter((c) => estGood(c.etat));
+  const verts = comptes.filter((c) => estGood(c.etat) && !(admin && (c.type === "Metricool" || estSalarie(c.gerant))));
   const followers = verts.reduce((s, c) => s + (c.followers || 0), 0);
   const reels7 = verts.reduce((s, c) => s + (c.reels7 || 0), 0);
 
@@ -111,26 +56,21 @@ export default function Horizontal({ d, periode, filtre }: { d: Pilotage; period
     <div>
       <div className="grid grid-cols-2 gap-3 mt-3">
         <div className="col-span-2">
-          <Kpi titre="Visites horizontales (clippers + Rianah Metricool)" valeur={fmt(cur.visites + met.visites)}
-            delta={f.compare ? variation(cur.visites + met.visites, avant.visites + metAvant.visites) : null} partiel={cur.manquants + met.manquants > 0}
-            sous={`${fmt(cur.visites)} clippers · ${fmt(met.visites)} Rianah Metricool${f.compare ? ` · ${fmt(avant.visites + metAvant.visites)} sur les ${f.libelleAvant}` : ""}${cur.manquants + met.manquants ? ` · ${cur.manquants + met.manquants} relevé(s) en attente` : ""}`} />
+          <Kpi titre="Visites horizontales des clippers" valeur={fmt(cur.visites)}
+            delta={f.compare ? variation(cur.visites, avant.visites) : null} partiel={cur.manquants > 0}
+            sous={`${fmt(actifs)} clipper${actifs > 1 ? "s" : ""} actif${actifs > 1 ? "s" : ""}${f.compare ? ` · ${fmt(avant.visites)} sur les ${f.libelleAvant}` : ""}${cur.manquants ? ` · ${cur.manquants} relevé(s) en attente` : ""}`} />
         </div>
-        <Kpi titre="Coût clippers" valeur={fmtUsd(cur.visites * TAUX)} sous={`0,05 $ la visite · ${fmt(actifs)} clipper${actifs > 1 ? "s" : ""} actif${actifs > 1 ? "s" : ""} · Rianah Metricool au fixe, hors coût`} />
-        <Kpi titre="Comptes GOOD" valeur={fmt(verts.length)} sous={`${fmt(followers)} followers · ${fmt(reels7)} Reels en 7 j`} />
+        {admin ? <Kpi titre="Coût clippers" valeur={fmtUsd(cur.visites * TAUX)} sous="0,05 $ la visite payable" /> : null}
+        <div className={admin ? "" : "col-span-2"}>
+          <Kpi titre="Comptes GOOD" valeur={fmt(verts.length)} sous={`${fmt(followers)} followers · ${fmt(reels7)} Reels en 7 j`} />
+        </div>
       </div>
 
       <Titre droite="30 derniers jours">{filtre ? `Visites ${filtre}, par source` : "Visites des clippers par créatrice"}</Titre>
       <div className="carte p-3"><BarresJour data={graph.data} groupes={graph.groupes} unite="visites" couleurs={filtre ? COULEURS_SOURCES : undefined} /></div>
 
       <Titre droite="Clics · 7 jours clos">Classement</Titre>
-      <ClassementClippers d={d} filtre={filtre} />
-      {classement.filter(l => l.metricool).map(l => <div key={l.qui} className="carte p-3.5 mt-3">
-        <div className="flex justify-between items-center gap-2">
-          <div><div className="text-[14px] font-semibold">{l.qui}</div><p className="text-[11px] text-amber-200">Fixe, hors coût clippers</p></div>
-          <div className="text-right"><b className="tabular-nums">{fmt(l.visites)}</b>{f.compare ? <div><Delta v={variation(l.visites, l.avant)} petit /></div> : null}</div>
-        </div>
-        <Detail comptes={l.comptes} />
-      </div>)}
+      <ClassementClippers d={d} filtre={filtre} sansSalaries={admin} />
 
       {autres.length ? (
         <>
@@ -140,7 +80,7 @@ export default function Horizontal({ d, periode, filtre }: { d: Pilotage; period
               <div key={`${x.source}|${x.qui}`} className={`flex items-center justify-between py-2.5 ${i ? "border-t border-white/[0.06]" : ""}`}>
                 <div className="min-w-0">
                   <div className="text-[13.5px] font-medium truncate">{x.qui}</div>
-                  <div className="text-[11px]" style={{ color: COULEURS_SOURCES[x.source] || "#8b96a8" }}>{x.source === "Clipper" ? "lien de clipper" : x.source}</div>
+                  <div className="text-[11px]" style={{ color: COULEURS_SOURCES[x.source] || "#8b96a8" }}>{x.source === "Clipper" ? "lien de clipper" : x.source === "Salaire" ? "Metricool et clipping · hors coût clippers" : x.source}</div>
                 </div>
                 <div className="text-right">
                   <div className="text-[14px] font-semibold tabular-nums">{fmt(x.visites)}</div>

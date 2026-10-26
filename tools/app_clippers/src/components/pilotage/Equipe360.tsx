@@ -1,13 +1,14 @@
 "use client";
 import { useMemo, useState } from "react";
 import type { Pilotage as Donnees, Clipper360 } from "@/lib/pilotage";
+import { estSalarie } from "@/lib/salaries";
 
 const fmt = (n: number | null) => n == null ? "—" : new Intl.NumberFormat("fr-FR").format(n);
 const norm = (x: string) => x.toLocaleLowerCase("fr-FR");
 
 export default function Equipe360({ d, filtre }: { d: Donnees; filtre: string }) {
   const [recherche, setRecherche] = useState("");
-  const tous = d.clippers || [];
+  const tous = (d.clippers || []).filter(x => !estSalarie(x.prenom));   // 26/10 : Rianah est au salaire, hors du référentiel des clippers
   const liste = useMemo(() => tous.filter(x =>
     (!filtre || norm(x.creatrice) === norm(filtre)) &&
     (!recherche || norm([x.prenom, x.creatrice, x.tl, x.manager, ...x.comptes.map(a => a.handle)].join(" ")).includes(norm(recherche)))

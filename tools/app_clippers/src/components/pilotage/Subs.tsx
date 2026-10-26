@@ -55,7 +55,7 @@ export default function Subs({ d, periode, filtre }: { d: Pilotage; periode: Per
           </div>
         ))}
       </div>
-      {periode === "auj" ? <p className="text-[11.5px] text-argent2 mt-2 px-1">Rianah saisit les subs le lendemain : la journée en cours est souvent vide.</p> : null}
+      {periode === "auj" ? <p className="text-[11.5px] text-argent2 mt-2 px-1">Les subs sont saisis le lendemain : la journée en cours est souvent vide.</p> : null}
       {f.compare && parAbonne !== null && parAbonneAvant !== null ? (
         <p className="text-[11.5px] text-argent2 mt-2 px-1">€ par abonné : {parAbonne.toFixed(1).replace(".", ",")} € contre {parAbonneAvant.toFixed(1).replace(".", ",")} € sur les {f.libelleAvant}.</p>
       ) : null}
