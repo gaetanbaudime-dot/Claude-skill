@@ -290,7 +290,8 @@ TEXTE_PUBLIER = {1: ("✅ **Ton compte 1 peut publier : 2 Reels par jour.**\n\n"
 # 10/10 (revue du recrutement) : plus de « Un doute sur une vidéo ? Envoie-la ici avant » sous « compte 1 peut publier » (LIGNE_DOUTE
 # retirée) : une action par message, et la relecture des Reels publiés reste (review_reels).
 # 23/10 : la règle des délais, dite une fois, au compte 1, pour que tout le monde soit sur la même longueur d'onde.
-LIGNE_48H = "⏳ Ton compte 2 arrive 48 h après la création du compte 1. Puis le compte 3, 48 h après le compte 2."
+# 26/10 (Gaëtan) : à la ligne entre les deux délais ; les boutons suivent sans ligne vide.
+LIGNE_48H = "⏳ Ton compte 2 arrive 48 h après la création du compte 1.\nLe compte 3, 48 h après le compte 2."
 LIEN_REPORTING = os.environ.get("LIEN_REPORTING", "https://forms.gle/uhPewryox7R4jifv5").strip()   # formulaire du dimanche
 
 
@@ -1455,7 +1456,8 @@ async def _avec_acces(salon, uid: str, n: int, fiche_p: dict, texte: str) -> str
         ACCES_ETAPE[cle] = remise_compte1.RAISONS.get(str(uid), "") or "contrôle non passé"
         return texte
     ACCES_ETAPE[cle] = "inclus"
-    texte = texte.replace(ACCES_A_CONFIRMER, f"E-mail : `{acces[0]}`\n\nMot de passe : `{acces[1]}`")
+    import remise_compte1 as _rc
+    texte = texte.replace(ACCES_A_CONFIRMER, f"{_rc.champ('E-mail', acces[0])}\n{_rc.champ('Mot de passe', acces[1])}")
     reel = acces[2] if len(acces) > 2 and acces[2] else handles[n - 1]
     return texte.replace(f"@{handles[n - 1]}", f"@{reel}") if reel != handles[n - 1] else texte   # l'@ du classeur fait foi
 
@@ -2436,7 +2438,7 @@ class BoutonGroupeTL(discord.ui.DynamicItem[discord.ui.Button], template=r"watl:
 # 23/10 (Gaëtan : « on mentionne le team leader, on lui demande de créer le groupe WhatsApp, on affiche le numéro du clipper qu'il a
 # rentré : le TL crée le groupe avec moi dedans et le clipper ») : le numéro donné par le clipper à sa liaison, tel quel. Pas de
 # parenthèses ni de tirets : une phrase, une action.
-TEXTE_GROUPE_TL = ("👥 {tl} : crée le groupe WhatsApp de {prenom} pour {creatrice}.\n\n"
+TEXTE_GROUPE_TL = ("\u200b\n\u200b\n👥 {tl} : crée le groupe WhatsApp de {prenom} pour {creatrice}.\n\n"
                    "Mets-y {prenom}, Gaëtan et toi.\n\n"
                    "{ligne_tel}\n\n"
                    "Groupe créé ? Appuie sur le bouton.")
@@ -2490,7 +2492,10 @@ async def demander_groupe_tl(salon, uid: str, tl, prenom: str, creatrice: str) -
 # à Gaëtan » (BoutonWhatsApp : marque `whatsapp`, prévient le salon admin). Sans lui personne ne créait le groupe et le clipper
 # restait dans la liste des bloqués (bloques.py : « pas de WhatsApp »). Aucune prime TL (P5) : lignes_primes ne prime que les équipes
 # qui ont un TL.
-TEXTE_GROUPE_GAETAN = ("📲 {mention} Pour ton groupe WhatsApp, écris à Gaëtan avec le bouton.\n\n"
+# 26/10 (Gaëtan : « tu sautes plusieurs lignes et ensuite tu envoies le dernier message ») : deux lignes vides visibles (espace
+# sans chasse : Discord efface les lignes vides en tête de message) avant le message du groupe WhatsApp.
+ESPACE_AVANT = "\u200b\n\u200b\n"
+TEXTE_GROUPE_GAETAN = (ESPACE_AVANT + "📲 {mention} Pour ton groupe WhatsApp, écris à Gaëtan avec le bouton.\n\n"
                        "{ligne}\n\n"
                        "Puis appuie sur « J'ai écrit à Gaëtan ».")
 
@@ -3178,8 +3183,9 @@ async def relancer_acces(client, maintenant=None) -> list:
                 continue
             reel = acces[2] if len(acces) > 2 and acces[2] else handles[n - 1]   # l'@ du classeur fait foi
             try:
+                import remise_compte1 as _rc
                 await salon.send((f"{membre.mention} 🔑 **Accès de ton compte {n} · @{reel}**\n\n"
-                                  f"E-mail : `{acces[0]}`\n\nMot de passe : `{acces[1]}`\n\n"
+                                  f"{_rc.champ('E-mail', acces[0])}\n{_rc.champ('Mot de passe', acces[1])}\n"
                                   f"Les codes de connexion arrivent dans {mention_salon_codes()} : appuie sur « 📩 Mon code ».")[:1990])
             except (discord.Forbidden, discord.HTTPException) as erreur:
                 journal.warning("Accès du compte %s de %s : %s", n, uid, erreur)

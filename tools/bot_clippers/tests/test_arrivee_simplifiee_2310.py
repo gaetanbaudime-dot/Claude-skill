@@ -45,8 +45,8 @@ class MessageArriveeTests(unittest.TestCase):
 
     def test_etapes_numerotees_par_emoji_et_salon_des_codes_cliquable(self):
         texte = self.modele()
-        for attendu in ("📱 **Ton compte 1**", "Identifiant : `compte_fictif`", "E-mail : `fictif@example.invalid`",
-                        "Mot de passe : `MDP_FICTIF`", "1️⃣ Instagram → Créer un compte → utilise cet e-mail.",
+        for attendu in ("📱 **Ton compte 1**", "Identifiant :\n```\ncompte_fictif\n```", "E-mail :\n```\nfictif@example.invalid\n```",
+                        "Mot de passe :\n```\nMDP_FICTIF\n```", "1️⃣ Instagram → Créer un compte → utilise cet e-mail.",
                         "2️⃣ Le code arrive dans <#555>. Appuie sur « 📩 Mon code ».", "3️⃣ "):
             self.assertIn(attendu, texte)
         self.assertLess(texte.index("1️⃣"), texte.index("2️⃣"))
@@ -83,6 +83,9 @@ class MessageArriveeTests(unittest.TestCase):
         texte = "<@42> " + parcours._rendre(parcours.TEXTE_BIENVENUE, ctx) + "\n\n" + self.modele(suite=parcours.LIGNE_48H).removeprefix("<@42>").lstrip()
         self.assertLess(len(texte), 1990)
         self.assertNotIn("\n\n\n", texte)
+        # 26/10 (Gaëtan) : trois blocs à copier, les deux délais sur deux lignes, rien après (les boutons suivent)
+        self.assertEqual(3, texte.count(" :\n```\n"), "un bloc Copier par accès")
+        self.assertTrue(texte.endswith("après la création du compte 1.\nLe compte 3, 48 h après le compte 2."))
         self.assertEqual(1, texte.count("<@42>"), "une seule mention, en tête")
         self.assertLess(texte.index("<#777>"), texte.index("Identifiant"), "les vidéos et le Drive sont tout en haut, avant le compte 1")
         for phrase in phrases(texte):

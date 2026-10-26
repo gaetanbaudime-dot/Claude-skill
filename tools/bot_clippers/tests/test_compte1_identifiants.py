@@ -43,7 +43,7 @@ class IdentifiantsTests(unittest.TestCase):
 
     def test_modele_complet(self):
         texte = remise_compte1.modele("<@7>", "neuf_un", "x@exemple.test", "Secret123")
-        for morceau in ("`neuf_un`", "`x@exemple.test`", "`Secret123`", "Mon code"):
+        for morceau in ("```\nneuf_un\n```", "```\nx@exemple.test\n```", "```\nSecret123\n```", "Mon code"):
             self.assertIn(morceau, texte)
 
 
