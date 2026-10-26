@@ -1364,13 +1364,17 @@ def _ecritures_mesure(c: dict, m, hist_prec: list, jour: str, maintenant: dateti
     """Les cellules Followers / Reels à écrire pour une ligne (seulement celles qui changent). `m` None = compte non lu par
     Apify : seuls des followers Metricool peuvent alors être écrits."""
     h, onglet, out = _cle(c["handle"]), c.get("onglet", ""), []
+    # 26/10 (Gaëtan : « ces comptes ne sont pas créés sur Instagram et n'ont pas de followers ») : une ligne « à créer » n'est pas
+    # encore un compte à nous ; ce que le scan trouve sous ce @ est le compte d'un autre (nom déjà pris). Ni followers ni Reels
+    # écrits depuis Instagram ; Metricool seulement (un compte branché à Metricool est le nôtre).
+    a_creer = _norm(c.get("etat") or "") in A_CREER
     f = _followers_metricool(h)
-    if f is None and m and m.get("existe") and not m.get("restreint") and isinstance(m.get("followers"), int) \
+    if f is None and not a_creer and m and m.get("existe") and not m.get("restreint") and isinstance(m.get("followers"), int) \
             and not isinstance(m.get("followers"), bool):
         f = m["followers"]
     if f is not None and onboarding.a_colonne("followers", onglet) and _propre(f) != _propre(c.get("followers")):
         out.append({"c": c, "champ": "followers", "valeur": f})
-    for champ, valeur in (_valeurs_reels(h, m, hist_prec, jour, maintenant, c.get("reels_7j")) if m else {}).items():
+    for champ, valeur in (_valeurs_reels(h, m, hist_prec, jour, maintenant, c.get("reels_7j")) if m and not a_creer else {}).items():
         if onboarding.a_colonne(champ, onglet) and _propre(valeur) != _propre(c.get(champ)):
             out.append({"c": c, "champ": champ, "valeur": valeur})
     return out

@@ -46,9 +46,9 @@ def test_passage_remplace_le_stock_pris_et_signale_l_attribue(monkeypatch):
         return h in pris
     ecrit, onglets = [], {}
 
-    async def sheets_ecrire(cl, plage, valeurs, brut=False):
-        ecrit.append((plage, valeurs))
-        return 1
+    async def sheets_ecrire_plusieurs(cl, ecritures):
+        ecrit.extend(ecritures)
+        return len(ecritures)
 
     async def ecrire(classeur, titre, entete, lignes):
         onglets[titre] = lignes
@@ -57,7 +57,7 @@ def test_passage_remplace_le_stock_pris_et_signale_l_attribue(monkeypatch):
     async def classeur():
         return "U"
     monkeypatch.setattr(P, "existe", existe)
-    monkeypatch.setattr(google_api, "sheets_ecrire", sheets_ecrire)
+    monkeypatch.setattr(google_api, "sheets_ecrire_plusieurs", sheets_ecrire_plusieurs)
     monkeypatch.setattr(pilotage, "_ecrire", ecrire)
     monkeypatch.setattr(paie_clics, "_classeur_usage", classeur)
     monkeypatch.setattr(onboarding, "_colonnes_lues_par_onglet", {"Sophie": {"handle": 1}})
@@ -65,6 +65,10 @@ def test_passage_remplace_le_stock_pris_et_signale_l_attribue(monkeypatch):
     comptes = [{"onglet": "Sophie", "ligne": 5, "etat": "A CREER", "handle": "sophie.prise", "gerant": ""},
                {"onglet": "Sophie", "ligne": 6, "etat": "A CREER", "handle": "sophie.libre", "gerant": ""},
                {"onglet": "Sophie", "ligne": 7, "etat": "A CREER", "handle": "sophie.thia", "gerant": "Thia"}]
+
+    async def lire_comptes():
+        return [dict(c) for c in comptes]
+    monkeypatch.setattr(onboarding, "lire_comptes", lire_comptes)
     store = {}
     b = asyncio.run(P.passage(None, store, comptes, T))
     assert (b["libres"], b["pris"], b["remplaces"], b["signales"]) == (1, 2, 1, 1)
