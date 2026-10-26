@@ -5280,6 +5280,20 @@ async def ecrire_onglet_parcours() -> int:
         return 0
 
 
+PARCOURS_ARRIVEE_TIMEOUT_S = 30
+
+
+async def rafraichir_parcours_arrivee(uid) -> bool:
+    """26/10 (Gaëtan, Cockpit : un nouveau sous sa créatrice avec « New » dès son arrivée) : l'onglet « Parcours » réécrit à la fin
+    de l'arrivée d'un clipper, borné à PARCOURS_ARRIVEE_TIMEOUT_S. Vrai si l'onglet a été écrit ; faux (et un avertissement au
+    journal) sinon. Ne lève jamais : l'arrivée est déjà faite, elle ne doit rien à cet onglet."""
+    try:
+        return bool(await asyncio.wait_for(ecrire_onglet_parcours(), timeout=PARCOURS_ARRIVEE_TIMEOUT_S))
+    except Exception as erreur:                                         # noqa: BLE001 — jamais au prix de l'arrivée
+        journal.warning("Onglet Parcours après l'arrivée de %s : %s", uid, erreur)
+        return False
+
+
 def compteurs_funnel(pipe: dict, jour, registre: dict | None = None) -> dict:
     """09/10 (Gaëtan : « Termine tout le funnel entier Telegram > Forms > Formation > Quizz > Discord > attribution créatrice… ») :
     les flux d'un jour (Paris) pour le digest. quiz_ok et quiz_ko : le quizz du site (dernier essai de chaque numéro, staff exclu),
@@ -6290,6 +6304,10 @@ async def onboarder_membre(g, m_, creatrice_c: str, par, etats_cl: dict, mgrs: l
                 await parcours.demander_groupe_gaetan(salon_c, m_, uid_m, prenom_c, creatrice_c)
             attribution._sortir_d_attente(uid_m)
             attribution.resoudre_blocage(uid_m)
+            # 26/10 (Gaëtan, Cockpit : « New » à côté du nouveau, chez sa créatrice dès son arrivée) : l'onglet Parcours est
+            # réécrit tout de suite, pas au digest du matin, pour que le Cockpit voie l'arrivée le jour même. Jamais au prix de
+            # l'arrivée : un échec est journalisé, le bilan part quand même.
+            await rafraichir_parcours_arrivee(uid_m)
             return (f"{'🆕' if cree_c else '✅'} {m_.display_name} → {creatrice_c} · <#{salon_c.id}>"
                     + (f" · ⚠️ {err_c}" if err_c else "") + (" · " + ", ".join(extras) if extras else "")
                     + (f" · ⚠️ compte 1 envoyé sans e-mail ni mot de passe : `!remettre-compte1 {prenom_c}`."

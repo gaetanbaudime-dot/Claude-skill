@@ -102,7 +102,9 @@ class OnboardingTests(unittest.IsolatedAsyncioTestCase):
               'datetime': datetime, 'timezone': timezone, 'attribution': SimpleNamespace(_sortir_d_attente=Mock(), conserver_attente=Mock(), resoudre_blocage=Mock()),
               'NOMS_RANGS': ['Clippeur'], 'role_creatrice': lambda g, cr: role,
               'roles_creatrices':lambda g:[role], 'roster': SimpleNamespace(ajouter=Mock(),groupes=lambda:{}), 'discord': discord, 'parcours': parcours,
-              'journal': logging.getLogger('test')}
+              'journal': logging.getLogger('test'),
+              # 26/10 : l'onglet Parcours réécrit à la fin de l'arrivée (Cockpit « New ») : simulé, jamais le réseau
+              'rafraichir_parcours_arrivee': AsyncMock(return_value=True)}
         return ns, membre, salon, registre
 
     async def test_role_refuse_ne_livre_rien_puis_reprise(self):
@@ -137,8 +139,10 @@ class OnboardingTests(unittest.IsolatedAsyncioTestCase):
         ns, membre, salon, registre = self.contexte()
         ns['equipes_tl'].tl_par_va = lambda: {}
         fn = charger('onboarder_membre', ns)
-        await fn(membre.guild, membre, 'Fictive', None, {}, [])
+        resultat = await fn(membre.guild, membre, 'Fictive', None, {}, [])
         ns['assurer_salon_perso'].assert_awaited()
+        self.assertIn('compte 1 envoyé', resultat)
+        ns['rafraichir_parcours_arrivee'].assert_awaited_once_with('42')     # 26/10 : le Cockpit voit l'arrivée le jour même
 
     def test_message_compte_sans_secret(self):
         fn = charger('_identifiants', {}, fichier='parcours.py')

@@ -55,8 +55,8 @@ class Remise(unittest.IsolatedAsyncioTestCase):
         self.original.edit.assert_awaited_once()
         kw = self.original.edit.call_args.kwargs
         attendu = ('<@42>\n\n📱 **Ton compte 1**\n\n'
-                   'Identifiant : `compte_fictif`\n\nE-mail : `fictif@example.invalid`\n\n'
-                   'Mot de passe : `MOT_DE_PASSE_FICTIF`\n\n')
+                   'Identifiant :\n```\ncompte_fictif\n```\nE-mail :\n```\nfictif@example.invalid\n```\n'
+                   'Mot de passe :\n```\nMOT_DE_PASSE_FICTIF\n```\n')
         self.assertTrue(kw['content'].startswith(attendu))
         self.assertNotIn('proposé', kw['content'])
         self.assertNotIn('WhatsApp', kw['content'])

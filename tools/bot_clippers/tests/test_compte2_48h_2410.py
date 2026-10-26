@@ -50,7 +50,7 @@ class AccesDansLEtape(unittest.IsolatedAsyncioTestCase):
              patch.object(parcours, "_onb", return_value={"gerant": "Fictif"}), \
              patch.object(remise_compte1, "identifiants_compte", AsyncMock(return_value=("b@exemple.invalid", mdp))) as ident:
             sortie = await parcours._avec_acces(SimpleNamespace(guild=None), "42", 2, {"creatrice": "Créa"}, texte)
-        self.assertIn(f"Mot de passe : `{mdp}`", sortie)
+        self.assertIn(f"Mot de passe :\n```\n{mdp}\n```", sortie)
         self.assertNotIn(parcours.ACCES_A_CONFIRMER, sortie)
         self.assertEqual("fictif-deux", ident.await_args.args[3])
         self.assertEqual("inclus", parcours.ACCES_ETAPE[("42", 2)])
@@ -260,7 +260,7 @@ class RelanceDesAcces(unittest.IsolatedAsyncioTestCase):
         with patch.object(parcours, "ACCES_SUIVI_DEPUIS", il_y_a(24)):
             remis, salon, mdp = await self.passer(d)
         self.assertEqual([("42", 2)], remis)
-        self.assertIn(f"Mot de passe : `{mdp}`", salon.send.await_args.args[0])
+        self.assertIn(f"Mot de passe :\n```\n{mdp}\n```", salon.send.await_args.args[0])
         self.assertIn("@fictif-deux", salon.send.await_args.args[0])
         self.assertEqual("remis", d["42"]["acces_etape"]["2"])
 

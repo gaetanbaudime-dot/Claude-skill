@@ -23,6 +23,17 @@ class Retenue(Exception):
 RAISONS = {}
 
 
+def champ(libelle: str, valeur) -> str:
+    """26/10 (Gaëtan : « qu'on puisse cliquer à côté pour copier-coller directement… surtout pour l'adresse e-mail qui est hyper
+    compliquée ») : chaque accès dans son propre bloc de code, Discord lui met un bouton Copier (ordinateur et téléphone)."""
+    v = str(valeur or "").replace("`", "'")
+    return f"{libelle} :\n```\n{v}\n```"
+
+
+def acces_copiables(handle, mail, mdp) -> str:
+    return "\n".join(champ(l, v) for l, v in (("Identifiant", handle), ("E-mail", mail), ("Mot de passe", mdp)))
+
+
 def modele(mention, handle, mail, mdp, codes="", suite=""):
     """Valeurs existantes uniquement ; rendu destiné au seul salon du titulaire.
     23/10 (Gaëtan : « 1️⃣ Instagram, crée un compte, utilise cet e-mail. 2️⃣ Le code reçu dans le salon #code-instagram, comme ça il peut
@@ -31,7 +42,7 @@ def modele(mention, handle, mail, mdp, codes="", suite=""):
     en plus à la fin (les délais du parcours simple)."""
     codes = codes or parcours.mention_salon_codes()
     texte = (f"{mention}\n\n📱 **Ton compte 1**\n\n"
-             f"Identifiant : `{handle}`\n\nE-mail : `{mail}`\n\nMot de passe : `{mdp}`\n\n"
+             f"{acces_copiables(handle, mail, mdp)}\n"
              "1️⃣ Instagram → Créer un compte → utilise cet e-mail.\n\n"
              f"2️⃣ Le code arrive dans {codes}. Appuie sur « 📩 Mon code ».\n\n"
              "3️⃣ Instagram demande ta date de naissance ou ton numéro ? Mets les vrais.")
