@@ -401,6 +401,8 @@ def sans_lien() -> list:
     for uid, f in fiches_p.items():
         if not isinstance(f, dict) or not parcours.lien_du(f):
             continue
+        if f.get("lien_attendu"):
+            continue                                                    # 26/10 : le lien attend ses 6 Reels, ce n'est pas un manque
         if (clippers.get(str(uid)) or {}).get("lien") or str(uid) in avec_lien:
             continue
         if parcours._norm(str(f.get("prenom") or "")) in paie_clics.CLICS_EXCLURE:

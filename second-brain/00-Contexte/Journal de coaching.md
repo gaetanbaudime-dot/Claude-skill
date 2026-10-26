@@ -22,6 +22,17 @@ tags: [contexte/coaching]
 
 ## Décisions prises
 
+### 2026-10-26 (parcours) — Le lien GAML contre 6 Reels ; le trafic clipping est français à 82 %, concentré sur 5 personnes
+
+> [!tip] Verdict
+> Les comptes 1 → 2 → 3 gardent leurs 48 h. Le lien GAML, lui, ne part plus avec le compte 3 : il arrive quand les comptes 1 et 2 ont 6 Reels vérifiés à eux deux (2 par jour sur 3 jours). Le message du compte 3 dit combien il en manque, le bot donne le lien tout seul au passage horaire qui voit l'objectif tenu. Zéro Reel, zéro lien : la ressource rare (50 liens au forfait, lignes de comptes) n'est plus brûlée pour ceux qui ne postent pas.
+
+- **Demande de Gaëtan (26/10)** : « Applique » l'axe 3 des cinq axes proposés (recrutement, formation, activation).
+- **Fait** : `parcours.LIEN_REELS_MIN` (6, `PARCOURS_LIEN_REELS_MIN=0` remet le lien avec le compte 3), `livrer_liens_attendus` au passage horaire, base de l'assistant v25, règle 32 bis du prompt ; annonce déposée pour #annonces.
+- **Mesure (GAML, 30 jours au 26/10, robots exclus, Rianah à part)** : 16 818 visiteurs sur les liens de clipping, **82 % France**, 5,4 % Belgique, 4,3 % Canada, 3,0 % Suisse, 1,1 % DOM, 0,1 % Madagascar ; **95,9 % de pays payés**. L'hypothèse « les clippers de Madagascar ramènent un trafic non payé » est **fausse** : le trafic est français d'où que poste le clipper. Le vrai chiffre : **5 personnes font 83 % du trafic** (Caroline 27 %, Romaric 17 %, Clarisse 14 %, Yves 13 %, Josué 12 %), 10 en font 99 %, les 18 autres liens font 0 à 55 visites en un mois.
+- **Avocat du diable** : un clipper qui crée son compte 3 et le passe en privé sans lien peut se décourager ; le profil du privé dit « ton lien arrive ici dès qu'il est prêt » et le message du compte 3 donne le compte exact. Le scan RapidAPI qui ne lit pas un compte retarde le lien d'un passage, jamais plus.
+- **Prédiction (26/10, revue le 09/11)** : sur les arrivées du 26/10 au 09/11, au moins 60 % de ceux qui reçoivent leur lien ont une visite payée dans les 7 jours (contre ~15 % des arrivés avant). Si c'est sous 40 %, le goulot n'est pas le lien mais le premier Reel : passer à l'axe 2 (session d'activation en direct, starter pack).
+
 ### 2026-10-26 (apps, paie) — Plus de coût dans l'app des TL ; Rianah au salaire, sortie des chiffres de clippers
 
 > [!tip] Verdict

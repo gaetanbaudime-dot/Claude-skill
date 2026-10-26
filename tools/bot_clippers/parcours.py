@@ -66,6 +66,10 @@ ATTENTE_SIMPLE_H = int(os.environ.get("PARCOURS_ATTENTE_SIMPLE_H", "48") or 48)
 # (quand_etape). Les 4 Reels restent l'objectif dit au clipper à l'ouverture du compte suivant (ligne_publication), jamais une
 # condition. PARCOURS_SIMPLE_TOUS=0 remet la règle du 23/10 (seulement les fiches marquées « simple »).
 SIMPLE_POUR_TOUS = os.environ.get("PARCOURS_SIMPLE_TOUS", "1").strip() != "0"
+# 26/10 (Gaëtan, axe 3 : « Garde les 48 h pour les comptes 1 → 2 → 3. Mais le lien ne part qu'avec 6 Reels vérifiés sur les comptes
+# 1 et 2 ») : le compte 3 arrive à 48 h, sans lien tant que les Reels vérifiés des comptes 1 et 2 n'atteignent pas LIEN_REELS_MIN ;
+# le lien part ensuite, dans son message, au passage horaire qui voit l'objectif tenu. 0 = le lien avec le compte 3, comme avant.
+LIEN_REELS_MIN = int(os.environ.get("PARCOURS_LIEN_REELS_MIN", "6") or 0)
 # 24/10 (Gaëtan, 13 h 48 : « assure-toi que le compte deux soit bien délivré 48 heures après le compte un pour tous les clippers ; si ce
 # n'est pas le cas, envoie dans le salon personnel le deuxième compte directement ») : pour TOUS les parcours, anciens compris, le
 # compte 2 part au plus tard FORCE_COMPTE2_H h après l'ENVOI du compte 1 — sans Reels, sans attendre « ✅ Compte 1 créé » (Mouhsinou
@@ -234,7 +238,9 @@ def regle_comptes(fiche_p: dict = None) -> str:
     return (f"Trois comptes créés au total, sans remplacement. Le compte 1 est disponible immédiatement. "
             f"Le compte 2 arrive {ATTENTE_SIMPLE_H} h après la création du compte 1. "
             f"Le compte 3, privé, arrive {ATTENTE_SIMPLE_H} h après la création du compte 2. "
-            "Aucune condition de Reels pour les ouvrir.")
+            "Aucune condition de Reels pour les ouvrir."
+            + (f" Le lien, lui, arrive quand les comptes 1 et 2 ont {LIEN_REELS_MIN} Reels publiés à eux deux : le message du "
+               "compte 3 dit combien il en manque, puis le bot donne le lien tout seul." if LIEN_REELS_MIN > 0 else ""))
 
 
 def mention_salon_codes() -> str:
@@ -564,6 +570,24 @@ def reels_verifies(uid, fiche_p: dict, src: int) -> int:
         return 0
     suivi = (fiche_p.get("reels") or {}).get(comptes[src - 1].lower()) or {}
     return len(process_clippeur.cumuler_reels_verifies(suivi, [], _date_creation(fiche_p, src), datetime.now(timezone.utc)))
+
+
+def reels_pour_lien(uid, fiche_p: dict) -> int:
+    """26/10 : les Reels vérifiés des comptes de croissance (tous sauf le privé), pour la règle du lien."""
+    np_ = n_prive(fiche_p)
+    return sum(reels_verifies(uid, fiche_p, k) for k in (1, 2, 3) if k != np_)
+
+
+def lien_retenu(uid, fiche_p: dict) -> int:
+    """26/10 : le nombre de Reels qui manquent encore pour le lien (0 = le lien peut partir). Toujours 0 hors parcours simple, sans
+    règle (LIEN_REELS_MIN=0), en ordre « prive2 », ou quand le lien existe déjà."""
+    if LIEN_REELS_MIN <= 0 or not simple(fiche_p) or ordre(fiche_p) == "prive2" or _onb(uid).get("lien"):
+        return 0
+    return max(0, LIEN_REELS_MIN - reels_pour_lien(uid, fiche_p))
+
+
+LIGNE_LIEN_ATTENDU = ("🔗 Ton lien arrive quand tes comptes 1 et 2 ont {objectif} Reels publiés à eux deux. Tu en as {vus}.\n\n"
+                      "Crée ce compte et passe-le en privé en attendant.")
 
 
 def ligne_publication(uid, fiche_p: dict, n: int) -> str:
@@ -1497,7 +1521,9 @@ async def envoyer_etape(salon, membre, n: int, pointer: bool = True) -> bool:
                 d_r[uid]["retenue"] = {"n": int(n), "raison": str(erreur)[:160], "date": _maintenant()}
                 _ecrire(d_r)
             return False
-    if (n == 6 or n == n_prive(_lire().get(uid) or {})) and _deps.get("attribuer_lien"):
+    fiche_lien = _lire().get(uid) or {}
+    manque_lien = lien_retenu(uid, fiche_lien) if n == n_prive(fiche_lien) else 0   # 26/10 : le compte 3 part, le lien attend
+    if (n == 6 or n == n_prive(fiche_lien)) and _deps.get("attribuer_lien") and not manque_lien:
         # 05/10 (Gaëtan : « le lien que pour le troisième compte ») : le lien GAML n'existe pas avant le compte privé ; il est créé
         # (ou repris) à l'ouverture de son étape, pour être dans sa bio dès son profil, puis donné à l'étape 6. 08/10 : le compte
         # privé est le 2 pour les nouveaux parcours.
@@ -1506,7 +1532,7 @@ async def envoyer_etape(salon, membre, n: int, pointer: bool = True) -> bool:
         except Exception as erreur:                                     # noqa: BLE001 — sans lien, l'étape part quand même
             journal.warning("Lien GAML pour %s à l'étape %s : %s", uid, n, erreur)
             return False
-    if n in (n_prive(_lire().get(uid) or {}), 6, 7) and not _onb(uid).get("liens_prets"):
+    if n in (n_prive(fiche_lien), 6, 7) and not _onb(uid).get("liens_prets") and not (manque_lien and n == n_prive(fiche_lien)):
         return False  # Ne pas livrer le privé ou l’app sans lien préparé.
     # 01/10 (relecture : deux programme_du_jour à 50 ms d'écart, le clipper 2 a reçu deux fois « Étape 2 ») : la fiche était
     # lue, puis réécrite après l'appel au classeur (_contexte) et l'envoi — elle écrasait ce qui avait été écrit entre-temps.
@@ -1557,6 +1583,12 @@ async def envoyer_etape(salon, membre, n: int, pointer: bool = True) -> bool:
             journal.info("Palier du compte %s de %s : %s", n, uid, erreur)
     icone = f"{e['icone']} " if e.get("icone") else ""
     texte = f"{membre.mention} {icone}**{_rendre(e['titre'], ctx)}**\n\n{_rendre(e['texte'], ctx)}"
+    if manque_lien:
+        texte += "\n\n" + LIGNE_LIEN_ATTENDU.format(objectif=LIEN_REELS_MIN, vus=LIEN_REELS_MIN - manque_lien)
+        d = _lire()
+        if uid in d:
+            d[uid]["lien_attendu"] = {"objectif": LIEN_REELS_MIN, "depuis": _maintenant()}
+            _ecrire(d)
     if pseudo_propose:
         texte = f"{membre.mention}\n\n**{_rendre(e['titre'], ctx)}**\n\n{_rendre(e['texte'], ctx)}"
         if identifiants:
@@ -2187,7 +2219,8 @@ def _poser_story(uid: str, cle: str, retirer: bool = False) -> None:
 
 async def _story_puis_app(salon, membre, uid: str, fiche_p: dict = None) -> None:
     if not (_lire().get(uid) or {}).get("story_faite"):                 # 11/10 : relancée après un arrêt, la story déjà partie ne
-        if not str(_onb(uid).get("lien") or "") and _deps.get("attribuer_lien"):   # repart pas : seulement la routine
+        if (not str(_onb(uid).get("lien") or "") and _deps.get("attribuer_lien")   # repart pas : seulement la routine
+                and not lien_retenu(uid, _lire().get(uid) or {})):      # 26/10 : le lien attend ses Reels, pas de nouvel essai ici
             try:
                 await _deps["attribuer_lien"](membre)
             except Exception as erreur:                                 # noqa: BLE001 — sans lien, la story et la routine partent
@@ -3015,7 +3048,71 @@ async def programme_du_jour(client, maintenant=None) -> list:
             await relancer_acces(client, maintenant)
         except Exception as erreur:                                     # noqa: BLE001
             journal.warning("Relance des accès : %s", erreur)
+        try:                                                            # 26/10 : le lien retenu par les Reels, dès l'objectif tenu
+            faits += await livrer_liens_attendus(client)
+        except Exception as erreur:                                     # noqa: BLE001
+            journal.warning("Liens attendus : %s", erreur)
         return faits
+
+
+TEXTE_LIEN_LIVRE = ("🔗 **Ton lien est prêt : {vus} Reels publiés sur tes comptes 1 et 2, bravo.**\n\n"
+                    "Sur ton compte privé `{cprive}` : Modifier le profil → **Liens** → Ajouter un lien externe → colle :\n"
+                    "```\n{lien}\n```\n\n"
+                    "Puis, sur tes comptes 1 et 2 : une story avec le widget de mention `@{cprive}`, mise à la une. Une seule fois.")
+
+
+async def livrer_liens_attendus(client) -> list:
+    """26/10 (axe 3) : pour chaque fiche dont le compte 3 est parti sans lien (« lien_attendu »), dès que les Reels vérifiés des
+    comptes 1 et 2 atteignent l'objectif : le lien est créé (attribuer_lien), donné dans son salon, la marque retirée. Un clipper
+    dont le lien ne peut pas être créé (forfait plein) garde sa marque et réessaie au passage suivant. Renvoie [(uid, "lien", 3)]."""
+    faits = []
+    for uid, f in list(_lire().items()):
+        if not isinstance(f, dict) or not f.get("lien_attendu"):
+            continue
+        if _onb(uid).get("lien"):                                       # déjà donné par un autre chemin (`!lien`, dépôt)
+            d = _lire()
+            d.get(uid, {}).pop("lien_attendu", None)
+            _ecrire(d)
+            continue
+        objectif = int((f.get("lien_attendu") or {}).get("objectif") or LIEN_REELS_MIN)
+        vus = reels_pour_lien(uid, f)
+        if vus < objectif:
+            continue
+        membre = _deps["membre_par_id"](uid)
+        salon = client.get_channel(int(f.get("salon_id") or 0)) if f.get("salon_id") else None
+        if membre is None or salon is None:
+            continue
+        try:
+            if _deps.get("attribuer_lien"):
+                await _deps["attribuer_lien"](membre, raison=f"{vus} Reels vérifiés sur ses comptes 1 et 2")
+        except Exception as erreur:                                     # noqa: BLE001 — forfait plein : réessai au passage suivant
+            journal.info("Lien attendu de %s : %s", uid, erreur)
+            continue
+        onb = _onb(uid)
+        if not onb.get("lien"):
+            continue
+        comptes = _comptes_ordonnes(uid, onb, f)
+        cprive = str(comptes[n_prive(f) - 1] if 0 < n_prive(f) <= len(comptes) else "").lstrip("@")
+        try:
+            await salon.send(TEXTE_LIEN_LIVRE.format(vus=vus, cprive=cprive or "ton compte 3", lien=onb["lien"]))
+        except Exception as erreur:                                     # noqa: BLE001
+            journal.warning("Lien attendu de %s : message : %s", uid, erreur)
+            continue
+        d = _lire()
+        if uid in d:
+            d[uid].pop("lien_attendu", None)
+            d[uid]["lien_profil"] = onb["lien"]
+            _ecrire(d)
+        faits.append((uid, "lien", 3))
+        journal.info("Lien attendu de %s livré (%d Reels)", uid, vus)
+        f2 = _lire().get(uid) or {}
+        if (f2.get("dates") or {}).get(f"{n_prive(f2)}_fait") and not (f2.get("dates") or {}).get("7"):
+            # le profil du privé était déjà fait : la routine et l'app, retenues sans lien, partent maintenant
+            try:
+                await envoyer_etape(salon, membre, 7)
+            except Exception as erreur:                                 # noqa: BLE001
+                journal.warning("Routine après le lien attendu de %s : %s", uid, erreur)
+    return faits
 
 
 # 24/10 : les comptes 2 et 3 envoyés depuis cette date sans e-mail ni mot de passe (classeur saturé, @ de la fiche absent du
