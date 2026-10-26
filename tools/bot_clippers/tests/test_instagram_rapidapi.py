@@ -61,9 +61,12 @@ def test_comptes_a_suivre_et_types():
                {"onglet": "Sophie", "handle": "thia1", "etat": "GOOD", "gerant": "Thia"},
                {"onglet": "Sophie", "handle": "met1", "etat": "PRIVE", "gerant": "Rianah (Metricool)"},
                {"onglet": "Sophie", "handle": "mort", "etat": "BAN", "gerant": "X"},
-               {"onglet": "Chloé", "handle": "neuf", "etat": "à créer", "gerant": "Y"}]
+               {"onglet": "Chloé", "handle": "neuf", "etat": "à créer", "gerant": "Y"},
+               {"onglet": "Sarah", "handle": "appel1", "etat": "Faire appel", "gerant": "Yves"},          # 26/10 : comptes en appel suivis
+               {"onglet": "Sarah", "handle": "appel2", "etat": "APPEL A FAIRE", "gerant": "Yves"}]
     s = I.comptes_a_suivre(comptes)
-    assert [(x["handle"], x["type"]) for x in s] == [("sophie_vanlife", "Créatrice"), ("thia1", "Clipper"), ("met1", "Metricool")]
+    assert [(x["handle"], x["type"]) for x in s] == [("sophie_vanlife", "Créatrice"), ("thia1", "Clipper"), ("met1", "Metricool"),
+                                                     ("appel1", "Clipper"), ("appel2", "Clipper")]
 
 
 def test_lignes_et_top():

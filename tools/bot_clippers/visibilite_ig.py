@@ -13,7 +13,8 @@ Un compte privé ne montre ni ses Reels ni ses vues à l'API : seuls ses followe
    - compte marqué « Croissance » dans Utilisation mais privé (il ne touche personne) ;
    - compte marqué « privé » dans Utilisation mais public ;
    - clipper sans aucun compte privé, ou avec plusieurs comptes privés (un compte de croissance passé en privé ?) ;
-   - compte vivant dans le LOG mais introuvable sur Instagram (renommé, banni ou faute de frappe).
+   - compte vivant dans le LOG mais introuvable sur Instagram (renommé, banni ou faute de frappe) ;
+   - compte « en appel » dans le LOG mais de nouveau visible sur Instagram (l'appel a abouti : repasser GOOD).
 """
 
 import logging
@@ -74,7 +75,8 @@ def anomalies(comptes: list, store: dict, creatrices: set = None) -> list:
     for c in comptes or []:
         h = str(c.get("handle") or "").strip().lstrip("@").lower()
         etat = _n(c.get("etat"))
-        if not h or not (etat.startswith("good") or etat.startswith("priv")):
+        appel = "appel" in etat
+        if not h or not (etat.startswith("good") or etat.startswith("priv") or appel):
             continue
         v = libelle(store, h)
         u = str(c.get("utilisation") or "").strip()
@@ -82,6 +84,11 @@ def anomalies(comptes: list, store: dict, creatrices: set = None) -> list:
         cr = str(c.get("creatrice") or c.get("onglet") or "").strip()
         g = str(c.get("gerant") or "").strip()
         ligne = [cr, g, h, u, v or "pas encore relu"]
+        if appel:
+            # 26/10 : compte en appel de nouveau visible : l'appel a abouti, le LOG dit encore « appel »
+            if v in ("Public", "Privé"):
+                out.append(ligne + [f"compte en appel (« {c.get('etat')} ») mais visible sur Instagram : l'appel a abouti ? repasser GOOD dans le LOG"])
+            continue
         if v == "Introuvable":
             out.append(ligne + ["introuvable sur Instagram : @ changé, compte banni ou faute de frappe dans le LOG"])
             continue

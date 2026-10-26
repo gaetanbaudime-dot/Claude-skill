@@ -658,7 +658,11 @@ async def _renommer_compte(uid: str, ancien: str, nouveau: str, registre_process
             return "ligne du compte absente ou ambiguë dans le classeur"
         ligne = lignes[0]
         if job and (str(ligne.get("onglet")) != str(job.get("onglet")) or str(ligne.get("ligne")) != str(job.get("ligne"))):
-            return "ligne déplacée pendant le renommage : rapprochement requis"
+            # 26/10 (renommage de Yves refusé en boucle : l'onglet Sarah a été réorganisé après une première tentative) : le
+            # nouveau @ n'est écrit nulle part dans le classeur, donc rien n'a été écrit à l'ancienne place. Le travail repart
+            # sur la ligne actuelle de l'ancien @ (seule et unique) au lieu de bloquer pour toujours.
+            journal.info("Renommage %s → %s : ligne %s/%s devenue %s/%s, repris sur la ligne actuelle", ancien_n, nouveau_n,
+                         job.get("onglet"), job.get("ligne"), ligne.get("onglet"), ligne.get("ligne"))
         registre_process.observe_alias(uid, ancien_n, "fiche-onboarding-et-ligne-existantes")
         registre_process.rename(uid, ancien_n, nouveau_n)
         job = {"onglet": ligne.get("onglet"), "ligne": ligne.get("ligne"), "phase": "prepare"}

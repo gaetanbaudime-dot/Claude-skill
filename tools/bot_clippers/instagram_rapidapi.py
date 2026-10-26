@@ -105,7 +105,9 @@ ENTETE_REELS = ["Créatrice", "Gérant", "Type", "@", "Code", "Lien", "Publié l
 ENTETE_REELS_DETAIL = ENTETE_REELS + ["Légende", "Largeur", "Hauteur", "Durée (s)", "Couverture"]
 ENTETE_VARIANTES = ["@ du LOG", "Créatrice", "Gérant", "Variante", "Statut", "ID Instagram", "Followers", "Nom", "Bio", "Cherché le"]
 ENTETE_TOP = ["Créatrice", "Rang", "@", "Lien", "Publié le", "Vues", "Likes", "Commentaires"]
-ETATS_VIVANTS = ("good", "prive", "privé", "private")
+# 26/10 : les comptes en appel (« Faire appel », « APPEL A FAIRE ») sont suivis aussi : un compte suspendu est introuvable (une seule
+# requête), un compte revenu est relu et signalé dans IG · Visibilité (l'appel a abouti : repasser GOOD dans le LOG).
+ETATS_VIVANTS = ("good", "prive", "privé", "private", "faire appel", "appel")
 
 _deps = {}
 _jour = {"jour": "", "n": 0, "restant": None}

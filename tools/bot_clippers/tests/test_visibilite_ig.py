@@ -43,3 +43,10 @@ def test_anomalies():
     assert not any(r[1] in ("Chloé", "Rianah (Metricool)", "Ana") for r in a)
     pub_prive = V.anomalies([l("pub1", "Léo", "Compte privé avec lien")], STORE)
     assert pub_prive[0][5] == "compte privé resté public"
+
+
+def test_compte_en_appel_revenu_signale():
+    store = {"comptes": {"rev": {"statut": "public"}, "susp": {"statut": "introuvable"}}}
+    a = V.anomalies([{"handle": "rev", "gerant": "Yves", "etat": "Faire appel", "creatrice": "Sarah"},
+                     {"handle": "susp", "gerant": "Yves", "etat": "APPEL A FAIRE", "creatrice": "Sarah"}], store)
+    assert len(a) == 1 and a[0][2] == "rev" and "l'appel a abouti" in a[0][5]
