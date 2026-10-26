@@ -11,7 +11,7 @@ function load(file, deps = {}) {
   return exports;
 }
 const calc = load('components/pilotage/calc.ts');
-const model = load('lib/classement.ts', { '@/components/pilotage/calc': calc });
+const model = load('lib/classement.ts', { '@/components/pilotage/calc': calc, '@/lib/salaries': load('lib/salaries.ts') });
 const visibles = load('lib/comptesVisibles.ts');
 const dates = load('lib/dates.ts');
 const activite = load('lib/activite.ts', { './dates': dates });

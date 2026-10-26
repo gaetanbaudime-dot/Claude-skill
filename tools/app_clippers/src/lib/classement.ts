@@ -1,5 +1,6 @@
 import type { Clic, Clipper360, Compte, Pilotage } from "./pilotage";
 import { estGood, fenetre, jours, meme, normaliser } from "@/components/pilotage/calc";
+import { estSalarie } from "@/lib/salaries";
 
 /** `prive` : le compte au lien GAML. `extra` (24/10) : un compte actif hors des trois emplacements du parcours (refait n° 4+, ou @
  *  du LOG DASHBOARD absent de la fiche du bot) : affiché en plus (➕), jamais promu à la place d'un 1, 2 ou 3. */
@@ -34,18 +35,20 @@ const total = (comptes: CompteClassement[], lire: (c: CompteClassement) => numbe
   return { valeur: connus.length ? connus.reduce((s, n) => s + n, 0) : null, partiel: connus.length < comptes.length };
 };
 
-/** Toujours sept journées closes en heure de Paris, comme les Reels du Dashboard. Aucun zéro inventé. */
-export function classementClippers(d: Pilotage, filtre = ""): FicheClipper[] {
+/** Toujours sept journées closes en heure de Paris, comme les Reels du Dashboard. Aucun zéro inventé.
+ *  26/10 : `sansSalaries` (pilotage de l'admin) retire du classement les personnes au salaire (Rianah, toutes identités). */
+export function classementClippers(d: Pilotage, filtre = "", options: { sansSalaries?: boolean } = {}): FicheClipper[] {
   const personnes = d.clippers || [];
+  const exclu = (nom: string) => horsClippers.has(normaliser(nom)) || (options.sansSalaries === true && estSalarie(nom));
   const par = new Map<string, { ref?: Clipper360; nom: string; comptes: Compte[]; clics: Clic[] }>();
   const garde = (cr: string) => !filtre || meme(cr, filtre);
   const cle = (nom: string) => identiteDe(nom, personnes)?.uid || `nom:${normaliser(nom)}`;
   for (const p of personnes) {
-    if (p.role === "Manager" || horsClippers.has(normaliser(p.prenom)) || !garde(p.creatrice)) continue;
+    if (p.role === "Manager" || exclu(p.prenom) || !garde(p.creatrice)) continue;
     par.set(p.uid, { ref: p, nom: p.prenom, comptes: [], clics: [] });
   }
   for (const c of d.comptes) {
-    if (c.axe !== "Horizontal" || c.type !== "Clipper" || !garde(c.creatrice) || !c.gerant || horsClippers.has(normaliser(c.gerant))) continue;
+    if (c.axe !== "Horizontal" || c.type !== "Clipper" || !garde(c.creatrice) || !c.gerant || exclu(c.gerant)) continue;
     const refHandle = personnes.filter(p => p.comptes.some(a => handle(a.handle) === handle(c.handle)));
     const ref = refHandle.length === 1 ? refHandle[0] : identiteDe(c.gerant, personnes);
     const k = ref?.uid || cle(c.gerant);
@@ -53,7 +56,7 @@ export function classementClippers(d: Pilotage, filtre = ""): FicheClipper[] {
     l.comptes.push(c); par.set(k, l);
   }
   for (const c of d.clics) {
-    if (c.axe !== "Horizontal" || c.source !== "Clipper" || hors.has(normaliser(c.qui)) || horsClippers.has(normaliser(c.qui)) || !garde(c.creatrice)) continue;
+    if (c.axe !== "Horizontal" || c.source !== "Clipper" || hors.has(normaliser(c.qui)) || exclu(c.qui) || !garde(c.creatrice)) continue;
     const k = cle(c.qui);
     const ref = identiteDe(c.qui, personnes);
     const l = par.get(k) || { ref, nom: ref?.prenom || c.qui, comptes: [], clics: [] };
@@ -100,7 +103,7 @@ export function classementClippers(d: Pilotage, filtre = ""): FicheClipper[] {
     const avant = l.clics.filter(c => c.jour >= f.avantDebut && c.jour <= f.avantFin);
     const creatrices = [l.ref?.creatrice || "", ...comptes.map(c => c.creatrice), ...l.clics.map(c => c.creatrice)].filter((c, i, all) => c && !all.slice(0, i).some(x => meme(x, c)));
     return {
-      id, prenom: normaliser(l.nom) === "rianah" ? "Rianah clipping" : l.nom, creatrices, comptes,
+      id, prenom: l.nom, creatrices, comptes,
       liens: liensPublics(l.ref?.gaml || ""),
       clics7: semaine.some(c => (c.liens ?? 1) > c.manquants) ? semaine.reduce((s, c) => s + c.visites, 0) : null,
       avant7: avant.length && !avant.some(c => c.manquants) ? avant.reduce((s, c) => s + c.visites, 0) : null,

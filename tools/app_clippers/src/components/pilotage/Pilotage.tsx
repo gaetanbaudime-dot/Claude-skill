@@ -113,7 +113,7 @@ export default function Pilotage({ jeton }: { jeton: string }) {
         {d && d.publie ? (
           <>
             {onglet === "vertical" ? <Vertical d={d} periode={periode} filtre={filtre} /> : null}
-            {onglet === "horizontal" ? <Horizontal d={d} periode={periode} filtre={filtre} /> : null}
+            {onglet === "horizontal" ? <Horizontal d={d} periode={periode} filtre={filtre} admin /> : null}
             {onglet === "subs" ? <Subs d={d} periode={periode} filtre={filtre} /> : null}
             {onglet === "equipe" ? <Equipe360 d={d} filtre={filtre} /> : null}
             {d.fraicheur ? <p className="text-[11px] text-argent2/80 mt-8 px-1 leading-relaxed">Sources : {d.fraicheur}</p> : null}

@@ -83,6 +83,13 @@ CLICS_EXCLURE = {p.strip().lower() for p in os.environ.get("CLICS_EXCLURE", "gae
 PAIE_FIXE = {"".join(c for c in unicodedata.normalize("NFD", p.strip().lower()) if unicodedata.category(c) != "Mn")
              for p in os.environ.get("PAIE_FIXE", "caroline,lilian,josue,yves").split(",") if p.strip()}
 PAIE_DECISION = "2026-10-08"
+# 26/10 (Gaëtan : « Enlève Rianah de tous les trucs aussi, elle est au salaire ») : une personne au salaire est au fixe, clipping
+# compris (le 13/10 avait passé son clipping au clic), même si un `!paie` antérieur à cette décision dit « clic » ; un `!paie` posé
+# depuis le 26/10 passe encore par-dessus. Elle sort du classement du lundi et du lien de parrainage des cinq premiers ; elle garde
+# son app (elle n'est pas dans CLICS_EXCLURE). Même liste que SALARIES de l'app (lib/salaries.ts). Sans accents.
+PAIE_SALAIRE = {"".join(c for c in unicodedata.normalize("NFD", p.strip().lower()) if unicodedata.category(c) != "Mn")
+                for p in os.environ.get("PAIE_SALAIRE", "rianah").split(",") if p.strip()}
+SALAIRE_DECISION = "2026-10-26"
 # 09/10 (Gaëtan : « tout le monde passe au clic depuis le 5 octobre, sauf Rianah, Caroline, Lilian, Josué et Yves qui restent au
 # fixe ») : un ancien fixe est payé au clic sur ses visites à partir du 05/10 (la bascule prévue par le bilan des fixes).
 BASCULE_CLIC = os.environ.get("BASCULE_CLIC", "2026-10-05").strip() or "2026-10-05"
@@ -596,11 +603,25 @@ def regime(uid: str) -> str:
     montage vidéo YTB et Jonas manageur ») : tout le monde au clic, sauf les prénoms de PAIE_FIXE signés avant la décision (un
     nouveau Julien signé après est au clic). Un `!paie @clipper clic|fixe` posé depuis le 08/10 passe par-dessus."""
     fiche = _deps["lire_json"](_deps["FICHIER_EQUIPES"], {}).get(str(uid), {})
-    if fiche.get("paie") and str(fiche.get("paie_le", ""))[:10] >= PAIE_DECISION:
+    prenom = _prenom_uid(str(uid), fiche)
+    salarie = prenom in PAIE_SALAIRE and str(fiche.get("date", ""))[:10] <= SALAIRE_DECISION   # 26/10 : au salaire
+    if fiche.get("paie") and str(fiche.get("paie_le", ""))[:10] >= (SALAIRE_DECISION if salarie else PAIE_DECISION):
         return fiche["paie"]
+    if salarie:
+        return "fixe"
     if str(fiche.get("date", ""))[:10] > PAIE_DECISION:
         return "clic"
-    return "fixe" if _prenom_uid(str(uid), fiche) in PAIE_FIXE else "clic"
+    return "fixe" if prenom in PAIE_FIXE else "clic"
+
+
+def au_salaire(uid) -> bool:
+    """26/10 : vrai pour une personne au salaire (PAIE_SALAIRE : Rianah), hors du classement du lundi et du parrainage. Registre
+    illisible : faux (le classement reste celui d'avant plutôt que de tomber)."""
+    try:
+        fiche = _deps["lire_json"](_deps["FICHIER_EQUIPES"], {}).get(str(uid), {})
+        return _prenom_uid(str(uid), fiche) in PAIE_SALAIRE
+    except Exception:                                                   # noqa: BLE001
+        return False
 
 
 def debut_clic(uid: str, d: dict = None) -> str:
@@ -2735,7 +2756,7 @@ def top_uids(d: dict, hier: date, n: int = 5) -> list:
     for lid, info in d["liens"].items():
         if info.get("uid"):
             par_uid.setdefault(str(info["uid"]), []).append(lid)
-    rangs = [(uid, somme(d, lids, debut, hier)["payes"]) for uid, lids in par_uid.items()]
+    rangs = [(uid, somme(d, lids, debut, hier)["payes"]) for uid, lids in par_uid.items() if not au_salaire(uid)]
     return [uid for uid, v in sorted((r for r in rangs if r[1] > 0), key=lambda r: -r[1])[:n]]
 
 
@@ -2750,6 +2771,8 @@ def texte_classement(d: dict, nom_de, hier: date, n: int = 5, equipe_de=None) ->
             par_uid.setdefault(str(info["uid"]), []).append(lid)
     rangs = []
     for uid, lids in par_uid.items():
+        if au_salaire(uid):                                             # 26/10 : Rianah au salaire, hors du classement
+            continue
         s = somme(d, lids, debut, hier)
         if s["payes"] > 0:
             rangs.append((nom_de(uid), s["payes"]))
