@@ -17,7 +17,11 @@ from datetime import datetime, timedelta, timezone
 
 journal = logging.getLogger("parrainage")
 ACTIF = os.environ.get("PARRAINAGE", "1").strip() != "0"
-PRIME_USD = float(os.environ.get("PARRAINAGE_PRIME_USD", "5") or 5)
+# 26/10 (annonce de Gaëtan dans #rémunération le 23/10 : « S'il atteint 500 clics payés en 15 jours → +10 $ de prime pour toi ») :
+# la prime est de 10 $, due sur la liste de paie où le filleul atteint SEUIL_VISITES visites payées sur la période ; plus « à sa
+# première paie ». PARRAINAGE_SEUIL_VISITES=0 remet l'ancienne règle (première paie).
+PRIME_USD = float(os.environ.get("PARRAINAGE_PRIME_USD", "10") or 10)
+SEUIL_VISITES = int(os.environ.get("PARRAINAGE_SEUIL_VISITES", "500") or 0)
 JOURS_MAX = int(os.environ.get("PARRAINAGE_JOURS_MAX", "30") or 30)     # le filleul est là depuis moins de 30 jours
 TOP_JOURS = int(os.environ.get("PARRAINAGE_TOP_JOURS", "28") or 28)      # un même clipper du top 5 reçoit le message au plus 1 fois / 28 j
 _deps = {}
@@ -40,6 +44,13 @@ def _ecrire(d: dict):
 
 def _prime() -> str:
     return f"{PRIME_USD:.2f}".rstrip("0").rstrip(".").replace(".", ",") + " $"
+
+
+def _condition(prenom_filleul: str) -> str:
+    """La condition de la prime, dite au parrain (26/10 : 500 visites payées sur une période de paie de 15 jours)."""
+    if SEUIL_VISITES > 0:
+        return f"le jour où {prenom_filleul} atteint {SEUIL_VISITES} visites payées sur une période de paie (15 jours)"
+    return f"le jour de la première paie de {prenom_filleul}"
 
 
 def declarer(auteur, autre, maintenant=None) -> tuple:
@@ -65,7 +76,7 @@ def declarer(auteur, autre, maintenant=None) -> tuple:
     _ecrire(d)
     journal.info("Parrainage : %s parraine %s", parrain.id, filleul.id)
     return parrain, filleul, (f"✅ {_deps['prenom_de'](parrain)} parraine {_deps['prenom_de'](filleul)}. "
-                              f"{_prime()} pour {_deps['prenom_de'](parrain)} le jour de la première paie de {_deps['prenom_de'](filleul)}.")
+                              f"{_prime()} pour {_deps['prenom_de'](parrain)} {_condition(_deps['prenom_de'](filleul))}.")
 
 
 def enregistrer(parrain_uid: str, filleul_uid: str, maintenant=None) -> bool:
@@ -89,8 +100,10 @@ def texte_top(prenom: str, lien: str) -> str:
     return (f"🏆 {prenom}, tu es dans le top 5 de la semaine.\n\n"
             "Tu connais quelqu'un de sérieux qui pourrait faire pareil ? Envoie-lui ton lien perso :\n\n"
             f"{lien}\n\n"
-            f"Il remplit le formulaire, regarde la formation et passe le quiz. Le jour où il touche sa première paie, "
-            f"tu touches **{_prime()}** de plus sur la tienne.\n\n"
+            f"Il remplit le formulaire, regarde la formation et passe le quiz. "
+            + (f"Le jour où il atteint {SEUIL_VISITES} visites payées sur une période de paie, " if SEUIL_VISITES > 0
+               else "Le jour où il touche sa première paie, ")
+            + f"tu touches **{_prime()}** de plus sur la tienne.\n\n"
             "Un ami sérieux = une prime. Pas de limite.")
 
 
@@ -151,15 +164,24 @@ async def commande(message, texte: str) -> bool:
     if not ACTIF:
         await message.reply("Le parrainage n'est pas ouvert pour l'instant.")
         return True
-    autre = message.mentions[0] if getattr(message, "mentions", None) else None
+    mentions = [m for m in (getattr(message, "mentions", None) or []) if not getattr(m, "bot", False)]
+    if len(mentions) >= 2 and (_deps.get("est_staff_ou_tl") or _deps.get("est_staff")) and \
+            (_deps.get("est_staff_ou_tl") or _deps["est_staff"])(message.author):
+        # 26/10 (annonce du 23/10 : « préviens ton TL dès son arrivée pour enregistrer le parrainage ») : le TL ou le staff tape
+        # `!parrain @l'un @l'autre` ; le plus ancien des deux sur le serveur est le parrain, comme entre clippers.
+        _, _, reponse = declarer(mentions[0], mentions[1])
+        await message.reply(reponse)
+        return True
+    autre = mentions[0] if mentions else None
     _, _, reponse = declarer(message.author, autre)
     await message.reply(reponse)
     return True
 
 
-def primes_dues(paies: dict, cle_periode: str) -> list:
-    """Les primes à porter sur la liste de paie `cle_periode` (AAAA-MM-JJ) : [(uid_parrain, uid_filleul, montant)]. Un filleul
-    payé (montant > 0) dont la prime n'a jamais été due la déclenche sur cette liste ; une prime déjà portée sur cette même
+def primes_dues(paies: dict, cle_periode: str, visites: dict = None) -> list:
+    """Les primes à porter sur la liste de paie `cle_periode` (AAAA-MM-JJ) : [(uid_parrain, uid_filleul, montant)]. 26/10 : un
+    filleul à SEUIL_VISITES visites payées ou plus sur la période (`visites` = {uid: visites payées}) dont la prime n'a jamais été
+    due la déclenche sur cette liste ; sans seuil, un filleul payé (montant > 0) suffit. Une prime déjà portée sur cette même
     liste (liste retapée) y reste ; une prime portée sur une liste passée ne revient pas."""
     if not ACTIF:
         return []
@@ -170,7 +192,10 @@ def primes_dues(paies: dict, cle_periode: str) -> list:
         if periode and periode != cle_periode:
             continue
         if not periode:
-            if float(paies.get(uid_f, 0) or 0) <= 0:
+            if SEUIL_VISITES > 0:
+                if visites is None or int(visites.get(uid_f, 0) or 0) < SEUIL_VISITES:
+                    continue
+            elif float(paies.get(uid_f, 0) or 0) <= 0:
                 continue
             info["periode"] = cle_periode
             change = True

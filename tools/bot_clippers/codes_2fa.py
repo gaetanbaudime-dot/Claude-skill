@@ -2927,8 +2927,16 @@ async def _traiter_un(client, lu: dict, e: dict, connus: set, commun: str, bilan
         if not proprio.get("canal_id"):
             if alias and recent and _une_fois(f"orphelin|{alias}", minutes=60):
                 bilan["orphelins"] += 1
-                await _admin(f"🔐 Code reçu sur `{alias}`, une adresse à personne : pas donné.\n"
-                             f"-# Si c'est un clipper : `!alias ajouter {alias}` dans son salon.")
+                # 26/10 (« adresse à personne », sans dire de quel compte) : la ligne du classeur qui porte cette adresse
+                ligne = ""
+                if _deps.get("ligne_classeur_alias"):
+                    try:
+                        ligne = await _deps["ligne_classeur_alias"](alias) or ""
+                    except Exception as erreur:                         # noqa: BLE001
+                        journal.info("Codes : ligne du classeur de l'adresse orpheline : %s", _err(erreur))
+                await _admin(f"🔐 Code reçu sur `{alias}`, une adresse à personne : pas donné."
+                             + (f"\nClasseur : {ligne}." if ligne else "\nClasseur : aucune ligne avec cette adresse.")
+                             + f"\n-# Si c'est un clipper : `!alias ajouter {alias}` dans son salon.")
         # Les réponses privées déjà ouvertes sont réveillées par _traiter_lus.
         # Ne publier aucun code ou notification dans un autre salon/DM.
     elif info["decision"] == "garder":

@@ -90,3 +90,16 @@ class TraitementTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class LectureRobusteTests(unittest.TestCase):
+    """26/10 (Andrianina : « de retour sur Instagram » lu par bans_mail, rien par la preuve) : tableau « | | » devant le salut,
+    pseudo dans le sujet « …, pseudo »."""
+    def test_tableau_devant_le_salut(self):
+        m = mail(salut="| |\n| |\n" + "| |\n" * 60 + "| | Bonjour compte.vrai, | |")
+        self.assertEqual("compte.vrai", preuve_mail.lire_mail(m)[1])
+
+    def test_pseudo_dans_le_sujet(self):
+        m = mail(salut="Votre compte est de nouveau actif.")
+        m.replace_header("Subject", "Vous êtes de retour sur Instagram, compte.vrai")
+        self.assertEqual("compte.vrai", preuve_mail.lire_mail(m)[1])

@@ -2755,9 +2755,16 @@ def texte_admin(anomalies_: list) -> str:
     return texte[:LIMITE_TEXTE]
 
 
-def texte_admin_court(anomalies_: list) -> str:
+def urgents_de(anomalies_: list) -> list:
+    """Les deux anomalies mises en avant par texte_admin_court (bloquantes d'abord)."""
+    an = [a for a in anomalies_ or [] if isinstance(a, dict) and not a.get("non_mesure")]
+    return [a for a in an if a["gravite"] == "bloquant"][:2] or [a for a in an if a["gravite"] == "important"][:2]
+
+
+def texte_admin_court(anomalies_: list, memes_depuis: str = "") -> str:
     """21/10 (Gaëtan : « c'est compliqué en termes de lisibilité, simplifie, supprime ») : le message du salon admin en trois
-    lignes — combien, le plus urgent, où voir le reste. Le détail complet (texte_admin) part sur `!controle`."""
+    lignes — combien, le plus urgent, où voir le reste. Le détail complet (texte_admin) part sur `!controle`.
+    26/10 (les deux mêmes urgences reposées quatre jours de suite) : `memes_depuis` (JJ/MM) → une seule ligne, sans les redire."""
     toutes = [a for a in anomalies_ or [] if isinstance(a, dict)]
     an = [a for a in toutes if not a.get("non_mesure")]
     if not an:
@@ -2767,8 +2774,9 @@ def texte_admin_court(anomalies_: list) -> str:
     tete = "🧭 **Contrôle du classeur** : " + " · ".join(
         x for x in (f"{n['bloquant']} bloquant(s)" if n["bloquant"] else "", f"{n['important']} important(s)" if n["important"] else "",
                     f"{n['info']} info" if n["info"] else "") if x)
-    urgents = [a for a in an if a["gravite"] == "bloquant"][:2] or [a for a in an if a["gravite"] == "important"][:2]
-    lignes = [_couper_ligne(f"· {a['famille']} {a['texte']}") for a in urgents]
+    if memes_depuis:
+        return (tete + f" · mêmes urgences qu'hier, depuis le {memes_depuis} (`!controle`).")[:LIMITE_TEXTE]
+    lignes = [_couper_ligne(f"· {a['famille']} {a['texte']}") for a in urgents_de(anomalies_)]
     return "\n".join([tete, *lignes, "-# Le détail : `!controle`."])[:LIMITE_TEXTE]
 
 
@@ -2859,7 +2867,10 @@ async def passage(deps: dict = None, force: bool = False, comptes: list = None, 
     nb_bloq = sum(1 for a in reelles if a.get("gravite") == "bloquant")
     deja_jour = etat.get("poste_jour") == jour and nb_bloq <= int(etat.get("bloquants_postes") or 0)
     a_poster = force or (emp != avant and (avant is not None or any(a["gravite"] != "info" for a in an)) and not deja_jour)
-    texte = (texte_admin(an) if (detail or DETAIL_AUTO) else texte_admin_court(an)) if a_poster else None
+    cles_urgents = [str(a.get("cle")) for a in urgents_de(an)]
+    memes = bool(cles_urgents) and cles_urgents == list(etat.get("urgents_postes") or [])
+    depuis = str(etat.get("urgents_depuis") or "") if memes else ""
+    texte = (texte_admin(an) if (detail or DETAIL_AUTO) else texte_admin_court(an, memes_depuis=depuis)) if a_poster else None
     envoye = False
     if texte and _dep("canal_admin"):
         try:
@@ -2867,7 +2878,8 @@ async def passage(deps: dict = None, force: bool = False, comptes: list = None, 
             if canal is not None:
                 await canal.send(texte)
                 envoye = True
-                etat.update(poste_jour=jour, bloquants_postes=nb_bloq)
+                etat.update(poste_jour=jour, bloquants_postes=nb_bloq, urgents_postes=cles_urgents,
+                            urgents_depuis=depuis or maintenant.astimezone(timezone.utc).strftime("%d/%m"))
         except Exception as erreur:                                      # noqa: BLE001
             journal.warning("Contrôle d'attribution : salon admin : %s", erreur)
     if envoye or not a_poster:

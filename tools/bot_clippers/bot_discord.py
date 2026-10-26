@@ -591,6 +591,18 @@ def _adresses_codes_fiche(uid, avec_comptes=False):
     return valides if avec_comptes else set(valides)
 
 
+async def ligne_classeur_alias(alias) -> str:
+    """26/10 : « @handle · état · Gérant « X » · onglet » pour l'adresse e-mail d'un compte du classeur, '' sans ligne."""
+    alias = str(alias or "").strip().lower()
+    if not alias or not onboarding.actif():
+        return ""
+    for c in await onboarding.lire_comptes():
+        if str(c.get("mail") or "").strip().lower() == alias:
+            return (f"@{c.get('handle') or '?'} · {c.get('etat') or '?'} · Gérant « {c.get('gerant') or '—'} »"
+                    f" · {c.get('creatrice') or c.get('onglet') or ''}").strip(" ·")
+    return ""
+
+
 def compte_alias_a_creer(alias) -> bool:
     """18/10 (Pierre) : vrai si l'adresse a UN propriétaire et que le compte attaché à cette adresse n'est pas encore créé
     (étape du parcours non fermée). Sert à donner le code « ajout d'adresse » envoyé par Instagram à l'inscription."""
@@ -1562,7 +1574,9 @@ ACQUIESCEMENTS = {"ok", "okay", "okey", "oke", "okk", "oki", "d'accord", "daccor
                   "merci", "bcp", "beaucoup", "mrc", "parfait", "super", "top", "bien", "recu", "compris", "note", "c'est",
                   "cest", "vu", "yes", "oui", "entendu", "genial", "nickel", "cool", "thanks", "thx", "je", "vais", "faire",
                   "le", "la", "les", "ca", "tout", "de", "suite", "maintenant", "tres", "et", "a", "plus", "tard", "bonne",
-                  "journee", "nuit", "soiree", "bonjour", "bonsoir", "salut", "coucou", "hello", "clair", "ah", "okay", "okok"}
+                  "journee", "nuit", "soiree", "bonjour", "bonsoir", "salut", "coucou", "hello", "clair", "ah", "okay", "okok",
+                  # 25/10 (Mathieu : « C'est bon » → « Continue comme ça 💪 », une réponse pour rien) : « c'est bon », « ça y est », « c'est fait »
+                  "bon", "y", "est", "fait"}
 
 
 # 30/09 (salon de Daniella) : un compte désactivé ou un Drive fermé, signalés dans le salon perso, n'arrivaient à personne —
@@ -3615,6 +3629,46 @@ async def _assurer_salon_perso(guild, membre, categorie, prenom_creatrice: str, 
         return salon, False, f"salon perso ({type(erreur).__name__} : {getattr(erreur, 'text', '')[:60] or 'refus Discord'})"
 
 
+def salons_de_sortis(guild) -> list:
+    """26/10 : les salons perso sous une catégorie de créatrice qui ne sont plus ouverts à personne d'autre que le bot (le clipper
+    est sorti ou parti) : à ranger dans « 🗄️ Archives », l'historique reste."""
+    out = []
+    try:
+        for canal in guild.text_channels:
+            if canal.category is None or any(m in normaliser(canal.category.name) for m in ("archives", "general", "stats")):
+                continue
+            if canal.permissions_for(guild.default_role).view_channel:
+                continue
+            roles = [t for t, ow in canal.overwrites.items() if isinstance(t, discord.Role) and ow.view_channel and t != guild.default_role]
+            humains = [t for t, ow in canal.overwrites.items() if isinstance(t, (discord.Member, discord.User))
+                       and ow.view_channel and not getattr(t, "bot", False)]
+            if not roles and not humains and any(isinstance(t, (discord.Member, discord.User)) for t in canal.overwrites):
+                out.append(canal)
+    except Exception as erreur:                                         # noqa: BLE001
+        journal.warning("Salons de sortis : %s", erreur)
+    return out
+
+
+async def archiver_salons(guild, salons, raison: str) -> tuple:
+    """Range des salons dans « 🗄️ Archives » (créée masquée au besoin). (noms rangés, refus)."""
+    cat = discord.utils.find(lambda c: "archives" in normaliser(c.name), guild.categories)
+    proteges = {str(x) for x in (CANAL_ADMIN_ID, CANAL_MANAGER_ID, CANAL_ASSISTANT_ID, CANAL_BOT_ID) if x}
+    if cat is None:
+        cat = await guild.create_category("🗄️ Archives", overwrites={
+            guild.default_role: discord.PermissionOverwrite(view_channel=False)}, reason=raison)
+    faits, refus = [], []
+    for c in salons:
+        if str(c.id) in proteges:
+            refus.append(f"{c.name} (salon vital du bot)")
+            continue
+        try:
+            await c.edit(category=cat, sync_permissions=True, reason=raison)
+            faits.append(c.name)
+        except (discord.Forbidden, discord.HTTPException) as erreur:
+            refus.append(f"{c.name} ({erreur})")
+    return faits, refus
+
+
 def acces_tl_manquants(guild) -> list:
     """24/10 (!audit : Lucas dans l'équipe de Clarisse, son salon sans elle) : [(salon, tl, va)] des VA dont le TL (organigramme
     ou colonne « Team leader ») ne voit pas le salon perso. L'accès TL n'était posé qu'à l'arrivée."""
@@ -3626,6 +3680,8 @@ def acces_tl_manquants(guild) -> list:
             mv, mt = guild.get_member(int(va)), guild.get_member(int(tl_id))
             if mv is None or mt is None or getattr(mt, "bot", False):
                 continue
+            if equipes_tl._exclu(va) or equipes_tl._regime(va) != "clic" or str(va) in ADMIN_IDS:
+                continue                                                # 26/10 : Rianah, le fixe et le staff ne sont VA de personne
             salon = salon_perso_de(va)
             if salon is not None and not salon.permissions_for(mt).view_channel:
                 manques.append((salon, mt, mv))
@@ -6981,11 +7037,32 @@ async def sortir_membre(membre, raison: str, par=None, pool: bool = False, expul
     info.setdefault("relances", {})["stop"] = True
     ecrire_json(FICHIER_PIPELINE, pipe)
     equipes = lire_json(FICHIER_EQUIPES, {})
+    fiche_archivee = {}
     if uid in equipes:
         fiche_archivee = equipes[uid]
         process_adapters.store().put("equipe-sortie:" + uid, fiche_archivee)
         equipes.pop(uid)
         ecrire_json(FICHIER_EQUIPES, equipes)
+    # 26/10 (Lucas et Alvaro sortis mais encore au `!roster`, « !fiche lucas » introuvable) : depuis le processus du 15/10, la sortie
+    # ne tenait plus le registre des sortis ni le roster. Même tenue que « hors clipping » : une ligne dans sortis.json (la fiche
+    # reste lisible par `!fiche`), le roster par prénom sauf homonyme signé, jamais rejoué au démarrage.
+    try:
+        prenom = prenom_de(membre)
+        sortis = lire_json(FICHIER_SORTIS, [])
+        if not any(str(x.get("uid") or "") == uid for x in sortis):
+            sortis.append({"uid": uid, "nom": membre.display_name, "equipe": fiche_archivee.get("equipe", ""),
+                           "creatrice": fiche_archivee.get("creatrice", ""),
+                           "date": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+                           "par": str(getattr(par, "id", "auto")), "raison": raison,
+                           "signe_le": str(fiche_archivee.get("date", ""))[:10]})
+            ecrire_json(FICHIER_SORTIS, sortis[-500:])
+        homonyme = any(u != uid and membre_par_id(u) is not None and normaliser(prenom_de(membre_par_id(u))) == normaliser(prenom)
+                       for u in equipes)
+        if not homonyme:
+            roster.retirer(prenom)
+            roster.marquer_traite(prenom)
+    except Exception as erreur:                                         # noqa: BLE001 — la sortie est faite, la tenue ne la défait pas
+        journal.warning("Sortie de %s : registre des sortis ou roster : %s", uid, erreur)
     return {"roles": 0, "acces": 0, "comptes": 0, "liens": len(resultat.get("liens") or []),
             "refus": [], "expulse": bool(expulser and resultat.get("exclu"))}
 
@@ -7014,6 +7091,57 @@ def _entree_sortie_deposee(cle: str) -> dict:
         if p and cle in {p, normaliser(roster.resoudre_alias(p)).strip()}:
             retenue = e
     return retenue
+
+
+def uid_parti(prenom: str, creatrice=None, signe_avant=None) -> str:
+    """26/10 (Stéphane : parti du serveur avant le dépôt de sa sortie, lien GAML encore à lui, cinq essais puis abandon) : l'uid
+    d'un clipper de ce prénom qui n'est PLUS sur le serveur, connu du registre (fiche signée avant `signe_avant`, de cette
+    créatrice si donnée), des fiches d'onboarding ou d'un lien GAML noté « Clipping Prénom » encore à lui. Un seul, sinon ''."""
+    cle = normaliser(prenom or "").strip()
+    cle = normaliser(roster.resoudre_alias(cle)) or cle
+    if not cle:
+        return ""
+    presents = {str(m.id) for g in client.guilds for m in g.members}
+    candidats = set()
+    registre = lire_json(FICHIER_EQUIPES, {})
+    for u, f in registre.items():
+        if not isinstance(f, dict) or str(u) in presents:
+            continue
+        if normaliser(str(f.get("prenom") or f.get("prenom_distinct") or "")).split(" - ")[0] != cle:
+            continue
+        if creatrice and f.get("creatrice") and normaliser(str(f["creatrice"])) != normaliser(creatrice):
+            continue
+        if signe_avant and str(f.get("date") or "")[:10] >= str(signe_avant)[:10]:
+            continue
+        candidats.add(str(u))
+    for u, f in ((lire_json(FICHIER_ONBOARDING, {}) or {}).get("clippers") or {}).items():
+        if isinstance(f, dict) and str(u) not in presents and normaliser(str(f.get("prenom") or "")) == cle \
+                and (not creatrice or not f.get("creatrice") or normaliser(str(f["creatrice"])) == normaliser(creatrice)):
+            candidats.add(str(u))
+    if paie_clics.actif():
+        for lid, info in (paie_clics._lire().get("liens") or {}).items():
+            u = str(info.get("uid") or "")
+            if creatrice and info.get("creatrice") and normaliser(str(info["creatrice"])) != normaliser(creatrice):
+                continue
+            if u and u not in presents and normaliser(paie_clics._prenom_note(info.get("note"))) == cle:
+                candidats.add(u)
+    return next(iter(candidats)) if len(candidats) == 1 else ""
+
+
+async def sortir_parti(prenom: str, creatrice=None, signe_avant=None, raison: str = "") -> list:
+    """26/10 : la sortie déposée d'un clipper déjà parti du serveur : ses liens GAML libérés (visites dues gardées), sa fiche au
+    registre des sortis, le roster, ses comptes au vivier (appliquer_sortis). [] si personne ne correspond, sinon les lignes."""
+    uid = uid_parti(prenom, creatrice, signe_avant)
+    if not uid:
+        return []
+    liberes = 0
+    if paie_clics.actif():
+        d = paie_clics._lire()
+        liberes = len(paie_clics.liberer_sortant(d, uid, prenom))
+        if liberes:
+            paie_clics._ecrire(d)
+    lignes = await roster.appliquer_sortis(client, seulement=prenom, uid=uid, raison=raison or "sortie déposée, déjà parti")
+    return [f"🚪 {prenom} : déjà parti(e) du serveur, sortie faite à distance · {liberes} lien(s) GAML libéré(s)"] + list(lignes or [])
 
 
 def chercher_sortant(prenom: str, creatrice=None, signe_avant=None):
@@ -7426,6 +7554,9 @@ async def commande_admin(message, texte: str) -> bool:
             return True
         carte = ["🗺️ **Carte du serveur — qui voit quoi**"]
         problemes = []
+        # 26/10 (« !acces appliquer » ouvre #reporting à tous quand le serveur est fermé, puis « !audit » le signalait comme un
+        # écart) : la même doctrine que `!acces` — serveur fermé, tout le monde est signé, le reporting est visible par tous.
+        noms_reserves = tuple(n for n in NOMS_RESERVES if n != "reporting") if serveur_ferme() else NOMS_RESERVES
         for categorie, canaux in g.by_category():
             nom_cat = categorie.name if categorie else "(sans catégorie)"
             carte.append(f"\n__{nom_cat}__")
@@ -7453,7 +7584,7 @@ async def commande_admin(message, texte: str) -> bool:
                 if any(m in n for m in NOMS_PUBLICS) and not public and not cat_reservee:
                     problemes.append(f"⚠️ **#{canal.name}** devrait être PUBLIC (étage vitrine) mais est caché — "
                                      f"la vitrine ne vend rien si personne ne la voit.")
-                if (any(m in n for m in NOMS_RESERVES) or cat_reservee) and public:
+                if (any(m in n for m in noms_reserves) or cat_reservee) and public:
                     problemes.append(f"❌ **#{canal.name}** est visible par TOUT LE MONDE alors qu'il devrait être "
                                      f"réservé (retire « Voir le salon » à @everyone, garde-le pour les bons rôles).")
         for nom_rang in NOMS_RANGS:
@@ -7466,6 +7597,10 @@ async def commande_admin(message, texte: str) -> bool:
         if vides:
             note = " (v2 éteinte : comptage possiblement incomplet)" if not ACTIVER_V2 else ""
             problemes.append(f"ℹ️ Rôles sans membre{note} : {', '.join(vides[:10])}.")
+        orphelins = salons_de_sortis(g)
+        if orphelins:
+            problemes.append("🗄️ **Salons de sortis encore sous leur créatrice** : " + ", ".join(f"#{c.name}" for c in orphelins[:12])
+                             + "\n-# `!archiver-sortis` les range dans Archives (historique gardé).")
         manques_tl = acces_tl_manquants(g)
         if manques_tl:
             problemes.append("🔑 **TL sans accès au salon de son VA** : "
@@ -8460,7 +8595,12 @@ async def commande_admin(message, texte: str) -> bool:
             faits.append(f"{orphelins} lien(s) déjà effacé(s) dans GAML archivé(s) ici, visites dues gardées")
         if comptes:
             faits.append(f"{comptes} compte(s) passé(s) « à mettre Metricool »")
-        await message.reply(f"✅ {membre.display_name} sorti : " + ", ".join(faits) + ". Son salon est gardé (historique).")
+        salon_s = trouver_salon_perso(g, membre)                          # 26/10 : le salon part aux Archives, historique gardé
+        ranges = []
+        if salon_s is not None and not (salon_s.category and "archives" in normaliser(salon_s.category.name)):
+            ranges, _ = await archiver_salons(g, [salon_s], f"sortie de {membre.display_name}")
+        await message.reply(f"✅ {membre.display_name} sorti : " + ", ".join(faits) + ". Son salon est "
+                            + ("rangé dans 🗄️ Archives (historique gardé)." if ranges else "gardé (historique)."))
         return True
 
     # ---- !monteur @x [rôle] : un clipper qui sort du clipping sans être viré (09/10, Julien devient monteur vidéo) ----
@@ -8676,6 +8816,20 @@ async def commande_admin(message, texte: str) -> bool:
 
     # ---- !archiver #salon… : range des salons dans la catégorie « Archives » (masquée), réversible ----
     # Simplification du 14/09 (« même moi je comprends rien ») : on ne supprime rien, on range.
+    if texte.startswith("!archiver-sortis"):
+        # 26/10 (#lucas, #alvaro encore sous leur créatrice après la sortie, ouverts au seul bot) : tous les salons de sortis d'un coup
+        g = message.guild
+        if g is None:
+            await message.reply("À lancer depuis un salon du serveur.")
+            return True
+        orphelins = salons_de_sortis(g)
+        if not orphelins:
+            await message.reply("✅ Aucun salon de sorti à ranger.")
+            return True
+        faits, refus = await archiver_salons(g, orphelins, f"!archiver-sortis par {message.author}")
+        await message.reply(("🗄️ Rangés dans Archives : " + ", ".join(faits) if faits else "Rien de rangé.")
+                            + (f"\n⚠️ Refusés : {' · '.join(refus)}" if refus else ""))
+        return True
     if texte.startswith("!archiver"):
         g = message.guild
         if g is None:
@@ -8690,20 +8844,7 @@ async def commande_admin(message, texte: str) -> bool:
                                 "hors de la catégorie).\n"
                                 + (f"Déjà rangés : {', '.join(ranges)}" if ranges else "Rien de rangé pour l'instant."))
             return True
-        proteges = {str(x) for x in (CANAL_ADMIN_ID, CANAL_MANAGER_ID, CANAL_ASSISTANT_ID, CANAL_BOT_ID) if x}
-        if cat is None:
-            cat = await g.create_category("🗄️ Archives", overwrites={
-                g.default_role: discord.PermissionOverwrite(view_channel=False)}, reason="!archiver")
-        faits, refus = [], []
-        for c in salons:
-            if str(c.id) in proteges:
-                refus.append(f"{c.name} (salon vital du bot)")
-                continue
-            try:
-                await c.edit(category=cat, sync_permissions=True, reason=f"!archiver par {message.author}")
-                faits.append(c.name)
-            except (discord.Forbidden, discord.HTTPException) as erreur:
-                refus.append(f"{c.name} ({erreur})")
+        faits, refus = await archiver_salons(g, salons, f"!archiver par {message.author}")
         await message.reply(("🗄️ Rangés dans Archives : " + ", ".join(faits) if faits else "Rien de rangé.")
                             + (f"\n⚠️ Refusés : {' · '.join(refus)}" if refus else ""))
         return True
@@ -9498,6 +9639,7 @@ def brancher_codes():
                           "destinataire_alias": destinataire_alias_code,
                           "compte_alias_uid": lambda uid, alias: (_adresses_codes_fiche(uid, avec_comptes=True) or {}).get(alias, ""),
                           "compte_a_creer": compte_alias_a_creer,
+                          "ligne_classeur_alias": ligne_classeur_alias,
                           "audit_liaisons": audit_liaisons_codes})
     client.add_dynamic_items(codes_2fa.BoutonMonCode, codes_2fa.BoutonUsageCode)
 
@@ -10018,6 +10160,7 @@ async def on_ready():
                            # chercher_membre : ils peuvent rendre un candidat ou un nouveau signé du même prénom. Les anciennes
                            # dépendances « chercher_membre » et « sortir » ne servent plus au roster : retirées.
                            "sortir_depose": sortir_depose, "chercher_prenom": chercher_sortant,
+                           "sortir_parti": sortir_parti,                                                  # 26/10 : déjà parti
                            "roles_creatrices": roles_creatrices,                                          # rôles retirés exactement
                            "ouvrir_salon": ouvrir_salon_ancien,                                           # 06/10 : salons_a_ouvrir.json
                            "ouvrir_salon_simple": ouvrir_salon_simple,                                    # 07/10 : entrée « simple »
@@ -10131,6 +10274,8 @@ async def on_ready():
             "apres_classement": lambda uids: parrainage.inviter_top(uids, web_candidature.lien_parrainage, salon_perso_de)}))
         parrainage.configurer({"lire_json": lire_json, "ecrire_json": ecrire_json, "FICHIER": DONNEES / "parrainage.json",
                                "prenom_de": prenom_de, "est_staff": lambda m: str(m.id) in ADMIN_IDS or est_manager(m),
+                               "est_staff_ou_tl": lambda m: str(m.id) in ADMIN_IDS or est_manager(m) or any(
+                                   normaliser(getattr(r, "name", "")) == normaliser(equipes_tl.ROLE_TL_NOM) for r in getattr(m, "roles", [])),
                                "membre_par_id": membre_par_id, "top_maintenant": parrainage_top_maintenant})
 
 
@@ -11064,7 +11209,7 @@ COMMANDES_ADMIN = ("!aide", "!roster", "!pipeline", "!funnel", "!tableau", "!fic
                    "!tl", "!creatrice", "!onboarding", "!pseudo", "!dashboard", "!code", "!reprise", "!remettre-compte1",
                    "!sortie", "!sortie-auto", "!organisation", "!diagnostic-dossier", "!relances", "!annonce", "!rapport", "!etape",
                    "!note", "!paie-clics", "!clics", "!comptes-libres", "!monteur", "!audit-discussions", "!bans", "!appel",
-                   "!salon-clipping", "!acces-tl")
+                   "!salon-clipping", "!acces-tl", "!archiver-sortis")
 
 
 def suggestion_admin(mot: str) -> str:

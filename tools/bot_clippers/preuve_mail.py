@@ -18,11 +18,13 @@ import asyncio
 import email.utils
 import logging
 import os
+import re
 from datetime import datetime, timezone
 
 import codes_2fa
 
 journal = logging.getLogger("bot.preuve_mail")
+_SUJET_COMPTE = re.compile(r",\s*@?([A-Za-z0-9][A-Za-z0-9._]{1,40})\s*$")
 ACTIF = os.environ.get("PREUVE_MAIL", "1").strip() != "0"
 _deps = {}
 _EN_COURS = set()
@@ -56,10 +58,17 @@ def lire_mail(msg):
         alias = str(codes_2fa.alias_du_mail(msg) or "").strip().lower()
         if "@" not in alias:
             return None
+        # 26/10 (Andrianina : « de retour sur Instagram » lu par bans_mail, rien ici) : le texte des mails Meta commence par des
+        # lignes de tableau « | | » ; on les retire et on lit plus loin, et le sujet « …, pseudo » compte aussi.
         corps = codes_2fa.INVISIBLES.sub("", str(codes_2fa.texte_du_mail(msg) or ""))
-        m = codes_2fa.MOTIF_COMPTE.search(corps[:400])
+        corps = re.sub(r"[|\s]+", " ", corps)
+        sujet = codes_2fa.INVISIBLES.sub("", str(codes_2fa._entete(msg, "Subject") or ""))
+        m = codes_2fa.MOTIF_COMPTE.search(corps[:1500]) or _SUJET_COMPTE.search(sujet)
         date = _date(msg)
-        if not m or date is None:
+        if date is None:
+            return None
+        if not m:
+            journal.info("Preuve par mail : mail Instagram sans pseudo salué (%s)", codes_2fa.forme_adresse(alias))
             return None
         pseudo = m.group(1).rstrip(".").lower()
         return (alias, pseudo, date) if len(pseudo) >= 3 else None
@@ -113,6 +122,9 @@ async def traiter(alias: str, pseudo: str, date) -> str:
     try:
         info = _deps["proprietaire"](alias)
         if not a_fermer(info, date):
+            journal.info("Preuve par mail : %s salue @%s, rien à fermer (%s)", codes_2fa.forme_adresse(alias), pseudo,
+                         "adresse sans compte à l'étape en cours" if not info else
+                         "déjà créé" if info.get("cree") else "compte repris" if info.get("recycle") else "mail plus ancien que l'étape")
             return ""
         uid, n, prevu = str(info["uid"]), int(info["n"]), str(info.get("handle") or "").lower().lstrip("@")
         _noter(cle)

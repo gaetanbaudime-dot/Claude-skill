@@ -239,7 +239,16 @@ def ligne_push(t: dict, c: dict | None, ecrit: bool) -> str:
     pseudo = f"@{t['pseudo']}" if t.get("pseudo") else (t.get("alias") or "compte inconnu")
     if t.get("type") == "retour":
         qui = "" if c is None else f" · {str(c.get('gerant') or '').split()[0] if str(c.get('gerant') or '').strip() else 'sans gérant'} · {c.get('onglet') or '?'}" + (f" · mail n° {c['numero']}" if c.get("numero") else "")
-        etat = "" if c is None else f" · ligne {c.get('etat') or '?'} dans le classeur, à toi de la remettre GOOD si tu le reprends"
+        etat_c = str((c or {}).get("etat") or "").strip()
+        if c is None:
+            etat = ""
+        elif onboarding._norm(etat_c) in onboarding.A_CREER:
+            # 26/10 (Andrianina, Mouhsinou : « ligne à créer… à toi de la remettre GOOD ») : le compte existe puisqu'Instagram
+            # lui écrit ; le scan la passe GOOD tout seul, il n'y a rien à remettre à la main sauf un @ différent
+            etat = (" · ligne encore « à créer » au classeur : le compte existe, le scan la passe GOOD ; "
+                    "si son @ réel diffère, `!pseudo @clipper N @réel`")
+        else:
+            etat = f" · ligne {etat_c or '?'} dans le classeur, à toi de la remettre GOOD si tu le reprends"
         return f"✅ {pseudo} — de retour sur Instagram, appel accepté ({_quand(t['date'])}){qui}{etat}"
     if c is None:
         return f"🚫 {pseudo} — suspendu ({_quand(t['date'])}), hors classeur (alias inconnu)"

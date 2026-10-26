@@ -522,6 +522,19 @@ async def _expulser_depose(e: dict, prenom: str, raison: str, client=None, premi
                               "comptes créés en « à mettre Metricool » au classeur (s'ils ne sont pas déjà redonnés), et ses liens "
                               "libérés au repreneur Metricool dans GAML.")
             return lignes, True
+        if _deps.get("sortir_parti"):
+            # 26/10 (Stéphane : parti avant le dépôt, lien encore à lui, cinq essais pour rien) : un parti connu des registres
+            # ou d'un lien « Clipping Prénom » est sorti à distance au premier passage
+            try:
+                lignes = await _deps["sortir_parti"](prenom, creatrice, limite, raison)
+            except Exception as erreur:                                 # noqa: BLE001
+                lignes = []
+                journal.warning("Sortie déposée de %s (parti) : %s", prenom, erreur)
+            if lignes:
+                if metricool:
+                    lignes.append(f"⚠️ {prenom} : la sortie Metricool reste à faire à la main (comptes créés « à mettre Metricool », "
+                                  "liens au repreneur dans GAML).")
+                return lignes, True
         return [f"⚠️ {prenom} introuvable ou ambigu : pas expulsé(e), rôles gardés"], False
     try:
         res = await sortir_d(membre_e, raison, metricool=metricool)
@@ -588,7 +601,8 @@ async def sorties_deposees(client) -> list:
                 # revue L9 : `!sortie @Prénom` ne sert qu'à un membre encore sur le serveur (on ne mentionne pas un parti)
                 lignes = lignes + [f"❌ {prenom} : sortie abandonnée après {essais} démarrages.",
                                    f"→ Encore sur le serveur : `!sortie @{prenom} <raison>`, puis l'expulsion.",
-                                   "→ Déjà parti(e) : sa sortie a été faite à son départ (comptes au vivier, liens libérés)"
+                                   "→ Déjà parti(e) et inconnu de mes registres : vérifie `!liens` (un lien encore à son nom → "
+                                   "`!lien <id> retirer`) et le classeur"
                                    + (". Pour Metricool, à la main : ses comptes créés en « à mettre Metricool » au classeur, ses liens "
                                       "au repreneur Metricool dans GAML." if e.get("metricool") else ", rien à refaire.")]
                 faits[ident] = {"date": maintenant, "bilan": lignes, "fait": True, "abandon": True, "essais": essais}

@@ -273,13 +273,17 @@ async def executer(client, jours: int = 1) -> str:
     titre = "Rétrospective de la semaine" if jours > 1 else "Rétrospective"
     digest = (f"🧠 **{titre}** : {lus} salon(s) lu(s) · note moyenne {round(sum(notes) / len(notes), 1) if notes else '—'}/10 · "
               f"{len(bilan['lecons'])} leçon(s) {mot_lecons} · {len(bilan['consignes'])} consigne(s)")
+    # 26/10 (Gaëtan : « simplifie » ; huit leçons et quatre consignes coupées à la fin du message, plusieurs contraires aux règles
+    # gelées) : trois leçons, deux consignes, rien de plus ; le reste se lit avec `!lacunes`.
     if bilan["lecons"]:
-        digest += "\n" + "\n".join(f"· **{q[:90]}** → {r[:160]}" for q, r in bilan["lecons"][:8])
+        digest += "\n" + "\n".join(f"· **{q[:90]}** → {r[:160]}" for q, r in bilan["lecons"][:3])
+        if len(bilan["lecons"]) > 3:
+            digest += f"\n-# … et {len(bilan['lecons']) - 3} autre(s). Une leçon ne vaut rien tant qu'elle n'est pas apprise (`!apprendre`)."
     if bilan["consignes"]:
-        digest += ("\n✏️ Propositions de consignes (NON appliquées — `!retro consigne …` pour en garder une) : "
-                   + " · ".join(c[:120] for c in bilan["consignes"][:4]))
+        digest += ("\n✏️ Consignes proposées, NON appliquées (`!retro consigne …` pour en garder une) : "
+                   + " · ".join(c[:120] for c in bilan["consignes"][:2]))
     if defauts:
-        digest += "\n⚠️ Vu : " + " · ".join(dict.fromkeys(defauts))[:600]
+        digest += "\n⚠️ Vu : " + " · ".join(dict.fromkeys(defauts))[:300]
     digest += ("\n-# `!apprendre <texte>` pour garder une leçon (elle prime sur tout), `!faq` pour relire l'ancienne FAQ, `!retro` pour relancer."
                if not ECRIT else "\n-# `!faq` pour relire, `!faq retirer N` pour annuler une leçon, `!retro` pour relancer.")
     journal.info("Rétrospective : %d salons, %d leçons, %d consignes", lus, len(bilan["lecons"]), len(bilan["consignes"]))
