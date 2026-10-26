@@ -39,6 +39,19 @@ class RenommageTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(1,sum(self.store.counts('42').values()))
         self.assertIn('nouveau',self.parcours['42']['reels'])
 
+    async def test_ligne_deplacee_sans_ecriture_repart_sur_la_ligne_actuelle(self):
+        """26/10 : 1re tentative interrompue avant toute écriture, puis l'onglet est réorganisé : le renommage repart sur la
+        nouvelle ligne de l'ancien @ au lieu de répondre « ligne déplacée » pour toujours."""
+        with patch.object(o.google_api,'sheets_ecrire',AsyncMock(side_effect=TimeoutError('rien écrit'))):
+            with self.assertRaises(TimeoutError):await o.renommer_compte('42','ancien','nouveau')
+        self.rows[0]['ligne']=20
+        async def sheet(*args):self.rows[0]['handle']='nouveau'
+        with patch.object(o.google_api,'sheets_ecrire',side_effect=sheet) as write:
+            self.assertEqual('',await o.renommer_compte('42','ancien','nouveau'))
+            self.assertEqual(1,write.call_count)
+        self.assertEqual(['nouveau'],self.data['clippers']['42']['comptes'])
+        self.assertEqual('20',str(self.store.get('renommage:42:ancien:nouveau')['ligne']))
+
     async def test_fiche_ancienne_ne_renomme_pas_compte_autrui(self):
         with patch.object(o,'_proprietaires',return_value={'ancien':{'43'}}),patch.object(o.google_api,'sheets_ecrire',AsyncMock()) as write:
             raison=await o.renommer_compte('42','ancien','nouveau')
