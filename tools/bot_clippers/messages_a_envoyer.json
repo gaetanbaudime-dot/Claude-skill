@@ -1,50 +1,55 @@
 [
-  {
-    "id": "daniella-recup-2709",
-    "pour": "Daniella",
-    "bouton_whatsapp": true,
-    "texte": "Daniella, pour ton compte 2, celui qui dit « le propriétaire a modifié son mot de passe ». Voilà quoi faire, dans l'ordre :\n\n1. Ouvre Instagram. Appuie sur « Mot de passe oublié ».\n2. Choisis l'e-mail du compte 2. C'est celui de ton message de comptes, ici dans ce salon.\n3. Le code arrive ici tout seul, en moins d'une minute. S'il n'arrive pas, écris `!recup` ici.\n4. Écris ce code dans Instagram.\n5. Remets le mot de passe du compte 2, celui de ton message de comptes.\n6. Instagram refuse ce mot de passe ? Choisis-en un nouveau. Écris-le ici, pour Gaëtan.\n\nEnsuite tu es connectée. Le compte 2 commence son warm-up de 24 h : des Reels, des likes, des abonnements, pas de publication.\n\nInstagram te demande ton numéro ? Mets le tien, comme pour le compte 1.\nUn écran bizarre ? Fais une capture, et écris à Gaëtan avec le bouton en dessous."
-  },
-  {
-    "id": "vital-accueil-2809",
-    "pour": "Vital",
-    "effacer_bot": true,
-    "accueil_liaison": true,
-    "bouton_whatsapp": true
-  },
-  {
-    "id": "accueil-arrivants-2809",
-    "tous_arrivants": true,
-    "effacer_bot": true,
-    "accueil_liaison": true,
-    "bouton_whatsapp": true
-  },
-  {
-    "id": "accueil-quiz-site-2809",
-    "tous_arrivants": true,
-    "effacer_bot": true,
-    "accueil_liaison": true,
-    "bouton_whatsapp": true
-  },
-  {
-    "id": "annonce-regles-2310",
-    "salon": "#annonces",
-    "texte": "📢 **Ce qui change pour les nouveaux clippers**\n\nTon app arrive à partir du jour 3.\n\nElle arrive quand ton lien est prêt.\n\nLe duplicateur de Reels est dedans. Mets-y tes rushes bruts. Jamais une vidéo déjà postée.\n\nTon compte 1 arrive tout de suite, dans ton salon perso.\n\nCompte 1 pas créé 48 h après sa remise ? Le bot t'avertit.\n\nToujours pas créé 48 h après l'avertissement ? Ton manager valide ta sortie du serveur.\n\nUn blocage ? Dis-le tout de suite dans ton salon perso.\n\nPhotos de profil, vidéos et lien Drive : dans le salon ℹ️ de ta créatrice.\n\nLe top 50 des créatrices françaises : dans #ressources."
-  },
-  {
-    "id": "lien-esperance-2310",
-    "pour": "Esperance",
-    "lien_nouveau": true,
-    "texte": "Salut Esperance !\n\nVoici ton lien : {lien}\n\nMets-le dans la bio de ton compte privé.\n\nTa bio a encore chloe-callista.fr/13 ? Remplace-le par celui-ci.\n\nUn souci ? Écris-le ici, dans ton salon."
-  },
-  {
-    "id": "annonce-arrivee-2310",
-    "salon": "#annonces",
-    "texte": "📢 **Les nouveaux arrivants : un seul message**\n\nLe clipper reçoit un seul message dans son salon perso.\n\nIl dit bienvenue et donne la créatrice avec ses vidéos.\n\nPuis il donne le compte 1.\n\nLes comptes se suivent simplement.\n\nCompte 2 : 48 h après la création du compte 1.\n\nCompte 3 : 48 h après la création du compte 2.\n\nAucun Reel à compter pour les ouvrir.\n\nLe lien arrive avec le compte 3, le privé. Il va dans la bio.\n\nLes autres comptes y mènent en story à la une.\n\n👥 **Pour les TL**\n\nLe bot vous mentionne dans le salon du nouveau.\n\nIl affiche son numéro WhatsApp.\n\nCréez le groupe avec lui et Gaëtan.\n\nCeux déjà dans l'agence gardent leur règle actuelle."
-  },
-  {
-    "id": "annonce-48h-tous-2410",
-    "salon": "#annonces",
-    "texte": "📢 **Comptes 2 et 3 : une seule règle pour tous**\n\nDepuis aujourd'hui, la règle vaut pour tout le monde.\n\nArrivé avant ou après le 23 octobre, c'est pareil.\n\nCompte 2 : 48 h après la création du compte 1.\n\nCompte 3 : 48 h après la création du compte 2.\n\nAucun Reel à compter pour les ouvrir.\n\nTon prochain compte arrive tout seul dans ton salon perso.\n\nL'objectif reste 4 Reels par compte.\n\n2 Reels par jour sur chaque compte de croissance.\n\nLe bot te dit où tu en es."
-  }
+ {
+  "id": "daniella-recup-2709",
+  "pour": "Daniella",
+  "bouton_whatsapp": true,
+  "texte": "Daniella, pour ton compte 2, celui qui dit « le propriétaire a modifié son mot de passe ». Voilà quoi faire, dans l'ordre :\n\n1. Ouvre Instagram. Appuie sur « Mot de passe oublié ».\n2. Choisis l'e-mail du compte 2. C'est celui de ton message de comptes, ici dans ce salon.\n3. Le code arrive ici tout seul, en moins d'une minute. S'il n'arrive pas, écris `!recup` ici.\n4. Écris ce code dans Instagram.\n5. Remets le mot de passe du compte 2, celui de ton message de comptes.\n6. Instagram refuse ce mot de passe ? Choisis-en un nouveau. Écris-le ici, pour Gaëtan.\n\nEnsuite tu es connectée. Le compte 2 commence son warm-up de 24 h : des Reels, des likes, des abonnements, pas de publication.\n\nInstagram te demande ton numéro ? Mets le tien, comme pour le compte 1.\nUn écran bizarre ? Fais une capture, et écris à Gaëtan avec le bouton en dessous."
+ },
+ {
+  "id": "vital-accueil-2809",
+  "pour": "Vital",
+  "effacer_bot": true,
+  "accueil_liaison": true,
+  "bouton_whatsapp": true
+ },
+ {
+  "id": "accueil-arrivants-2809",
+  "tous_arrivants": true,
+  "effacer_bot": true,
+  "accueil_liaison": true,
+  "bouton_whatsapp": true
+ },
+ {
+  "id": "accueil-quiz-site-2809",
+  "tous_arrivants": true,
+  "effacer_bot": true,
+  "accueil_liaison": true,
+  "bouton_whatsapp": true
+ },
+ {
+  "id": "annonce-regles-2310",
+  "salon": "#annonces",
+  "texte": "📢 **Ce qui change pour les nouveaux clippers**\n\nTon app arrive à partir du jour 3.\n\nElle arrive quand ton lien est prêt.\n\nLe duplicateur de Reels est dedans. Mets-y tes rushes bruts. Jamais une vidéo déjà postée.\n\nTon compte 1 arrive tout de suite, dans ton salon perso.\n\nCompte 1 pas créé 48 h après sa remise ? Le bot t'avertit.\n\nToujours pas créé 48 h après l'avertissement ? Ton manager valide ta sortie du serveur.\n\nUn blocage ? Dis-le tout de suite dans ton salon perso.\n\nPhotos de profil, vidéos et lien Drive : dans le salon ℹ️ de ta créatrice.\n\nLe top 50 des créatrices françaises : dans #ressources."
+ },
+ {
+  "id": "lien-esperance-2310",
+  "pour": "Esperance",
+  "lien_nouveau": true,
+  "texte": "Salut Esperance !\n\nVoici ton lien : {lien}\n\nMets-le dans la bio de ton compte privé.\n\nTa bio a encore chloe-callista.fr/13 ? Remplace-le par celui-ci.\n\nUn souci ? Écris-le ici, dans ton salon."
+ },
+ {
+  "id": "annonce-arrivee-2310",
+  "salon": "#annonces",
+  "texte": "📢 **Les nouveaux arrivants : un seul message**\n\nLe clipper reçoit un seul message dans son salon perso.\n\nIl dit bienvenue et donne la créatrice avec ses vidéos.\n\nPuis il donne le compte 1.\n\nLes comptes se suivent simplement.\n\nCompte 2 : 48 h après la création du compte 1.\n\nCompte 3 : 48 h après la création du compte 2.\n\nAucun Reel à compter pour les ouvrir.\n\nLe lien arrive avec le compte 3, le privé. Il va dans la bio.\n\nLes autres comptes y mènent en story à la une.\n\n👥 **Pour les TL**\n\nLe bot vous mentionne dans le salon du nouveau.\n\nIl affiche son numéro WhatsApp.\n\nCréez le groupe avec lui et Gaëtan.\n\nCeux déjà dans l'agence gardent leur règle actuelle."
+ },
+ {
+  "id": "annonce-48h-tous-2410",
+  "salon": "#annonces",
+  "texte": "📢 **Comptes 2 et 3 : une seule règle pour tous**\n\nDepuis aujourd'hui, la règle vaut pour tout le monde.\n\nArrivé avant ou après le 23 octobre, c'est pareil.\n\nCompte 2 : 48 h après la création du compte 1.\n\nCompte 3 : 48 h après la création du compte 2.\n\nAucun Reel à compter pour les ouvrir.\n\nTon prochain compte arrive tout seul dans ton salon perso.\n\nL'objectif reste 4 Reels par compte.\n\n2 Reels par jour sur chaque compte de croissance.\n\nLe bot te dit où tu en es."
+ },
+ {
+  "id": "annonce-lien-6reels-2610",
+  "salon": "#annonces",
+  "texte": "📢 **Ton lien arrive avec tes Reels, plus avec ton compte 3**\n\nRien ne change pour tes comptes.\n\nCompte 2 : 48 h après la création du compte 1.\n\nCompte 3 : 48 h après la création du compte 2.\n\nCe qui change : ton lien.\n\nIl arrive quand tes comptes 1 et 2 ont 6 Reels publiés à eux deux.\n\nLe message de ton compte 3 te dit combien il t'en manque.\n\nQuand c'est bon, le bot te donne ton lien tout seul, dans ton salon perso.\n\nTu as déjà ton lien ? Rien ne change pour toi.\n\n2 Reels par jour sur chaque compte de croissance. C'est tout."
+ }
 ]
