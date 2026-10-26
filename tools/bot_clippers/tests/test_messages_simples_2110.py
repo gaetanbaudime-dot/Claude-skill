@@ -77,6 +77,14 @@ class ControleTests(unittest.TestCase):
     def test_rien(self):
         self.assertEqual(controle.texte_admin_court([]), "🧭 **Contrôle du classeur** : rien à corriger.")
 
+    def test_memes_urgences_une_ligne(self):
+        # 26/10 : les deux mêmes urgences reposées quatre jours de suite → une ligne, sans les redire
+        an = [{"famille": "C4", "texte": "x", "gravite": "bloquant", "cle": "a"}, {"famille": "C4", "texte": "y", "gravite": "bloquant", "cle": "b"}]
+        t = controle.texte_admin_court(an, memes_depuis="23/10")
+        self.assertEqual(t.count("\n"), 0)
+        self.assertIn("mêmes urgences qu'hier, depuis le 23/10", t)
+        self.assertEqual(["a", "b"], [a["cle"] for a in controle.urgents_de(an)])
+
 
 class SupportTests(unittest.TestCase):
     def test_support_lisible(self):

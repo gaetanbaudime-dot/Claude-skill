@@ -689,6 +689,18 @@ def organigramme_va(texte: str = None, fiches=None) -> dict:
     """{uid VA : uid TL} de l'organigramme (TL_ORGANIGRAMME) ; les prénoms non résolus vont dans _ORGA["inconnus"]."""
     texte = ORGANIGRAMME if texte is None else texte
     va, inconnus = {}, []
+    # 26/10 (« prénoms pas encore au registre : Alvaro » juste après sa sortie) : un prénom sorti de l'équipe n'est ni inconnu ni
+    # en double, il n'a plus sa place dans l'organigramme : il est passé sans bruit (_ORGA["sortis"] pour `!tl liste`).
+    sortis_noms = set()
+    try:
+        fiches_r = fiches if fiches is not None else _fiches()
+        uids_r = {str(u) for u in (fiches_r or {})}
+        for x in _sortis():
+            if isinstance(x, dict) and str(x.get("uid") or "") and str(x["uid"]) not in uids_r:
+                sortis_noms.add(_n(str(x.get("nom") or "").split(" - ")[0]))
+    except Exception:                                                   # noqa: BLE001 — sans registre des sortis : comme avant
+        sortis_noms = set()
+    _ORGA["sortis"] = []
     for bloc in str(texte or "").split(";"):
         if ":" not in bloc:
             continue
@@ -701,7 +713,9 @@ def organigramme_va(texte: str = None, fiches=None) -> dict:
         for v_nom in vas.split(","):
             v = uid_par_nom(v_nom.strip(), fiches) if v_nom.strip() else ""
             if not v:
-                if v_nom.strip():
+                if v_nom.strip() and _n(v_nom.strip()) in sortis_noms:
+                    _ORGA["sortis"].append(v_nom.strip().capitalize())
+                elif v_nom.strip():
                     inconnus.append(v_nom.strip().capitalize())
                 continue
             if v != tl:
@@ -1616,6 +1630,8 @@ def texte_liste(calcul: dict, en_cours: bool) -> list:
         ligne = f"Organigramme et colonne « Team leader » : {len(col)} clipper(s) rattaché(s) à {len(set(col.values()))} TL."
         if _ORGA["inconnus"]:
             ligne += " ⚠️ Organigramme, prénoms pas encore au registre (ou en double) : " + ", ".join(_ORGA["inconnus"][:8]) + "."
+        if _ORGA.get("sortis"):
+            ligne += " Sortis, à retirer de TL_ORGANIGRAMME : " + ", ".join(_ORGA["sortis"][:8]) + "."
         if _COLONNE["inconnus"]:
             ligne += " ⚠️ Prénoms non reconnus (aucun membre, ou deux du même prénom) : " + ", ".join(_COLONNE["inconnus"][:8]) + "."
         if _COLONNE["conflits"]:

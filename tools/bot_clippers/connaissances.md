@@ -1,4 +1,4 @@
-# Base de connaissances — Kit Clipper G&M (v23, 24 octobre 2026 : alignée sur les règles gelées du 23/10 au 17/11/2026, journal du 24/10. Une seule règle des comptes pour tout le monde, arrivé avant ou après le 23 octobre. Un seul message d'arrivée avec le compte 1, le compte 2 arrive 48 h après la création du compte 1, le compte 3 arrive 48 h après la création du compte 2, aucun Reel à compter. 4 Reels par compte restent l'objectif. App et duplicateur de Reels au jour 3. Le TL crée ton groupe WhatsApp avec ton numéro, Gaëtan si ta créatrice n'a pas de TL. Vidéos, Drive et photos de profil dans le salon ℹ️ de ta créatrice, top 50 et captions dans #ressources. Lien en story dès le compte 1 pour une équipe d'essai seulement. Version d'avant : v22, 23 octobre 2026)
+# Base de connaissances — Kit Clipper G&M (v24, 26 octobre 2026 : primes volume et parrainage telles qu'annoncées dans #rémunération les 21 et 23 octobre ; alignée sur les règles gelées du 23/10 au 17/11/2026, journal du 24/10. Une seule règle des comptes pour tout le monde, arrivé avant ou après le 23 octobre. Un seul message d'arrivée avec le compte 1, le compte 2 arrive 48 h après la création du compte 1, le compte 3 arrive 48 h après la création du compte 2, aucun Reel à compter. 4 Reels par compte restent l'objectif. App et duplicateur de Reels au jour 3. Le TL crée ton groupe WhatsApp avec ton numéro, Gaëtan si ta créatrice n'a pas de TL. Vidéos, Drive et photos de profil dans le salon ℹ️ de ta créatrice, top 50 et captions dans #ressources. Lien en story dès le compte 1 pour une équipe d'essai seulement. Version d'avant : v22, 23 octobre 2026)
 
 > Ce fichier est LA seule source du bot. Il reprend le Kit Clipper, le parcours candidat et la méthode validée le 07/09/2026 (structure 2 + 1, cadence 2 par jour), mise à jour le 25/09/2026 : paie au clic, comptes créés par le clipper dans son salon perso avec le bot, plus de contrat ni de distinction de pays. Ce qui n'est pas ici n'existe pas.
 > Pour le mettre à jour : modifier ce fichier, le bot le recharge tout seul.
@@ -321,7 +321,11 @@ Tu veux un avis sur un Reel ? Envoie la vidéo dans ton salon perso : je te donn
 
 ## FAQ TERRAIN (réponses officielles)
 
-**Je peux parrainer quelqu'un ?** Oui. L'un de vous deux tape `!parrain @l'autre` dans son salon perso. Le plus ancien des deux est le parrain : il touche 5 $ une fois, le jour où le nouveau apparaît sur une liste de paie. Rien avant, rien d'autre.
+**Je peux parrainer quelqu'un ?** Oui (annonce du 23 octobre 2026 dans #rémunération). Tu envoies à ton ami le lien de candidature du site (il est dans #rémunération). Dès qu'il arrive sur le serveur, l'un de vous deux tape `!parrain @l'autre` dans son salon perso, ou tu préviens ton TL : il tape `!parrain @toi @lui`. Le plus ancien des deux sur le serveur est le parrain. La prime : **10 $ pour le parrain, une seule fois, sur la liste de paie où le filleul atteint 500 visites payées sur une période de paie de 15 jours.** Rien avant, rien d'autre.
+
+**La prime volume, c'est quoi ?** (annonce du 21 octobre 2026 dans #rémunération) Sur chaque période de paie de 15 jours, ta moyenne de Reels par jour est regardée **sur chacun de tes 2 comptes de croissance, compte par compte** : les deux doivent tenir la cadence. 3 Reels par jour sur chaque compte → **+10 $**. 6 par jour sur chaque compte → **+20 $**. 9 par jour sur chaque compte → **+30 $**. Conditions : au moins 200 visites payées sur la période (400 pour les 20 $, 600 pour les 30 $), un clip différent sur chaque compte, des comptes en règle. C'est en plus de tes clics. Ton app te montre où tu en es, onglet Versements.
+
+**Et la prime pour les TL ?** 10 $ par VA de son équipe à 500 visites payées ou plus sur la période de paie ; le TL ne compte pas lui-même. Les chiffres sont dans `!tl liste` pour le staff et dans l'app du TL.
 
 **Où va le lien ?** Dans la bio de ton compte privé (le compte 3 ; le 2 pour quelques parcours commencés le 8 octobre, le bot te le dit), dans le champ « Liens » : Modifier le profil → Liens → Ajouter un lien externe. Pas dans le texte de la bio : il ne s'y clique pas. Nulle part ailleurs. Sur les comptes qui publient : une story à la une avec le widget de mention du privé, une seule fois, puis que des stories qui mentionnent le privé. Jamais de lien dans un Reel, jamais sur les comptes qui publient. Seule exception : l'essai du 23 octobre 2026. Si ton message « Ton lien est prêt » arrive avec ton compte 1, ton lien va en story, une story tous les 2 jours, avec le sticker « Lien », jamais à la une, jamais en bio. Quand ton compte 3 arrive, tu arrêtes.
 
@@ -351,7 +355,7 @@ Tu veux un avis sur un Reel ? Envoie la vidéo dans ton salon perso : je te donn
 
 **Une journée validée, c'est de quelle heure à quelle heure ?** De minuit à minuit, heure de Paris. Le bot compte tes publications de la veille (plus de message chaque matin : `!mesclics` dans ton salon perso). Tu penses qu'il s'est trompé ? Envoie une capture de tes publications à ton manager le jour même, il vérifie.
 
-**C'est quoi la prime de discipline ?** Elle n'existe plus. Depuis le 5 octobre 2026, tous les clippers sont payés au clic : pas de prime, pas de fixe pour les clippers, chaque visite payée 0,05 $. Quelques membres de l'équipe gardent un fixe, décidé avec Gaëtan, et ne touchent pas le clic en plus.
+**C'est quoi la prime de discipline ?** Elle n'existe plus. Depuis le 5 octobre 2026, tous les clippers sont payés au clic : chaque visite payée 0,05 $, pas de fixe pour les clippers. Les seules primes qui existent : la prime volume (Reels par jour sur tes 2 comptes de croissance), la prime de parrainage (10 $) et la prime des TL. Quelques membres de l'équipe gardent un fixe, décidé avec Gaëtan, et ne touchent pas le clic en plus.
 
 **Je suis malade, en vacances, en examens ?** Préviens ton manager AVANT, dans ton salon perso, avec les dates. Une absence prévenue n'est pas une sortie. Ton lien continue à compter les visites pendant ce temps.
 
@@ -435,7 +439,11 @@ Tu veux un avis sur un Reel ? Envoie la vidéo dans ton salon perso : je te donn
 
 **Où est le formulaire du dimanche ?** Il n'existe plus depuis le 5 octobre 2026. Ton suivi : `!mesclics` dans ton salon perso et ton app.
 
-**Parrainer un clipper ?** Oui : `!parrain @lui` dans ton salon perso, 5 $ pour toi le jour de sa première paie (voir « Je peux parrainer quelqu'un ? »).
+**Parrainer un clipper ?** Oui : `!parrain @lui` dans ton salon perso, ou ton TL tape `!parrain @toi @lui` ; 10 $ pour toi sur la liste de paie où il atteint 500 visites payées sur une période de 15 jours (voir « Je peux parrainer quelqu'un ? »).
+
+**Je ne peux pas écrire sur le serveur, Discord me demande une vérification ?** C'est la protection du serveur contre les robots : il faut un e-mail vérifié sur ton compte Discord et 10 minutes de présence sur le serveur avant d'écrire. Vérifie ton e-mail dans Discord (Paramètres utilisateur → Mon compte), attends 10 minutes, réessaie. Ton salon perso et tes boutons marchent quand même.
+
+**L'app est en maintenance ?** Non, il n'y a pas de maintenance prévue. Elle n'affiche rien ? Tape `!app` dans ton salon perso : ton lien revient. Un « – » à la place d'un chiffre veut dire que le bot n'a pas encore relu ce compte, pas un zéro.
 
 **Un inconnu m'envoie un MP avec une « offre » (lives TikTok, affiliation, autre agence) ?** Arnaque ou débauchage. L'agence ne te contacte jamais en MP pour un autre job et ne paie que via ce serveur. Ne réponds pas, bloque, et signale à Gaëtan avec une capture. Ne clique sur aucun lien.
 

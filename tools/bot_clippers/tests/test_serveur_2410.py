@@ -21,11 +21,13 @@ def salon(nom, voient):
 
 class AccesTlTests(unittest.TestCase):
     def test_salon_sans_son_tl_repere(self):
-        membres = {i: SimpleNamespace(id=i, bot=False) for i in (1, 2, 9)}
-        salons = {"1": salon("va-un", {1, 9}), "2": salon("va-deux", {2})}
+        membres = {i: SimpleNamespace(id=i, bot=False) for i in (1, 2, 3, 9)}
+        salons = {"1": salon("va-un", {1, 9}), "2": salon("va-deux", {2}), "3": salon("salaire", {3})}
         ns = extraire("bot_discord.py", {"acces_tl_manquants"},
-                      {"equipes_tl": SimpleNamespace(tl_par_va=lambda: {"1": "9", "2": "9", "9": "9"}),
-                       "salon_perso_de": lambda uid: salons.get(str(uid)), "journal": logging.getLogger("test")})
+                      {"equipes_tl": SimpleNamespace(tl_par_va=lambda: {"1": "9", "2": "9", "9": "9", "3": "9"},
+                                                     _exclu=lambda u: u == "3", _regime=lambda u: "clic"),
+                       "salon_perso_de": lambda uid: salons.get(str(uid)), "journal": logging.getLogger("test"),
+                       "ADMIN_IDS": set()})
         g = SimpleNamespace(get_member=lambda i: membres.get(i))
         manques = ns["acces_tl_manquants"](g)
         self.assertEqual([("va-deux", 9, 2)], [(s.name, tl.id, va.id) for s, tl, va in manques])

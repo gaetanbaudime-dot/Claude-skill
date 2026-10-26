@@ -2022,7 +2022,8 @@ def liste_paie(d: dict, nom_de, debut: date, fin: date, jour_paie: str, manquant
     primes = {}
     if _deps.get("primes_parrainage"):
         try:
-            for uid_p, uid_f, prime in _deps["primes_parrainage"]({uid: montant for _, uid, _, _, montant, _ in rangs}, cle_periode):
+            for uid_p, uid_f, prime in _deps["primes_parrainage"]({uid: montant for _, uid, _, _, montant, _ in rangs}, cle_periode,
+                                                                   {uid: payes for _, uid, payes, _, _, _ in rangs}):
                 primes.setdefault(uid_p, []).append((nom_de(uid_f), prime))
         except Exception as erreur:                                     # noqa: BLE001
             lignes.append(f"⚠️ primes de parrainage non calculées ({type(erreur).__name__})")
