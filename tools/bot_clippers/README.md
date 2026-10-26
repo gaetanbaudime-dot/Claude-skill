@@ -10,6 +10,18 @@
 >
 > 11/10 : la vague 1 du recrutement est branchée au démarrage, testée, pas encore en production. Lis d'abord « 10/10 et 11/10 : ce qui change pour toi », juste en dessous.
 
+## 26/10 : plus jamais d'abonnés sur un compte « à créer »
+
+**Le problème** : le Cockpit signalait huit comptes « à créer » avec des abonnés (jusqu'à 153), alors qu'aucun n'existe sur Instagram. Les chiffres venaient de la colonne Followers du LOG. Jusqu'au 24/10, le scan Apify lisait aussi le @ prévu des lignes « à créer » et écrivait les abonnés du compte qu'il trouvait sous ce nom : souvent celui d'un inconnu qui portait déjà ce @. Quand le @ a ensuite été changé pour une variante libre, à la main ou par le contrôle des @, les chiffres de l'inconnu sont restés sur la ligne.
+
+**Maintenant** :
+
+- Le scan n'écrit plus ni followers ni Reels sur une ligne « à créer » (Metricool seulement : un compte branché est le nôtre).
+- Le contrôle des @ (« IG · Pseudos », workflow Suivi Instagram) efface Followers, Reels Hier et Reels 7 j d'une ligne « à créer » dont le @ a été vu libre sur Instagram il y a moins de 7 jours. Un @ pris n'est jamais vidé : ce peut être le compte du clipper.
+- Quand il remplace un @ pris du stock, il efface aussi les chiffres de la ligne (ceux du compte qui portait déjà le nom).
+- Ses écritures retrouvent la ligne par son @ dans le LOG relu juste avant d'écrire, plus par le numéro lu au début du passage : le tri du matin peut déplacer les lignes pendant les minutes de vérification. Une ligne attribuée, créée ou modifiée entre-temps n'est pas touchée.
+- Côté Cockpit, un compte « à créer » ou du stock n'a plus de chiffres venus du LOG. L'alerte « « À créer » mais déjà des abonnés » ne part plus que si le relevé Instagram suivi par ID le voit vivant.
+
 ## 24/10 : six mois d'historique GAML (vertical et horizontal)
 
 **Pourquoi le vertical s'arrêtait au 3 octobre** : les pages des créatrices (bio Instagram, /fb, /ytb) n'étaient relues que sur 14 jours en arrière, et jamais avant le 05/10 (`CLICS_DEPUIS`, le début de la paie au clic) ; les liens des clippers sur 45 jours. Le Pilotage ne publiait que 62 jours.

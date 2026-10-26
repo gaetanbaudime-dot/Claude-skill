@@ -7,6 +7,10 @@ Avant qu'un compte soit remis à un clipper, son @ prévu est vérifié sur Inst
   (points, tirets bas, x ou 1 au début ou à la fin), elle-même vérifiée ; le clipper reçoit directement un @ qui marche ;
 - pris mais déjà attribué à un clipper (à créer, avec gérant) : jamais réécrit (il a peut-être déjà le @ en main), signalé.
 
+26/10 : chaque écriture retrouve sa ligne par son @ dans le LOG relu juste avant (jamais un numéro de ligne vieux de plusieurs
+minutes : le tri du matin déplace les lignes) ; une ligne « à créer » dont le @ est libre sur Instagram perd ses followers et ses
+Reels (des chiffres d'un autre compte : aucun compte ne porte ce nom).
+
 Tout est écrit dans l'onglet « IG · Pseudos » du tableur App clippers · usage. Une réponse douteuse de l'API (erreur, quota) ne
 décide rien : le @ est revu au passage suivant. Le contrôle ne garantit pas qu'Instagram acceptera le nom (noms récemment
 supprimés ou réservés), il évite seulement les noms déjà portés par un compte visible.
@@ -101,12 +105,12 @@ async def existe(session, handle: str):
 async def passage(session, store: dict, comptes: list, maintenant: datetime = None) -> dict:
     """Vérifie les @ à créer, remplace dans le LOG ceux du stock qui sont pris. Renvoie le bilan ; écrit l'onglet IG · Pseudos."""
     import instagram_rapidapi as I
-    import google_api
     import onboarding
     maintenant = maintenant or datetime.now(timezone.utc)
     memo = store.setdefault("pseudos", {})
     pris_ailleurs = {str(c.get("handle") or "").strip().lstrip("@").lower() for c in comptes or []}
-    bilan = {"verifies": 0, "libres": 0, "pris": 0, "remplaces": 0, "signales": 0, "doute": 0, "requetes": 0}
+    bilan = {"verifies": 0, "libres": 0, "pris": 0, "remplaces": 0, "signales": 0, "doute": 0, "requetes": 0, "chiffres_effaces": 0}
+    remplacements = []
     n0 = I._jour["n"]
     for ligne in a_controler(comptes):
         if I._jour["n"] - n0 >= PAR_PASSAGE or not I._quota_ok(I.RESERVE):
@@ -139,21 +143,24 @@ async def passage(session, store: dict, comptes: list, maintenant: datetime = No
         if not nouveau:
             memo[h] = {"statut": "pris", "le": maintenant.isoformat(timespec="seconds"), "sans_variante": True}
             continue
-        col = (onboarding._colonnes_lues_par_onglet.get(ligne["onglet"]) or {}).get("handle")
-        if col is None:
+        if (onboarding._colonnes_lues_par_onglet.get(ligne["onglet"]) or {}).get("handle") is None:
             memo[h] = {"statut": "pris", "le": maintenant.isoformat(timespec="seconds"), "sans_variante": True}
             continue
-        lettre = chr(ord("A") + col)
-        try:
-            await google_api.sheets_ecrire(onboarding.CLASSEUR_LOGINS_ID, f"{onboarding.onglet_a1(ligne['onglet'])}!{lettre}{ligne['ligne']}", [[nouveau]])
-        except Exception as erreur:                                     # noqa: BLE001 — revu au passage suivant
-            journal.warning("Pseudo %s non remplacé : %s", h, str(erreur)[:160])
-            continue
         pris_ailleurs.add(nouveau)
+        remplacements.append({"onglet": ligne["onglet"], "handle": h, "nouveau": nouveau, "ligne": ligne["ligne"]})
+    # 26/10 (Gaëtan : « ces comptes ne sont pas créés sur Instagram et n'ont pas de followers… je pense qu'on a un problème
+    # d'attribution ») : les écritures dans le LOG retrouvent leur ligne par son @ dans un classeur relu juste avant (plus jamais le
+    # numéro de ligne lu au début du passage : le tri du matin peut déplacer les lignes pendant les minutes de vérification), et les
+    # chiffres d'un compte qui n'existe pas sont effacés.
+    faits = await _ecrire_log(remplacements, a_vider(comptes, memo, maintenant))
+    for r in remplacements:
+        if (r["onglet"], r["handle"]) not in faits["remplaces"]:
+            continue                                                     # ligne déplacée, attribuée ou modifiée : revue au passage suivant
         bilan["remplaces"] += 1
-        memo[h] = {"statut": "pris", "remplace_par": nouveau, "le": maintenant.isoformat(timespec="seconds")}
-        memo[nouveau] = {"statut": "libre", "le": maintenant.isoformat(timespec="seconds"), "variante_de": h}
-        journal.info("Pseudo pris : %s → %s (%s, ligne %s)", h, nouveau, ligne["onglet"], ligne["ligne"])
+        memo[r["handle"]] = {"statut": "pris", "remplace_par": r["nouveau"], "le": maintenant.isoformat(timespec="seconds")}
+        memo[r["nouveau"]] = {"statut": "libre", "le": maintenant.isoformat(timespec="seconds"), "variante_de": r["handle"]}
+        journal.info("Pseudo pris : %s → %s (%s)", r["handle"], r["nouveau"], r["onglet"])
+    bilan["chiffres_effaces"] = faits["vides"]
     bilan["requetes"] = I._jour["n"] - n0
     try:
         import paie_clics
@@ -164,6 +171,100 @@ async def passage(session, store: dict, comptes: list, maintenant: datetime = No
     except Exception as erreur:                                         # noqa: BLE001
         journal.warning("Onglet %s non écrit : %s", ONGLET, str(erreur)[:160])
     return bilan
+
+
+CHIFFRES = ("followers", "reels_hier", "reels_7j")                     # colonnes remplies par le bot : Followers, Reels Hier, Reels 7 j
+
+
+def _a_creer(c: dict) -> bool:
+    return "creer" in _n(c.get("etat"))
+
+
+def _stock(c: dict) -> bool:
+    g = str(c.get("gerant") or "").strip()
+    return not g or _n(g) in ("stock", "libre", "-")
+
+
+def a_vider(comptes: list, memo: dict, maintenant: datetime) -> list:
+    """Pur (26/10) : les lignes « à créer » dont le @ a été vu LIBRE sur Instagram il y a moins de REVERIFIER_J jours (aucun compte
+    ne porte ce nom) et qui portent pourtant des followers ou des Reels : des chiffres d'un autre compte, restés quand le @ a été
+    changé (l'ancien scan Apify lisait aussi les @ à créer et écrivait les followers du compte qu'il trouvait, souvent celui d'un
+    inconnu qui portait déjà ce nom). [{onglet, handle}]. Un @ pris n'y est jamais : ce peut être le compte du clipper."""
+    out, vus = [], set()
+    for c in comptes or []:
+        h = str(c.get("handle") or "").strip().lstrip("@").lower()
+        if not h or not _a_creer(c) or (c.get("onglet"), h) in vus:
+            continue
+        m = (memo or {}).get(h) or {}
+        if m.get("statut") != "libre" or a_revoir(memo, h, maintenant):
+            continue
+        if any(str(c.get(k) or "").strip() for k in CHIFFRES):
+            vus.add((c.get("onglet"), h))
+            out.append({"onglet": c.get("onglet"), "handle": h})
+    return out
+
+
+def plan_ecritures(relus: list, remplacements: list, vider: list, colonnes: dict) -> tuple:
+    """Pur (26/10) : les cellules à écrire, d'après le LOG RELU. Chaque écriture va sur la ligne qui porte ENCORE ce @ dans son
+    onglet et qui est encore « à créer » (un remplacement : encore en stock) ; une ligne qui a changé entre-temps n'est pas touchée.
+    Un @ remplacé perd aussi ses followers et ses Reels (ceux du compte qui portait déjà le nom). `colonnes` = {onglet: {champ:
+    index}} (en-têtes réels). Renvoie ([(plage, [[valeur]])], {(onglet, @) remplacés}, nombre de lignes vidées)."""
+    import google_api
+    import onboarding
+    index = {}
+    for r in relus or []:
+        h = str(r.get("handle") or "").strip().lstrip("@").lower()
+        if h:
+            index.setdefault((r.get("onglet"), h), []).append(r)
+    ecr, remplaces, vides = [], set(), 0
+
+    def cellule(r, champ):
+        i = (colonnes.get(r.get("onglet")) or {}).get(champ)
+        return None if i is None else f"{onboarding.onglet_a1(r['onglet'])}!{google_api.colonne(i)}{r['ligne']}"
+
+    def vider_chiffres(r):
+        n = 0
+        for champ in CHIFFRES:
+            p = cellule(r, champ)
+            if p and str(r.get(champ) or "").strip():
+                ecr.append((p, [[""]]))
+                n += 1
+        return n
+    deja = set()
+    for x in remplacements or []:
+        lignes = [r for r in index.get((x["onglet"], x["handle"]), []) if _a_creer(r) and _stock(r)]
+        if len(lignes) != 1 or not cellule(lignes[0], "handle"):
+            continue                                                     # disparue, attribuée, passée en GOOD, ou en double
+        ecr.append((cellule(lignes[0], "handle"), [[x["nouveau"]]]))
+        vider_chiffres(lignes[0])
+        remplaces.add((x["onglet"], x["handle"]))
+        deja.add((x["onglet"], x["handle"]))
+    for x in vider or []:
+        if (x["onglet"], x["handle"]) in deja:
+            continue
+        lignes = [r for r in index.get((x["onglet"], x["handle"]), []) if _a_creer(r)]
+        if len(lignes) == 1 and vider_chiffres(lignes[0]):
+            vides += 1
+    return ecr, remplaces, vides
+
+
+async def _ecrire_log(remplacements: list, vider: list) -> dict:
+    """Relit le LOG, puis écrit en un appel ce que plan_ecritures garde. Jamais d'exception : rien d'écrit = revu au passage suivant."""
+    import google_api
+    import onboarding
+    if not remplacements and not vider:
+        return {"remplaces": set(), "vides": 0}
+    try:
+        relus = await onboarding.lire_comptes()
+        ecr, remplaces, vides = plan_ecritures(relus, remplacements, vider, dict(onboarding._colonnes_lues_par_onglet))
+        if ecr:
+            await google_api.sheets_ecrire_plusieurs(onboarding.CLASSEUR_LOGINS_ID, ecr)
+        if vides:
+            journal.info("Pseudos : followers / Reels effacés sur %d ligne(s) « à créer » dont le @ n'existe pas sur Instagram", vides)
+        return {"remplaces": remplaces, "vides": vides}
+    except Exception as erreur:                                         # noqa: BLE001 — revu au passage suivant
+        journal.warning("Pseudos : LOG non écrit (%s)", str(erreur)[:160])
+        return {"remplaces": set(), "vides": 0}
 
 
 def lignes_onglet(comptes: list, memo: dict) -> list:
