@@ -4527,6 +4527,76 @@ async def _appliquer_pseudo(salon, uid: str, n: int, prevu: str, reel: str, preu
     return ""
 
 
+# 27/10 (vérification Instagram des comptes « à trancher ») : huit @ donnés sur Discord étaient déjà pris par des inconnus ; le
+# classeur, lui, portait un @ libre que personne n'a créé. Le bot ne devine pas : il demande au clipper, une fois par compte.
+TEXTE_DEMANDE_PSEUDO = ("📌 **Ton compte {n}** : je t'ai donné `{prevu}`, mais ce @ était déjà pris sur Instagram. C'est notre erreur.\n\n"
+                        "Tu as déjà créé ton compte {n} ? Colle ici le lien de ton profil Instagram.\n\n"
+                        "Pas encore créé ? Crée-le avec le @ `{classeur}`.")
+
+
+def proche_de(h: str, base: str) -> bool:
+    """Pur : `h` est `base` à un séparateur près, ou `base` suivi d'au plus 4 caractères (les suggestions d'Instagram)."""
+    a, b = ecrase_pseudo(h), ecrase_pseudo(base)
+    return bool(a and b) and (a == b or (a.startswith(b) and len(a) - len(b) <= 4))
+
+
+async def demander_pseudo(uid: str, n: int, prevu: str, classeur: str) -> str:
+    """27/10 : le @ donné au clipper (`prevu`) est le compte d'un inconnu, celui du classeur (`classeur`) n'existe pas encore.
+    Compte pas encore remis : la fiche prend le @ du classeur, sans rien dire (il n'a jamais vu l'autre). Compte remis : une
+    question dans son salon, une seule fois ; sa réponse (capter_pseudo) tranche. Renvoie '' si c'est fait, sinon la raison."""
+    uid, n = str(uid), int(n)
+    fiche_p = _lire().get(uid) or {}
+    if not (fiche_p.get("dates") or {}).get(str(n)):
+        return await onboarding.suivre_classeur(uid, prevu, classeur)
+    if str(n) in (fiche_p.get("pseudos_demandes") or {}):
+        return "déjà demandé"
+    if not await _dire_au_clipper(_deps.get("client"), uid, TEXTE_DEMANDE_PSEUDO.format(n=n, prevu=prevu, classeur=classeur)):
+        return "salon perso introuvable"
+    d = _lire()
+    if uid in d:
+        d[uid].setdefault("pseudos_demandes", {})[str(n)] = {"prevu": prevu, "classeur": classeur, "le": _maintenant()}
+        _ecrire(d)
+    journal.info("@ demandé au clipper %s pour son compte %s (%s donné, %s au classeur)", uid, n, prevu, classeur)
+    return ""
+
+
+def _mail_du_compte(uid: str, handle: str) -> str:
+    cle = onboarding.normaliser_handle(handle).lower()
+    for a in _onb(uid).get("acces") or []:
+        if isinstance(a, dict) and onboarding.normaliser_handle(a.get("handle")).lower() == cle:
+            return str(a.get("mail") or "").strip().lower()
+    return ""
+
+
+async def _repondre_demande(salon, uid: str, n: int, demande: dict, h: str, preuve: str) -> str:
+    """La réponse du clipper à TEXTE_DEMANDE_PSEUDO : le @ donné (il l'a créé : le classeur le reprend), le @ du classeur (la fiche
+    le reprend), ou une suggestion d'Instagram de l'un des deux (fiche au @ du classeur, puis renommé). '' si c'est fait."""
+    prevu, classeur = demande.get("prevu", ""), demande.get("classeur", "")
+    if h == prevu:
+        raison = await onboarding.classeur_suit_fiche(uid, classeur, prevu, _mail_du_compte(uid, prevu))
+    else:
+        raison = await onboarding.suivre_classeur(uid, prevu, classeur)
+        if raison in ("", "c'est déjà cet identifiant") and h != classeur:
+            _, raison = await renommer(uid, n, h)
+        elif raison == "c'est déjà cet identifiant":
+            raison = ""
+    if raison:
+        return raison
+    d = _lire()
+    if uid in d:
+        d[uid].setdefault("pseudos_demandes", {}).setdefault(str(n), {}).update(resolu=h, resolu_le=_maintenant())
+        _ecrire(d)
+    fiche_p = _lire().get(uid) or {}
+    etape = int(fiche_p.get("etape", 0) or 0)
+    if salon is not None and not _cree(fiche_p, n) and (n < etape or preuve == "lien"):
+        try:
+            await valider_etape(salon, uid, n, par=uid, creation=True)
+        except Exception as erreur:                                     # noqa: BLE001
+            journal.warning("Compte %s de %s noté créé après sa réponse : %s", n, uid, erreur)
+    journal.info("Réponse du clipper %s : compte %s = %s (donné %s, classeur %s, %s)", uid, n, h, prevu, classeur, preuve)
+    return ""
+
+
 async def capter_pseudo(message, texte: str) -> bool:
     """27/10 : un message du clipper dans son salon perso qui cite l'un de ses comptes à un point ou un tiret bas près met le
     classeur, sa fiche et le suivi sur ce @ (voir RE_LIEN_IG). Renvoie True si un @ a été corrigé (le bot a répondu)."""
@@ -4537,6 +4607,19 @@ async def capter_pseudo(message, texte: str) -> bool:
     if not ecrits:
         return False
     faits = []
+    demandes = {int(k): v for k, v in ((_lire().get(uid) or {}).get("pseudos_demandes") or {}).items()
+                if isinstance(v, dict) and not v.get("resolu") and str(k).isdigit()}
+    for n, demande in sorted(demandes.items()):
+        for h, preuve in ecrits:
+            if h in (demande.get("prevu"), demande.get("classeur")) or proche_de(h, demande.get("prevu", "")) \
+                    or proche_de(h, demande.get("classeur", "")):
+                raison = await _repondre_demande(message.channel, uid, n, demande, h, preuve)
+                if raison:
+                    journal.info("Réponse du clipper %s, compte %s → %s pas appliquée (%s)", uid, n, h, raison)
+                else:
+                    faits.append((n, demande.get("prevu", ""), h))
+                    ecrits = [x for x in ecrits if x[0] != h]
+                break
     for n, prevu, reel, preuve in correspondances(ecrits, _comptes_ordonnes(uid)):
         raison = await _appliquer_pseudo(message.channel, uid, n, prevu, reel, preuve)
         if raison:
@@ -4545,7 +4628,8 @@ async def capter_pseudo(message, texte: str) -> bool:
         faits.append((n, prevu, reel))
     if not faits:
         return False
-    lignes = [f"✅ C'est noté : ton compte {n} est `{reel}` (prévu : `{prevu}`)." for n, prevu, reel in faits]
+    lignes = [f"✅ C'est noté : ton compte {n} est `{reel}`" + ("." if reel == prevu else f" (prévu : `{prevu}`).")
+              for n, prevu, reel in faits]
     try:
         await message.reply("\n\n".join(lignes + ["Le classeur et le suivi de tes Reels passent sous ce nom."]),
                             mention_author=False)
