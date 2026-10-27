@@ -129,7 +129,9 @@ def decision(e: dict, v: dict, maintenant) -> str:
       - aucun des deux @ n'existe : rien n'est créé, le clipper a le @ de Discord en main → le classeur prend ce @ ;
       - seul le @ du classeur existe : le clipper l'a créé → la fiche suit le classeur ;
       - seul le @ reçu existe, avec la bio que le bot donne et peu d'abonnés : c'est son compte → le classeur prend ce @, GOOD ;
-      - sinon (les deux existent, ou un compte d'inconnu sous le @ reçu) : '' (au salon admin)."""
+      - le @ reçu existe sans preuve qu'il est à nous, celui du classeur non : « demander » (compte pas encore remis : la fiche
+        prend le @ du classeur ; remis : une question au clipper, sa réponse tranche) ;
+      - les deux existent : '' (au salon admin)."""
     from datetime import datetime, timezone
     if not v:
         return ""
@@ -148,6 +150,9 @@ def decision(e: dict, v: dict, maintenant) -> str:
     if r == "existe" and c == "introuvable" and v["recu"]["abonnes"] <= NEUF_ABONNES \
             and bio_du_bot(v["recu"]["bio"], e.get("onglet")):
         return "classeur_suit_fiche_cree"
+    if r == "existe" and c == "introuvable":
+        # 27/10 : le @ donné est le compte d'un inconnu (ou celui du clipper sans la bio du bot) : on demande au clipper
+        return "demander"
     return ""
 
 
@@ -175,10 +180,13 @@ def texte_admin(suivis: list, a_trancher: list, refus: list, tranches: list = ()
     if a_trancher:
         lignes.append("\n**À trancher** (le clipper a reçu un @, le classeur en montre un autre, encore « à créer ») :")
         lignes += [f"• {e['prenom']} · compte {e['n']} : reçu `{e['fiche']}`, classeur `{e['classeur']}` ({e['onglet']} l. "
-                   f"{e['ligne']}) → demande-lui son @ exact, puis `!pseudo @{e['prenom']} {e['n']} <son @>`" for e in a_trancher]
+                   f"{e['ligne']}) → " + ("question posée dans son salon, j'attends sa réponse" if e.get("demande")
+                                          else f"demande-lui son @ exact, puis `!pseudo @{e['prenom']} {e['n']} <son @>`")
+                   for e in a_trancher]
     if tranches:
         lignes.append("\n**Tranché par Instagram** (les deux @ regardés) :")
-        quoi = {"classeur_suit_fiche": "rien de créé : le classeur prend le @ donné sur Discord",
+        quoi = {"demander": "le @ donné est pris par un inconnu : question posée au clipper (ou fiche alignée s'il ne l'avait pas encore)",
+                "classeur_suit_fiche": "rien de créé : le classeur prend le @ donné sur Discord",
                 "classeur_suit_fiche_cree": "créé sous le @ donné sur Discord (bio du bot) : classeur à ce @, GOOD",
                 "fiche_suit_classeur": "créé sous le @ du classeur : la fiche suit"}
         lignes += [f"• {e['prenom']} · compte {e['n']} : `{e['fiche']}` / `{e['classeur']}` → {quoi.get(e['decision'], e['decision'])}"
@@ -193,8 +201,10 @@ def _signature(liste: list) -> str:
     return hashlib.sha1(json.dumps(liste, sort_keys=True, ensure_ascii=False).encode()).hexdigest()
 
 
-async def _trancher(onboarding, e: dict, quoi: str) -> str:
+async def _trancher(onboarding, e: dict, quoi: str, demander=None) -> str:
     """Applique une décision ; '' si c'est fait, sinon la raison."""
+    if quoi == "demander":
+        return await demander(e["uid"], e["n"], e["fiche"], e["classeur"]) if demander else "personne à qui demander"
     if quoi == "fiche_suit_classeur":
         return await onboarding.suivre_classeur(e["uid"], e["fiche"], e["classeur"], e.get("mail", ""))
     raison = await onboarding.classeur_suit_fiche(e["uid"], e["classeur"], e["fiche"], e.get("mail", ""))
@@ -207,7 +217,7 @@ async def _trancher(onboarding, e: dict, quoi: str) -> str:
 
 
 async def passer(onboarding, admin=None, lire_json=None, ecrire_json=None, fichier=None, prenoms=None,
-                 lire_onglet=None, ecrire_onglet=None, maintenant=None) -> dict:
+                 lire_onglet=None, ecrire_onglet=None, maintenant=None, demander=None) -> dict:
     """Un passage : écarts calculés, fiches alignées quand le classeur a raison, bilan au salon admin s'il a changé. Jamais une
     écriture dans le classeur. Renvoie le bilan {ecarts, suivis, a_trancher, refus}."""
     bilan = {"ecarts": 0, "suivis": 0, "a_trancher": 0, "refus": 0, "absentes": 0}
@@ -238,7 +248,10 @@ async def passer(onboarding, admin=None, lire_json=None, ecrire_json=None, fichi
     restent = []
     for e in a_trancher:
         quoi = decision(e, verifs.get((e["fiche"], e["classeur"])), maintenant)
-        raison = await _trancher(onboarding, e, quoi) if quoi else "pas encore tranché"
+        raison = await _trancher(onboarding, e, quoi, demander) if quoi else "pas encore tranché"
+        if quoi == "demander" and raison == "déjà demandé":
+            restent.append({**e, "demande": True})
+            continue
         if quoi and not raison:
             tranches.append({**e, "decision": quoi})
             journal.info("Rapprochement par e-mail : %s compte %s %s / %s tranché : %s", e["prenom"] or e["uid"], e["n"], e["fiche"],

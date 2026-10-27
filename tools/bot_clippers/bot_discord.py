@@ -4356,7 +4356,8 @@ async def boucle_rapprochement_mail():
             prenoms = {u: str((f or {}).get("prenom") or "") for u, f in parcours._lire().items() if isinstance(f, dict)}
             await rapprochement_mail.passer(onboarding, admin=_admin_preuve_mail, lire_json=lire_json, ecrire_json=ecrire_json,
                                             fichier=DONNEES / "rapprochement_mail.json", prenoms=prenoms,
-                                            lire_onglet=lire_onglet, ecrire_onglet=ecrire_onglet)
+                                            lire_onglet=lire_onglet, ecrire_onglet=ecrire_onglet,
+                                            demander=parcours.demander_pseudo)
         except Exception as erreur:                                     # noqa: BLE001 — classeur saturé : passage suivant
             journal.warning("Rapprochement par e-mail : %s", erreur)
         await asyncio.sleep(3600)

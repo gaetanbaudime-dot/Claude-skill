@@ -340,9 +340,9 @@ class TrancherTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual("fiche_suit_classeur", rm.decision(e, self.verif("introuvable", "existe"), self.MAINTENANT))
         bio = "Compte fan de Sarah 🌸 Bonne humeur garantie"
         self.assertEqual("classeur_suit_fiche_cree", rm.decision(e, self.verif("existe", "introuvable", bio=bio), self.MAINTENANT))
-        self.assertEqual("", rm.decision(e, self.verif("existe", "introuvable", bio="Mon compte perso"), self.MAINTENANT),
-                         "un inconnu sous le @ reçu : jamais rattaché")
-        self.assertEqual("", rm.decision(e, self.verif("existe", "introuvable", bio=bio, abonnes=5000), self.MAINTENANT))
+        self.assertEqual("demander", rm.decision(e, self.verif("existe", "introuvable", bio="Mon compte perso"), self.MAINTENANT),
+                         "un inconnu sous le @ reçu : jamais rattaché, on demande au clipper")
+        self.assertEqual("demander", rm.decision(e, self.verif("existe", "introuvable", bio=bio, abonnes=5000), self.MAINTENANT))
         self.assertEqual("", rm.decision(e, self.verif("existe", "existe"), self.MAINTENANT))
         self.assertEqual("", rm.decision(e, self.verif("introuvable", "introuvable", le="2026-10-20T08:00:00+00:00"),
                                          self.MAINTENANT), "vérification trop vieille")
@@ -442,6 +442,100 @@ class ATrancherIgTests(unittest.IsolatedAsyncioTestCase):
         plage, valeurs = google.sheets_ecrire.await_args.args[1:3]
         self.assertEqual("'IG · À trancher'!G2:O2", plage)
         self.assertEqual(["existe", 4, 1, "Compte fan de Sarah", "introuvable", "", "", ""], valeurs[0][:8])
+
+
+class DemandeAuClipperTests(unittest.IsolatedAsyncioTestCase):
+    def setUp(self):
+        self.fiche = {"7": {"etape": 2, "salon_id": 99, "dates": {"1": "2026-10-18T10:00:00+00:00", "2": "2026-10-24T10:00:00+00:00"}}}
+        for p in (patch.object(parcours, "_lire", side_effect=lambda: deepcopy(self.fiche)),
+                  patch.object(parcours, "_ecrire", side_effect=lambda d: self.fiche.update(deepcopy(d))),
+                  patch.object(parcours, "_comptes_ordonnes", side_effect=lambda uid, *a, **k: ["pris_inconnu", "autre", "trois"]),
+                  patch.object(parcours, "_onb", side_effect=lambda uid: {"acces": [{"handle": "pris_inconnu", "mail": "a@x.invalid"}]})):
+            p.start()
+            self.addCleanup(p.stop)
+
+    def test_proche_de(self):
+        self.assertTrue(parcours.proche_de("libre.classeur", "libre_classeur"))
+        self.assertTrue(parcours.proche_de("libreclasseur12", "libre_classeur"))
+        self.assertFalse(parcours.proche_de("libreclasseur12345", "libre_classeur"))
+        self.assertFalse(parcours.proche_de("autre", "libre_classeur"))
+
+    async def test_compte_pas_encore_remis_fiche_alignee_sans_message(self):
+        with patch.object(parcours.onboarding, "suivre_classeur", AsyncMock(return_value="")) as suivre, \
+                patch.object(parcours, "_dire_au_clipper", AsyncMock()) as dire:
+            self.assertEqual("", await parcours.demander_pseudo("7", 3, "pris_inconnu", "libre_classeur"))
+        suivre.assert_awaited_once_with("7", "pris_inconnu", "libre_classeur")
+        dire.assert_not_awaited()
+
+    async def test_compte_remis_une_seule_question(self):
+        with patch.object(parcours, "_dire_au_clipper", AsyncMock(return_value=True)) as dire:
+            self.assertEqual("", await parcours.demander_pseudo("7", 1, "pris_inconnu", "libre_classeur"))
+            self.assertEqual("déjà demandé", await parcours.demander_pseudo("7", 1, "pris_inconnu", "libre_classeur"))
+        self.assertEqual(1, dire.await_count)
+        texte = dire.await_args.args[2]
+        self.assertIn("`pris_inconnu`", texte)
+        self.assertIn("Crée-le avec le @ `libre_classeur`", texte)
+        self.assertEqual("libre_classeur", self.fiche["7"]["pseudos_demandes"]["1"]["classeur"])
+
+    async def _repondre(self, texte, **mocks):
+        self.fiche["7"]["pseudos_demandes"] = {"1": {"prevu": "pris_inconnu", "classeur": "libre_classeur", "le": "x"}}
+        msg = N(author=N(id=7), channel=N(id=99), content=texte, reply=AsyncMock())
+        with patch.object(parcours.onboarding, "classeur_suit_fiche", mocks.get("csf", AsyncMock(return_value=""))) as csf, \
+                patch.object(parcours.onboarding, "suivre_classeur", mocks.get("sc", AsyncMock(return_value=""))) as sc, \
+                patch.object(parcours, "renommer", mocks.get("ren", AsyncMock(return_value=("libre_classeur", "")))) as ren, \
+                patch.object(parcours, "valider_etape", AsyncMock(return_value=True)) as val:
+            ok = await parcours.capter_pseudo(msg, texte)
+        return ok, csf, sc, ren, val, msg
+
+    async def test_reponse_le_at_donne_le_classeur_le_reprend(self):
+        ok, csf, sc, ren, val, msg = await self._repondre("https://www.instagram.com/pris_inconnu/")
+        self.assertTrue(ok)
+        csf.assert_awaited_once_with("7", "libre_classeur", "pris_inconnu", "a@x.invalid")
+        sc.assert_not_awaited()
+        val.assert_awaited_once()                                       # compte 1 dépassé : noté créé
+        self.assertEqual("resolu", "resolu" if self.fiche["7"]["pseudos_demandes"]["1"].get("resolu") else "")
+        self.assertIn("ton compte 1 est `pris_inconnu`.", msg.reply.await_args.args[0])
+
+    async def test_reponse_le_at_du_classeur_la_fiche_le_reprend(self):
+        ok, csf, sc, ren, val, msg = await self._repondre("@libre_classeur")
+        self.assertTrue(ok)
+        sc.assert_awaited_once_with("7", "pris_inconnu", "libre_classeur")
+        ren.assert_not_awaited()
+        csf.assert_not_awaited()
+
+    async def test_reponse_une_suggestion_d_instagram(self):
+        ok, csf, sc, ren, val, msg = await self._repondre("https://instagram.com/libre_classeur7")
+        self.assertTrue(ok)
+        sc.assert_awaited_once()
+        ren.assert_awaited_once_with("7", 1, "libre_classeur7")
+
+    async def test_un_autre_at_ne_tranche_rien(self):
+        ok, csf, sc, ren, val, msg = await self._repondre("@sans_rapport")
+        self.assertFalse(ok)
+        self.assertFalse(self.fiche["7"]["pseudos_demandes"]["1"].get("resolu"))
+
+
+class PasserDemanderTests(unittest.IsolatedAsyncioTestCase):
+    async def test_question_posee_puis_en_attente(self):
+        from datetime import datetime, timezone
+        maintenant = datetime(2026, 10, 27, 12, 0, tzinfo=timezone.utc)
+        fiches = {"1": fiche(("recu_x", "b@x.invalid"))}
+        comptes = [ligne("classeur_x", "b@x.invalid", etat="à créer", onglet="Sarah", n=30)]
+        onb = N(actif=lambda: True, lire_comptes=AsyncMock(return_value=comptes), _lire_etat=lambda: {"clippers": fiches},
+                _cle_handle=lambda h: str(h or "").strip().lstrip("@").lower())
+        onglet = [rm.ENTETE_ONGLET, ["recu_x", "classeur_x", "Sarah", "30", "Fictif", "1", "existe", "141", "1", "📍 Ailleurs",
+                                     "introuvable", "", "", "", "2026-10-27T08:00:00+00:00"]]
+        demander, admin, memo = AsyncMock(return_value=""), AsyncMock(), {}
+        args = dict(admin=admin, lire_json=lambda f, d: dict(memo), ecrire_json=lambda f, d: memo.update(d), fichier="m",
+                    lire_onglet=AsyncMock(return_value=onglet), ecrire_onglet=AsyncMock(), maintenant=maintenant, demander=demander)
+        bilan = await rm.passer(onb, **args)
+        demander.assert_awaited_once_with("1", 1, "recu_x", "classeur_x")
+        self.assertEqual(1, bilan["tranches"])
+        self.assertIn("question posée au clipper", admin.await_args.args[0])
+        demander.return_value = "déjà demandé"
+        bilan = await rm.passer(onb, **args)
+        self.assertEqual((0, 1), (bilan["tranches"], bilan["a_trancher"]))
+        self.assertIn("j'attends sa réponse", admin.await_args.args[0])
 
 
 if __name__ == "__main__":
