@@ -30,6 +30,9 @@ def champ(libelle: str, valeur) -> str:
     return f"{libelle} :\n```\n{v}\n```"
 
 
+PSEUDO_CHANGE = "4️⃣ Instagram change ton identifiant, même d'un point ? Garde-le et écris ici ton @ exact."
+
+
 def acces_copiables(handle, mail, mdp) -> str:
     return "\n".join(champ(l, v) for l, v in (("Identifiant", handle), ("E-mail", mail), ("Mot de passe", mdp)))
 
@@ -45,7 +48,10 @@ def modele(mention, handle, mail, mdp, codes="", suite=""):
              f"{acces_copiables(handle, mail, mdp)}\n"
              "1️⃣ Instagram → Créer un compte → utilise cet e-mail.\n\n"
              f"2️⃣ Le code arrive dans {codes}. Appuie sur « 📩 Mon code ».\n\n"
-             "3️⃣ Instagram demande ta date de naissance ou ton numéro ? Mets les vrais.")
+             "3️⃣ Instagram demande ta date de naissance ou ton numéro ? Mets les vrais.\n\n"
+             # 27/10 (Mouhsinou : `x.y45` créé au lieu de `x_y45`, resté invisible 4 jours) : le bot lit ce @
+             # dans le salon (parcours.capter_pseudo) et le suit partout
+             f"{PSEUDO_CHANGE}")
     return texte + (f"\n\n{suite}" if suite else "")
 
 

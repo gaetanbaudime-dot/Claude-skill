@@ -71,6 +71,7 @@ import metricool_comptes                  # 09/10 (dashboard) : Reels et vues de
 import visites_telegram                   # les visites de la veille dans le groupe Telegram de chaque créatrice (03/10)
 import bans_mail                          # bans Instagram vus par les mails de suspension → BAN + push (29/09)
 import preuve_mail                         # comptes créés prouvés par un mail Instagram (24/10)
+import rapprochement_mail                  # fiche ↔ classeur rapprochés par l'e-mail du compte (27/10)
 # 11/10 (lot L12) : la cadence des Reels (`!cadence`) et la vérification du classeur (`!classeur`) ne sont plus importées ni appelées :
 # la vérification vit dans le contrôle d'attribution (controle.py, C13 à C16, Dashboard et salon admin). CADENCE_AUTO n'est plus lue.
 import identifiants                       # identifiants neufs par créatrice, calculés depuis le classeur (30/09)
@@ -643,12 +644,15 @@ def proprietaire_compte_alias(alias):
     if handle not in ordre:
         return None
     n = ordre.index(handle) + 1
-    if int(fiche_p.get("etape", 0) or 0) != n:
+    etape = int(fiche_p.get("etape", 0) or 0)
+    # 27/10 (Mouhsinou : compte 2 parti à 48 h, compte 1 jamais noté créé, créé sous un autre @) : un compte d'une étape déjà
+    # dépassée mais pas notée créée compte aussi ; le mail donne son vrai @ et valider_etape le note créé sans toucher au parcours
+    if n > etape or (n < etape and parcours._cree(fiche_p, n)):
         return None
     cle = onboarding._cle_handle(handle)
     recycle = any(isinstance(a, dict) and a.get("cree") and onboarding._cle_handle(a.get("handle") or "") == cle
                   for a in onb.get("acces") or [])
-    return {"uid": uid, "n": n, "handle": handle, "ouverte": (fiche_p.get("dates") or {}).get(str(n)),
+    return {"uid": uid, "n": n, "handle": handle, "ouverte": (fiche_p.get("dates") or {}).get(str(n)), "courant": n == etape,
             "cree": parcours._cree(fiche_p, n), "recycle": recycle,
             "prenom": fiche_p.get("prenom") or getattr(dest["membre"], "display_name", "") or uid}
 
@@ -4324,6 +4328,24 @@ def lier_references(reponse: str) -> str:
     # 6. Doublons « <#x> <#x> » ou « <#x> (<#x>) » créés par le modèle + le post-traitement.
     reponse = re.sub(r"(<#\d+>)(\s*[:(—–-]?\s*)\1\)?", r"\1", reponse)
     return reponse
+
+
+async def boucle_rapprochement_mail():
+    """27/10 (Gaëtan : « on donne au clipper un compte différent de celui du tableau de bord ») : la fiche de chaque clipper et le
+    classeur rapprochés par l'e-mail de chaque compte (rapprochement_mail), 6 minutes après le démarrage puis toutes les 6 h."""
+    await client.wait_until_ready()
+    try:
+        await roster.attendre_demarrage()
+    except Exception as erreur:                                         # noqa: BLE001
+        journal.warning("Rapprochement par e-mail : attente du roster (%s)", erreur)
+    await asyncio.sleep(360)
+    while not client.is_closed():
+        try:
+            await rapprochement_mail.passer(onboarding, admin=_admin_preuve_mail, lire_json=lire_json, ecrire_json=ecrire_json,
+                                            fichier=DONNEES / "rapprochement_mail.json")
+        except Exception as erreur:                                     # noqa: BLE001 — classeur saturé : passage suivant
+            journal.warning("Rapprochement par e-mail : %s", erreur)
+        await asyncio.sleep(6 * 3600)
 
 
 async def boucle_posts_formation():
@@ -9867,6 +9889,7 @@ async def on_ready():
                                 "proprietaire": proprietaire_compte_alias, "renommer": parcours.renommer,
                                 "fermer": fermer_compte_prouve, "admin": _admin_preuve_mail})
         preuve_mail.abonner()                                                    # 24/10 : compte créé prouvé par un mail Instagram
+        client.loop.create_task(boucle_rapprochement_mail())                     # 27/10 : fiche ↔ classeur par l'e-mail du compte
         client.loop.create_task(codes_2fa.garde_codes(client, canal_admin, ADMIN_IDS))   # 18/10 : le lecteur et son gardien
         client.loop.create_task(codes_2fa.assurer_salon_codes(client))        # le salon commun, mode d'emploi v7 et son bouton
         client.loop.create_task(web_candidature.demarrer(client, {           # site du tunnel candidat (23/09)
@@ -9893,6 +9916,8 @@ async def on_ready():
                              "attribuer_lien": attribuer_lien_parcours,               # 05/10 : le lien GAML est créé avec le compte 3
                              "whatsapp": WHATSAPP_GAETAN_URL})                       # 26/09 : bouton « Écrire à Gaëtan » sous chaque étape
         client.loop.create_task(parcours.migrer_au_demarrage(client))            # 05/10 : fiches aux étapes 4/5 → étape 6
+        # 27/10 (Mouhsinou) : le vrai @ qu'un clipper a déjà écrit dans son salon (lien Instagram, « c'est mon @ ») corrige le classeur
+        client.loop.create_task(_apres_depots(lambda: parcours.rattraper_pseudos(client), "rattrapage des @ écrits"))
         client.loop.create_task(assurer_salon_assistant())                       # 05/10 : le salon #assistant, pour tout le monde
         # 09/10 (lot L7) : les boutons persistants du parcours en une fois : « ✅ » des étapes (25/09), « ✅ J'ai écrit à Gaëtan »
         # (08/10, appel de présence) et « ✅ C'est fait » de la bienvenue (BoutonPret, « pret:<uid> »). configurer les pose déjà ;
@@ -11709,6 +11734,11 @@ async def on_message(message):
     if en_salon_perso and not est_staff(message.author):
         await alerter_admin_salon(message, texte)                       # 30/09 (Daniella) : ban ou Drive fermé → Gaëtan le sait
         await alerte_numero_demande(message, texte)
+        try:                                                            # 27/10 (Mouhsinou) : son vrai @, écrit ici, corrige tout
+            if await parcours.capter_pseudo(message, texte):
+                return
+        except Exception as erreur:                                     # noqa: BLE001 — jamais bloquer le salon perso
+            journal.warning("@ écrit par %s : %s", utilisateur, erreur)
         if review_reels.video_a_relire(message):
             await relire_video_clipper(message)
             return

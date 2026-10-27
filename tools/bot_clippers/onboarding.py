@@ -668,6 +668,16 @@ async def _renommer_compte(uid: str, ancien: str, nouveau: str, registre_process
         job = {"onglet": ligne.get("onglet"), "ligne": ligne.get("ligne"), "phase": "prepare"}
         registre_process.put(cle_job, job)
         await google_api.sheets_ecrire(CLASSEUR_LOGINS_ID, cellule(ligne, "handle"), [[nouveau_n]])
+    _appliquer_nouveau_handle(uid, ancien_n, nouveau_n)
+    registre_process.put(cle_job, {**job, "phase": "termine"})
+    journal.info("Compte renommé pour %s : %s → %s (%s, ligne %s)", uid, ancien_n, nouveau_n, ligne.get("onglet"), ligne.get("ligne"))
+    return ""
+
+
+def _appliquer_nouveau_handle(uid: str, ancien_n: str, nouveau_n: str) -> None:
+    """Le côté bot d'un renommage (27/10 : commun à `!pseudo` et au rapprochement par e-mail) : identités, fiche (comptes, accès,
+    téléphones), livraisons, Reels suivis du parcours et séries passent de `ancien_n` à `nouveau_n`. Le classeur n'est pas touché."""
+    uid = str(uid)
     etat = _lire_etat()
     fiche = etat["clippers"].setdefault(str(uid), {})
     identites = process_clippeur.registre(etat, str(uid))
@@ -704,8 +714,39 @@ async def _renommer_compte(uid: str, ancien: str, nouveau: str, registre_process
         parcours._ecrire(d_parcours)
     import series
     series.renommer(ancien_n, nouveau_n)
-    registre_process.put(cle_job, {**job, "phase": "termine"})
-    journal.info("Compte renommé pour %s : %s → %s (%s, ligne %s)", uid, ancien_n, nouveau_n, ligne.get("onglet"), ligne.get("ligne"))
+
+
+async def suivre_classeur(uid: str, ancien: str, nouveau: str) -> str:
+    """27/10 (Gaëtan : « on donne au clipper un compte différent de celui du tableau de bord ») : la ligne du classeur qui porte
+    l'e-mail d'un compte de la fiche a un autre @, et ce compte existe (ligne hors « à créer ») : le classeur a raison (corrigé à la
+    main, renommé sur Instagram). La fiche, le registre, le parcours et les séries suivent ce @ ; le classeur n'est pas réécrit.
+    Renvoie '' si c'est fait, sinon la raison."""
+    registre = process_adapters.store()
+    uid = str(uid)
+    with registre.lock("renommage:" + uid):
+        a, n = normaliser_handle(ancien).lower(), normaliser_handle(nouveau).lower()
+        if not RE_HANDLE_IG.match(n):
+            return "@ du classeur non valable"
+        if a == n:
+            return "c'est déjà cet identifiant"
+        fiche = _lire_etat()["clippers"].get(uid) or {}
+        if fiche.get("sorti"):
+            return "dossier sorti"
+        propres = {normaliser_handle(h).lower() for h in fiche.get("comptes", [])} | \
+                  {normaliser_handle(h).lower() for h in handles_telephones(fiche)}
+        if a not in propres:
+            return "ce compte n'est plus dans sa fiche"
+        if n in propres:
+            return "ce @ est déjà un autre de ses comptes"
+        if (_proprietaires().get(n) or set()) - {uid}:
+            return "ce @ est le compte d'un autre clipper"
+        try:
+            registre.observe_alias(uid, a, "rapprochement-e-mail-classeur")
+            registre.rename(uid, a, n)
+        except Exception as erreur:                                     # noqa: BLE001 — Bloque : rapprochement humain
+            return f"registre : {erreur}"
+        _appliquer_nouveau_handle(uid, a, n)
+    journal.info("Fiche alignée sur le classeur pour %s : %s → %s (même e-mail)", uid, a, n)
     return ""
 
 
