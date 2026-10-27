@@ -6925,6 +6925,13 @@ async def lien_pour_message_depose(membre) -> tuple:
     return "", "lien non prêt après l'attribution (forfait GAML plein ? voir la ligne admin)"
 
 
+async def app_pour_message_depose(membre, salon) -> tuple:
+    """(état, raison) 27/10 (Gaëtan : « envoie son application clippeur à Esperance ») : l'app du clipper dans son salon perso,
+    par le chemin de `!app @clipper` (parcours.livrer_app, forcé : bouton, texte de l'app, fiche « app » écrite)."""
+    etat = await parcours.livrer_app(str(membre.id), salon=salon, membre=membre, forcer=True)
+    return etat, parcours.TEXTES_APP.get(etat, etat)
+
+
 async def attribuer_lien_parcours(membre, raison: str = "") -> None:
     """05/10 (Gaëtan : « le lien que pour le troisième compte ») : appelé par le parcours à l'ouverture de l'étape 3 — le lien GAML
     du clipper est créé (ou repris) maintenant, écrit dans sa fiche, et l'admin a une ligne.
@@ -10271,7 +10278,8 @@ async def on_ready():
                                      "signe_creatrice": lambda uid: bool((lire_json(FICHIER_EQUIPES, {}).get(str(uid)) or {}).get("creatrice")),
                                      "salons_clippers": salons_clippers_acceptes,             # 30/09 : « tous_clippers »
                                      "assurer_salon_arrivee": assurer_salon_arrivee,
-                                     "lien_pour": lien_pour_message_depose})                   # 23/10 : « lien_nouveau »
+                                     "lien_pour": lien_pour_message_depose,                    # 23/10 : « lien_nouveau »
+                                     "app_pour": app_pour_message_depose})                     # 27/10 : « app »
         client.loop.create_task(messages_deposes.envoyer_au_demarrage(client))  # messages écrits dans le dépôt, une fois (27/09)
         client.loop.create_task(nettoyer_candidatures_test())                    # 29/09 : les candidatures de test s'effacent
         # 09/10 (lot L6) : reels_uniques ne sert plus qu'à retrouver le TOP 20 d'ORIGINE de chaque créatrice (review_reels compare

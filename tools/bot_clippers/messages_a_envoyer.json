@@ -51,5 +51,10 @@
   "id": "annonce-lien-6reels-2610",
   "salon": "#annonces",
   "texte": "📢 **Ton lien arrive avec tes Reels, plus avec ton compte 3**\n\nRien ne change pour tes comptes.\n\nCompte 2 : 48 h après la création du compte 1.\n\nCompte 3 : 48 h après la création du compte 2.\n\nCe qui change : ton lien.\n\nIl arrive quand tes comptes 1 et 2 ont 6 Reels publiés à eux deux.\n\nLe message de ton compte 3 te dit combien il t'en manque.\n\nQuand c'est bon, le bot te donne ton lien tout seul, dans ton salon perso.\n\nTu as déjà ton lien ? Rien ne change pour toi.\n\n2 Reels par jour sur chaque compte de croissance. C'est tout."
+ },
+ {
+  "id": "app-esperance-2710",
+  "pour": "Esperance",
+  "app": true
  }
 ]
