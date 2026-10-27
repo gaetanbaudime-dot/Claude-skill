@@ -14,7 +14,8 @@ Un compte privé ne montre ni ses Reels ni ses vues à l'API : seuls ses followe
    - compte marqué « privé » dans Utilisation mais public ;
    - clipper sans aucun compte privé, ou avec plusieurs comptes privés (un compte de croissance passé en privé ?) ;
    - compte vivant dans le LOG mais introuvable sur Instagram (renommé, banni ou faute de frappe) ;
-   - compte « en appel » dans le LOG mais de nouveau visible sur Instagram (l'appel a abouti : repasser GOOD).
+   - compte « en appel » dans le LOG mais de nouveau visible sur Instagram (l'appel a abouti : repasser GOOD) ;
+   - compte « à créer » dans le LOG mais créé sur Instagram par le clipper (27/10 : passer GOOD).
 """
 
 import logging
@@ -54,12 +55,24 @@ def colonne_libre(entete: list, lignes: list):
     return i
 
 
-def valeurs_colonne(lignes: list, i_handle: int, store: dict) -> list:
-    """Pur : la colonne à écrire (lignes 2 à N), une valeur par ligne du LOG, vide pour une ligne sans @ ou pas encore relue."""
+def cree(store: dict, handle: str) -> bool:
+    """Pur : @ « à créer » vu libre puis existant sur Instagram (27/10) : créé par le clipper, jamais le compte d'un inconnu."""
+    h = str(handle or "").strip().lstrip("@").lower()
+    m = (store.get("pseudos") or {}).get(h) or {}
+    return m.get("statut") == "cree" and libelle(store, h) in ("Public", "Privé")
+
+
+def valeurs_colonne(lignes: list, i_handle: int, store: dict, i_etat: int = None) -> list:
+    """Pur : la colonne à écrire (lignes 2 à N), une valeur par ligne du LOG, vide pour une ligne sans @ ou pas encore relue.
+    Une ligne « à créer » n'a une valeur que si son compte a été créé (sinon le @ peut être celui d'un inconnu)."""
     out = []
     for l in lignes or []:
         h = l[i_handle] if len(l) > i_handle else ""
-        out.append([libelle(store, h) if str(h).strip() else ""])
+        a_creer = i_etat is not None and len(l) > i_etat and "creer" in _n(l[i_etat])
+        if not str(h).strip() or (a_creer and not cree(store, h)):
+            out.append([""])
+        else:
+            out.append([libelle(store, h)])
     return out
 
 
@@ -76,6 +89,11 @@ def anomalies(comptes: list, store: dict, creatrices: set = None) -> list:
         h = str(c.get("handle") or "").strip().lstrip("@").lower()
         etat = _n(c.get("etat"))
         appel = "appel" in etat
+        if h and "creer" in etat and cree(store, h):
+            # 27/10 : créé sur Instagram par le clipper, le LOG dit encore « à créer »
+            out.append([str(c.get("creatrice") or c.get("onglet") or "").strip(), str(c.get("gerant") or "").strip(), h,
+                        str(c.get("utilisation") or "").strip(), libelle(store, h), "compte créé sur Instagram : passer GOOD dans le LOG"])
+            continue
         if not h or not (etat.startswith("good") or etat.startswith("priv") or appel):
             continue
         v = libelle(store, h)
@@ -133,7 +151,7 @@ async def passage(store: dict) -> dict:
             lettre = google_api.colonne(i)
             ecritures = [(f"{onboarding.onglet_a1(titre)}!{lettre}1", [[ENTETE_LOG]])]
             if corps:
-                ecritures.append((f"{onboarding.onglet_a1(titre)}!{lettre}2:{lettre}{len(corps) + 1}", valeurs_colonne(corps, cols["handle"], store)))
+                ecritures.append((f"{onboarding.onglet_a1(titre)}!{lettre}2:{lettre}{len(corps) + 1}", valeurs_colonne(corps, cols["handle"], store, cols.get("etat"))))
             await google_api.sheets_ecrire_plusieurs(onboarding.CLASSEUR_LOGINS_ID, ecritures)
             bilan["onglets"].append(f"{titre} ({lettre})")
         lignes_anomalies = anomalies(comptes, store, onboarding.creatrices_connues(comptes))

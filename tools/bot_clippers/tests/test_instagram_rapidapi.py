@@ -584,3 +584,17 @@ def test_passage_sans_aucune_lecture_n_ecrase_pas_les_onglets(monkeypatch):
     I._jour.update({"jour": "", "n": 0, "restant": None})
     bilan = asyncio.run(I.passage_complet(None))
     assert bilan["onglets_ecrits"] is False and not any(t.startswith("IG · ") and t != "IG · Reels Metricool" for t in ecrits)
+
+
+def test_compte_a_creer_vu_libre_suivi_des_qu_il_existe(monkeypatch):
+    """27/10 : un @ « à créer » attribué, vu libre, est suivi ; tant qu'il n'existe pas il n'a pas de ligne ; créé, il est relu
+    et marqué « créé ». Un @ du stock ou déjà pris avant n'est pas suivi."""
+    comptes = [{"onglet": "Sarah", "handle": "neuf", "etat": "à créer", "gerant": "Mavie"},
+               {"onglet": "Sarah", "handle": "stock1", "etat": "à créer", "gerant": ""},
+               {"onglet": "Sarah", "handle": "pris1", "etat": "à créer", "gerant": "Mavie"}]
+    store = {"pseudos": {"neuf": {"statut": "libre"}, "stock1": {"statut": "libre"}, "pris1": {"statut": "pris", "attribue": True}}}
+    s = I.comptes_a_suivre(comptes, I.crees_possibles(store))
+    assert [(x["handle"], x.get("a_creer")) for x in s] == [("neuf", True)]
+    T0 = datetime(2026, 10, 27, 6, 0, tzinfo=timezone.utc)
+    assert I.lignes_comptes(s, {"comptes": {"neuf": {"statut": "introuvable"}}}, T0) == []
+    assert I.lignes_comptes(s, {"comptes": {"neuf": {"statut": "public", "suivi": [["t", 1, 0]]}}}, T0)[0][3] == "neuf"
