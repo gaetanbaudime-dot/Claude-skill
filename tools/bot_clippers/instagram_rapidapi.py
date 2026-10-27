@@ -344,24 +344,41 @@ def type_compte(c: dict, creatrices: set) -> str:
     return "Clipper"
 
 
-def comptes_a_suivre(comptes: list) -> list:
-    """Lignes du LOG → comptes vivants à suivre (GOOD / PRIVE), une fois chacun : [{handle, creatrice, gerant, type}]."""
+def _stock(g) -> bool:
+    gn = _n(g)
+    return not gn or gn in ("stock", "libre", "-")
+
+
+def comptes_a_suivre(comptes: list, crees: set = None) -> list:
+    """Lignes du LOG → comptes vivants à suivre (GOOD / PRIVE / en appel), une fois chacun : [{handle, creatrice, gerant, type}].
+    27/10 (Gaëtan : « elle l'a créé hier à 11 h 30 », le compte restait « à créer » dans le LOG, donc jamais relu) : une ligne
+    « à créer » attribuée à un clipper est suivie aussi quand son @ a été vu LIBRE sur Instagram (`crees` : contrôle des @). Si ce
+    @ existe ensuite, c'est le clipper qui l'a créé, jamais un inconnu. Un @ déjà pris avant d'être attribué n'est pas suivi."""
     creatrices = {_n(c.get("onglet")).split()[0] for c in comptes or [] if _n(c.get("onglet"))}
+    crees = crees or set()
     vus, out = set(), []
     for c in comptes or []:
         h = str(c.get("handle") or "").strip().lstrip("@").lower()
-        if not h or h in vus or not any(_n(c.get("etat")).startswith(e) for e in ETATS_VIVANTS):
+        a_creer = "creer" in _n(c.get("etat")) and h in crees and not _stock(c.get("gerant"))
+        if not h or h in vus or not (a_creer or any(_n(c.get("etat")).startswith(e) for e in ETATS_VIVANTS)):
             continue
         vus.add(h)
         out.append({"handle": h, "creatrice": str(c.get("creatrice") or c.get("onglet") or "").strip(),
-                    "gerant": str(c.get("gerant") or "").strip(), "type": type_compte(c, creatrices)})
+                    "gerant": str(c.get("gerant") or "").strip(), "type": type_compte(c, creatrices), **({"a_creer": True} if a_creer else {})})
     return out
+
+
+def crees_possibles(store: dict) -> set:
+    """Pur : les @ vus libres sur Instagram par le contrôle des @ (ou déjà vus créés) : s'ils existent, ils sont à nous."""
+    return {h for h, m in (store.get("pseudos") or {}).items() if isinstance(m, dict) and m.get("statut") in ("libre", "cree")}
 
 
 def lignes_comptes(suivis: list, store: dict, maintenant: datetime) -> list:
     out = []
     for s in suivis:
         e = (store.get("comptes") or {}).get(s["handle"]) or {}
+        if s.get("a_creer") and e.get("statut") not in ("public", "privé"):
+            continue                                                     # pas encore créé : aucune ligne (jamais « introuvable »)
         f = fenetres((store.get("reels") or {}).get(s["handle"]) or {}, maintenant)
         suivi = e.get("suivi") or []
         dernier = suivi[-1] if suivi else [None, None, None]
@@ -854,8 +871,8 @@ async def passage_complet(session) -> dict:
     import onboarding
     import pilotage
     t0 = time.monotonic()
-    comptes = comptes_a_suivre(await onboarding.lire_comptes())
     store = _store()
+    comptes = comptes_a_suivre(await onboarding.lire_comptes(), crees_possibles(store))
     maintenant = datetime.now(timezone.utc)
     etat = store.setdefault("etat", {})
     if RATTRAPAGE_J and int((etat.get("rattrapage") or {}).get("jours") or 0) != RATTRAPAGE_J:
@@ -891,6 +908,10 @@ async def passage_complet(session) -> dict:
         e = store["comptes"].get(h) or {}
         if e.get("statut") == "introuvable":
             continue
+        if s.get("a_creer"):
+            # 27/10 : un @ prévu, vu libre, qui existe maintenant : créé par le clipper (le contrôle des @ ne le signale plus « pris »)
+            store.setdefault("pseudos", {})[h] = {**(store.get("pseudos", {}).get(h) or {}), "statut": "cree",
+                                                  "vu_cree_le": maintenant.isoformat(timespec="seconds")}
         rattrapage = a_rattraper(e, jours_r)
         if e.get("statut") == "privé":
             # 23/10 : un compte privé ne montre aucun Reel à l'API (page 1 vide trois fois sur les 12 privés) : pas de requête,

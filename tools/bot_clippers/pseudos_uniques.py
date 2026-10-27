@@ -82,7 +82,7 @@ def a_revoir(memo: dict, h: str, maintenant: datetime) -> bool:
     m = (memo or {}).get(h)
     if not m:
         return True
-    if m.get("statut") == "pris":
+    if m.get("statut") in ("pris", "cree"):
         return False
     try:
         return maintenant - datetime.fromisoformat(m["le"]) > timedelta(days=REVERIFIER_J)
@@ -128,6 +128,10 @@ async def passage(session, store: dict, comptes: list, maintenant: datetime = No
             memo[h] = {"statut": "libre", "le": maintenant.isoformat(timespec="seconds")}
             continue
         bilan["pris"] += 1
+        if not ligne["stock"] and (memo.get(h) or {}).get("statut") == "libre":
+            # 27/10 : vu libre, attribué, maintenant pris : c'est le clipper qui l'a créé (le suivi Instagram le relit)
+            memo[h] = {**memo[h], "statut": "cree", "vu_cree_le": maintenant.isoformat(timespec="seconds")}
+            continue
         if not ligne["stock"]:
             bilan["signales"] += 1
             memo[h] = {"statut": "pris", "attribue": True, "le": maintenant.isoformat(timespec="seconds")}
@@ -277,6 +281,8 @@ def lignes_onglet(comptes: list, memo: dict) -> list:
             statut = "pas encore vérifié"
         elif m.get("statut") == "libre":
             statut = libelle["libre"] + (f" (remplace {m['variante_de']}, pris)" if m.get("variante_de") else "")
+        elif m.get("statut") == "cree":
+            statut = "créé sur Instagram : passer GOOD dans le LOG"
         elif m.get("attribue"):
             statut = "pris, déjà attribué : donner un autre @ au clipper"
         elif m.get("remplace_par"):
@@ -285,7 +291,7 @@ def lignes_onglet(comptes: list, memo: dict) -> list:
             statut = "pris, aucune variante libre trouvée"
         out.append([str(l["creatrice"] or ""), str(l["onglet"] or ""), str(l["ligne"] or ""), l["handle"], statut,
                     (m or {}).get("remplace_par", ""), l["gerant"], (m or {}).get("le", "")])
-    ordre = {"pris, déjà attribué : donner un autre @ au clipper": 0, "pris, aucune variante libre trouvée": 1, "pris, remplacé dans le LOG": 2,
+    ordre = {"créé sur Instagram : passer GOOD dans le LOG": 0, "pris, déjà attribué : donner un autre @ au clipper": 0, "pris, aucune variante libre trouvée": 1, "pris, remplacé dans le LOG": 2,
              "pas encore vérifié": 3, "libre": 4}
     out.sort(key=lambda r: (ordre.get(r[4].split(" (")[0], 5), r[0], r[3]))
     return out

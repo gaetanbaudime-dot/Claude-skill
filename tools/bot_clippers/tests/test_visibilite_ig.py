@@ -50,3 +50,14 @@ def test_compte_en_appel_revenu_signale():
     a = V.anomalies([{"handle": "rev", "gerant": "Yves", "etat": "Faire appel", "creatrice": "Sarah"},
                      {"handle": "susp", "gerant": "Yves", "etat": "APPEL A FAIRE", "creatrice": "Sarah"}], store)
     assert len(a) == 1 and a[0][2] == "rev" and "l'appel a abouti" in a[0][5]
+
+
+def test_compte_a_creer_cree_par_le_clipper():
+    store = {"comptes": {"neuf": {"statut": "public"}, "inconnu": {"statut": "public"}},
+             "pseudos": {"neuf": {"statut": "cree"}, "inconnu": {"statut": "pris", "attribue": True}}}
+    lignes = [{"handle": "neuf", "gerant": "Mavie", "etat": "à créer", "creatrice": "Sarah"},
+              {"handle": "inconnu", "gerant": "Mavie", "etat": "à créer", "creatrice": "Sarah"}]
+    a = V.anomalies(lignes, store)
+    assert [(r[2], r[5]) for r in a] == [("neuf", "compte créé sur Instagram : passer GOOD dans le LOG")]
+    col = V.valeurs_colonne([["à créer", "neuf"], ["à créer", "inconnu"], ["GOOD", "inconnu"]], 1, store, 0)
+    assert col == [["Public"], [""], ["Public"]]

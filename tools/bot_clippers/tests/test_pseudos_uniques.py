@@ -88,3 +88,12 @@ def test_migration_par_id_quand_le_at_change():
     assert I.migrer_par_id(store, "nouveau.at", "77") == "vieux.at"
     assert "vieux.at" not in store["comptes"] and store["comptes"]["nouveau.at"]["suivi"][0][1] == 10
     assert store["reels"]["nouveau.at"]["A"]["vues"] == 5 and I.migrer_par_id(store, "autre", "99") == ""
+
+
+def test_attribue_vu_libre_puis_pris_est_cree():
+    from datetime import datetime, timezone
+    T0 = datetime(2026, 10, 27, 6, 0, tzinfo=timezone.utc)
+    memo = {"neuf": {"statut": "cree", "le": "2026-10-22T09:00:00+00:00"}}
+    assert not P.a_revoir(memo, "neuf", T0)
+    l = P.lignes_onglet([{"onglet": "Sarah", "ligne": 3, "handle": "neuf", "etat": "à créer", "gerant": "Mavie"}], memo)
+    assert l[0][4] == "créé sur Instagram : passer GOOD dans le LOG"
