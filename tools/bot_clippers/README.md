@@ -10,6 +10,22 @@
 >
 > 11/10 : la vague 1 du recrutement est branchée au démarrage, testée, pas encore en production. Lis d'abord « 10/10 et 11/10 : ce qui change pour toi », juste en dessous.
 
+## 27/10 : le @ que le clipper a vraiment créé suit partout
+
+**Le problème** (Mouhsinou, Sarah) : le bot lui a donné `x_y45` le 23/10, il a créé `x.y45` (un point au lieu du tiret bas). Il l'a écrit deux fois dans son salon : son lien Instagram le 24/10, « c'est le même @ » le 25/10. Il n'a jamais appuyé sur « ✅ Compte 1 créé » ni tapé `!pseudo`. Le classeur, le Cockpit et le suivi sont restés sur `x_y45`, un compte qui n'existe pas : « à créer », 0 Reel vu, avertissement de sortie. Le prévenir n'aurait rien changé : un œil humain ne voit pas la différence entre un point et un tiret bas.
+
+Deuxième cause, plus large : le bot retrouve la ligne d'un compte par son @. Quand le @ change dans le classeur après la remise (corrigé à la main, remplacé par le contrôle des @), la fiche du clipper (ce que Discord lui a donné) et le classeur divergent sans alerte : accès « non remis », Reels comptés sur un compte inexistant.
+
+**Maintenant** :
+
+- **Ce que le clipper écrit corrige tout.** Dans son salon perso, un lien Instagram, un `@…` ou un mot avec un point ou un tiret bas qui est l'un de ses comptes à un séparateur près remplace le @ prévu : classeur, fiche, registre, Reels suivis (`parcours.capter_pseudo`, la même fonction que `!pseudo`). Un lien prouve la création ; une étape déjà dépassée (compte 2 parti à 48 h) est alors notée créée et sa ligne passe GOOD. Le bot répond « C'est noté : ton compte n est `…` ».
+- **Rattrapage au démarrage** : le même contrôle relit une fois l'historique de chaque salon perso (`rattraper_pseudos`, noté `pseudos_rattrapes` dans la fiche). Le cas de Mouhsinou se corrige ainsi tout seul.
+- **Plus jamais prérempli** : la fenêtre du bouton « ✅ Compte n créé » ne recopie plus le @ prévu (on confirmait sans voir le point). Le compte 1 dit : « Instagram change ton identifiant, même d'un point ? Garde-le et écris ici ton @ exact. » Plus de « ajoute un chiffre ou un point ».
+- **Mail d'Instagram** : un compte d'une étape déjà dépassée mais jamais notée créée est aussi prouvé (et renommé) par le mail qui le salue.
+- **Fiche ↔ classeur par l'e-mail** (`rapprochement_mail`, 6 min après le démarrage puis toutes les 6 h) : chaque compte d'une fiche est cherché dans le classeur par son e-mail d'agence, qui ne change jamais. Ligne qui existe sous un autre @ (même Gérant) : la fiche suit le classeur (`onboarding.suivre_classeur`, sans écrire le classeur). Ligne encore « à créer » sous un autre @ : rien n'est réécrit, la liste part au salon admin avec `!pseudo @clipper n <son @>`, une fois tant qu'elle ne change pas.
+
+Variables : `CAPTER_PSEUDOS=0` coupe la lecture des @ écrits ; `RAPPROCHEMENT_MAIL=0` coupe le rapprochement.
+
 ## 26/10 : plus jamais d'abonnés sur un compte « à créer »
 
 **Le problème** : le Cockpit signalait huit comptes « à créer » avec des abonnés (jusqu'à 153), alors qu'aucun n'existe sur Instagram. Les chiffres venaient de la colonne Followers du LOG. Jusqu'au 24/10, le scan Apify lisait aussi le @ prévu des lignes « à créer » et écrivait les abonnés du compte qu'il trouvait sous ce nom : souvent celui d'un inconnu qui portait déjà ce @. Quand le @ a ensuite été changé pour une variante libre, à la main ou par le contrôle des @, les chiffres de l'inconnu sont restés sur la ligne.

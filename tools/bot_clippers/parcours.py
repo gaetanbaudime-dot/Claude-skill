@@ -415,7 +415,9 @@ def titre_etape(fiche_p: dict, n: int) -> str:
 # 08/10 (audit : l'identifiant déjà pris est le blocage le plus courant à la création ; Mohamed a créé une variante que le bot ne
 # connaissait pas) : la consigne et la commande `!pseudo n identifiant`, qui met le classeur et la fiche à jour.
 # 09/10 : le bouton « Compte n créé » demande le @ exact (fenêtre ModalPseudo) ; `!pseudo` reste pour corriger après coup
-PSEUDO_PRIS = "Identifiant déjà pris ? Ajoute un chiffre ou un point. Quand tu appuies sur ✅, je te demande ton @ exact."
+# 27/10 (Mouhsinou) : plus « ajoute un chiffre ou un point » (le clipper changeait le @ de lui-même) : il garde ce qu'Instagram lui
+# donne et l'écrit ; la fenêtre du bouton n'est plus préremplie (prérempli, on confirme sans voir le point ou le tiret bas)
+PSEUDO_PRIS = "Instagram change ton identifiant, même d'un point ? Garde-le. Quand tu appuies sur ✅, colle ton @ exact."
 # 09/10 (Gaëtan : « Saute des lignes, aère ») : une ligne vide entre chaque paragraphe ; la liste du compte 1 reste d'un bloc.
 CREATION = ("1. Instagram → Créer un compte → avec cet e-mail.\n"
             "2. {codes}\n"
@@ -1275,10 +1277,12 @@ class ModalPseudo(discord.ui.Modal):
         self.uid, self.n, self.prevu = str(uid), int(n), prevu
         # 09/10 (revue) : le @ prévu existait déjà sur Instagram avant sa création (compte d'un inconnu ?) → pas prérempli, sinon le
         # clipper confirme sans lire et le scan suit le compte de l'inconnu
+        # 27/10 (Mouhsinou : `x.y45` créé, « c'est le même @ » pour `x_y45`) : plus jamais prérempli. Le @ prévu
+        # recopié d'office cachait le point ou le tiret bas changé par Instagram ; le clipper colle le @ affiché sur son profil.
         pris = _prevu_pris(prevu)
-        self.champ = discord.ui.TextInput(label="Ton @ exact. Le @ prévu semble déjà pris." if pris else "Ton @ Instagram exact (sans le @)",
-                                          default=None if pris else prevu, min_length=1, max_length=30,
-                                          placeholder="Le @ que tu as créé" if pris else "Si le @ prévu était pris, celui que tu as choisi")
+        self.champ = discord.ui.TextInput(label="Ton @ exact. Le @ prévu semble déjà pris." if pris else "Ton @ exact, copié sur ton profil",
+                                          default=None, min_length=1, max_length=30,
+                                          placeholder="Le @ affiché en haut de ton profil Instagram")
         self.add_item(self.champ)
 
     async def on_submit(self, interaction: discord.Interaction):
@@ -4445,6 +4449,149 @@ async def commande_pseudo(message, texte: str) -> bool:
     quel = f"ton compte {n} {creatrice_salon}" if creatrice_salon else f"ton compte {n}"
     await message.reply(f"✅ C'est noté : {quel} est maintenant `{nouveau}`. Je le suis sous ce nom.")
     return True
+
+
+# 27/10 (Gaëtan : « on lui donne un compte et c'est un compte différent de celui du tableau de bord ; ce n'est pas la faute du
+# clipper, c'est la nôtre ») : Mouhsinou a reçu `x_y45` et créé `x.y45` (un point au lieu du tiret bas). Il l'a
+# écrit deux fois dans son salon (son lien Instagram le 24/10, « c'est le même @ » le 25/10) ; il n'a jamais tapé `!pseudo` ni
+# appuyé sur le bouton : le classeur et le Cockpit sont restés sur un compte qui n'existe pas. Le bot lit désormais ce que le clipper
+# écrit : un @ qui est l'un de ses comptes à un point ou un tiret bas près (le cas des suggestions d'Instagram, et l'œil humain ne
+# voit pas la différence) remplace le @ prévu partout, comme `!pseudo`.
+RE_LIEN_IG = re.compile(r"instagram\.com/(?:_u/)?([A-Za-z0-9._]{1,30})", re.IGNORECASE)
+RE_AROBASE_IG = re.compile(r"(?<![\w.@])@([A-Za-z0-9._]{3,30})")
+RE_MOT_IG = re.compile(r"(?<![\w.@/:-])([A-Za-z0-9]+(?:[._]+[A-Za-z0-9]+)+_*)(?![\w@/-]|\.\w)")
+CHEMINS_IG = {"p", "reel", "reels", "stories", "explore", "accounts", "tv", "direct", "s"}
+_FORCE_PREUVE = {"lien": 3, "arobase": 2, "mot": 1}
+
+
+def ecrase_pseudo(h: str) -> str:
+    """Pur : le @ sans point ni tiret bas, en minuscules (« x.y45 » et « x_y45 » → « xy45 »)."""
+    return re.sub(r"[._]", "", str(h or "").strip().lstrip("@").lower())
+
+
+def pseudos_ecrits(texte: str) -> list:
+    """Pur (27/10) : les @ Instagram qu'un message cite, avec leur preuve : « lien » (instagram.com/…), « arobase » (@…) ou « mot »
+    (un mot avec un point ou un tiret bas). [(handle, preuve)], la preuve la plus forte gardée pour un même @. Une adresse e-mail,
+    un domaine ou un lien d'un autre site ne compte jamais."""
+    trouves = {}
+
+    def noter(h, preuve):
+        h = str(h or "").strip().lower().rstrip(".")
+        if not onboarding.RE_HANDLE_IG.match(h) or not re.search(r"[a-z]", h) or h in CHEMINS_IG:
+            return
+        if _FORCE_PREUVE[preuve] > _FORCE_PREUVE.get(trouves.get(h, ""), 0):
+            trouves[h] = preuve
+
+    t = str(texte or "")
+    for m in RE_LIEN_IG.finditer(t):
+        noter(m.group(1), "lien")
+    sans_liens = re.sub(r"https?://\S+|\S+@\S+", " ", t)                 # liens et e-mails retirés avant les mots
+    for m in RE_AROBASE_IG.finditer(sans_liens):
+        noter(m.group(1), "arobase")
+    for m in RE_MOT_IG.finditer(sans_liens):
+        noter(m.group(1), "mot")
+    return sorted(trouves.items(), key=lambda kv: (-_FORCE_PREUVE[kv[1]], kv[0]))
+
+
+def correspondances(ecrits: list, comptes: list) -> list:
+    """Pur (27/10) : [(n, prévu, réel, preuve)] — chaque @ écrit qui est le compte n du clipper à un point ou un tiret bas près, et
+    pas exactement le @ prévu. Un @ qui ressemble à deux de ses comptes, ou qui est exactement l'un d'eux, ne change rien."""
+    prevus = [str(h or "").strip().lstrip("@").lower() for h in comptes or []]
+    out, pris = [], set()
+    for h, preuve in ecrits or []:
+        if h in prevus:
+            continue
+        proches = [(k, p) for k, p in enumerate(prevus, start=1) if p and ecrase_pseudo(p) == ecrase_pseudo(h)]
+        if len(proches) != 1 or proches[0][0] in pris:
+            continue
+        pris.add(proches[0][0])
+        out.append((proches[0][0], proches[0][1], h, preuve))
+    return out
+
+
+async def _appliquer_pseudo(salon, uid: str, n: int, prevu: str, reel: str, preuve: str) -> str:
+    """Le compte n passe à `reel` (renommer, comme `!pseudo`), puis, preuve à l'appui, l'étape est notée créée : un lien vers le
+    profil prouve qu'il existe ; une étape déjà dépassée (compte 2 parti à 48 h sans « ✅ Compte 1 créé ») est notée créée dès que
+    le clipper donne son @. Renvoie '' si c'est fait, sinon la raison."""
+    _, raison = await renommer(uid, n, reel)
+    if raison:
+        return raison
+    fiche_p = _lire().get(str(uid)) or {}
+    etape = int(fiche_p.get("etape", 0) or 0)
+    if salon is not None and not _cree(fiche_p, n) and (n < etape or (n == etape and preuve == "lien")):
+        try:
+            await valider_etape(salon, str(uid), int(n), par=str(uid), creation=True)
+        except Exception as erreur:                                     # noqa: BLE001 — le @ est déjà corrigé
+            journal.warning("Compte %s de %s noté créé après son @ : %s", n, uid, erreur)
+    journal.info("@ écrit par le clipper %s : compte %s %s → %s (%s)", uid, n, prevu, reel, preuve)
+    return ""
+
+
+async def capter_pseudo(message, texte: str) -> bool:
+    """27/10 : un message du clipper dans son salon perso qui cite l'un de ses comptes à un point ou un tiret bas près met le
+    classeur, sa fiche et le suivi sur ce @ (voir RE_LIEN_IG). Renvoie True si un @ a été corrigé (le bot a répondu)."""
+    uid = str(getattr(message.author, "id", ""))
+    if not uid or os.environ.get("CAPTER_PSEUDOS", "1").strip() == "0":
+        return False
+    ecrits = pseudos_ecrits(texte)
+    if not ecrits:
+        return False
+    faits = []
+    for n, prevu, reel, preuve in correspondances(ecrits, _comptes_ordonnes(uid)):
+        raison = await _appliquer_pseudo(message.channel, uid, n, prevu, reel, preuve)
+        if raison:
+            journal.info("@ écrit par le clipper %s : compte %s %s → %s pas changé (%s)", uid, n, prevu, reel, raison)
+            continue
+        faits.append((n, prevu, reel))
+    if not faits:
+        return False
+    lignes = [f"✅ C'est noté : ton compte {n} est `{reel}` (prévu : `{prevu}`)." for n, prevu, reel in faits]
+    try:
+        await message.reply("\n\n".join(lignes + ["Le classeur et le suivi de tes Reels passent sous ce nom."]),
+                            mention_author=False)
+    except (discord.Forbidden, discord.HTTPException):
+        pass
+    return True
+
+
+async def rattraper_pseudos(client, limite: int = 300) -> list:
+    """27/10 : le même contrôle sur les messages déjà écrits (une fois par clipper, noté « pseudos_rattrapes » dans sa fiche de
+    parcours) : le @ réel que le clipper a donné avant ce correctif est retrouvé dans son salon perso. Le message le plus récent
+    l'emporte pour un même compte. Renvoie [(uid, n, prévu, réel)] corrigés."""
+    if os.environ.get("CAPTER_PSEUDOS", "1").strip() == "0":
+        return []
+    await client.wait_until_ready()
+    faits = []
+    for uid, f in list(_lire().items()):
+        if not isinstance(f, dict) or f.get("pseudos_rattrapes") or not f.get("salon_id") or int(f.get("etape", 0) or 0) < 1:
+            continue
+        salon = client.get_channel(int(f.get("salon_id") or 0))
+        if salon is None:
+            continue
+        vus = {}
+        try:
+            async for msg in salon.history(limit=limite):               # du plus récent au plus ancien
+                if str(getattr(msg.author, "id", "")) != str(uid):
+                    continue
+                for n, prevu, reel, preuve in correspondances(pseudos_ecrits(msg.content or ""), _comptes_ordonnes(uid)):
+                    vus.setdefault(n, (prevu, reel, preuve))
+        except (discord.Forbidden, discord.HTTPException) as erreur:
+            journal.info("Rattrapage des @ : salon de %s illisible (%s)", uid, type(erreur).__name__)
+            continue
+        for n, (prevu, reel, preuve) in sorted(vus.items()):
+            raison = await _appliquer_pseudo(salon, uid, n, prevu, reel, preuve)
+            if raison:
+                journal.info("Rattrapage des @ : compte %s de %s %s → %s pas changé (%s)", n, uid, prevu, reel, raison)
+                continue
+            faits.append((uid, n, prevu, reel))
+        d = _lire()
+        if uid in d:
+            d[uid]["pseudos_rattrapes"] = _maintenant()
+            _ecrire(d)
+        await asyncio.sleep(1)                                          # un salon par seconde : jamais de rafale Discord
+    journal.info("Rattrapage des @ écrits par les clippers : %s compte(s) corrigé(s)%s", len(faits),
+                 (" : " + " · ".join(f"{u} compte {n} {p} → {r}" for u, n, p, r in faits)) if faits else "")
+    return faits
 
 
 async def commande_staff(message, texte: str) -> bool:
