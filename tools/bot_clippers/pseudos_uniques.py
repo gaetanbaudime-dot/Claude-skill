@@ -11,6 +11,10 @@ Avant qu'un compte soit remis à un clipper, son @ prévu est vérifié sur Inst
 minutes : le tri du matin déplace les lignes) ; une ligne « à créer » dont le @ est libre sur Instagram perd ses followers et ses
 Reels (des chiffres d'un autre compte : aucun compte ne porte ce nom).
 
+27/10 : les @ attribués et les PROCHAINS premiers du stock de chaque créatrice sont revérifiés chaque jour (les autres chaque
+semaine). Limite connue : Instagram refuse aussi des noms qu'aucun compte visible ne porte (comptes supprimés ou désactivés) ; ceux-là
+passent pour libres. Le suivi retrouve alors le compte sous la suggestion d'Instagram (instagram_rapidapi.variantes_instagram).
+
 Tout est écrit dans l'onglet « IG · Pseudos » du tableur App clippers · usage. Une réponse douteuse de l'API (erreur, quota) ne
 décide rien : le @ est revu au passage suivant. Le contrôle ne garantit pas qu'Instagram acceptera le nom (noms récemment
 supprimés ou réservés), il évite seulement les noms déjà portés par un compte visible.
@@ -77,15 +81,35 @@ def a_controler(comptes: list) -> list:
     return out
 
 
-def a_revoir(memo: dict, h: str, maintenant: datetime) -> bool:
-    """Pur : jamais vérifié, ou vérifié libre il y a plus de REVERIFIER_J jours (un @ pris le reste : pas revérifié)."""
+PROCHAINS = int(os.environ.get("PSEUDOS_PROCHAINS", "10") or 10)     # 27/10 : les 10 prochains @ à créer par créatrice…
+REVERIFIER_PROCHAINS_H = int(os.environ.get("PSEUDOS_PROCHAINS_H", "20") or 20)   # … revérifiés chaque jour (20 h : 1 passage sur 3)
+
+
+def prochains(comptes: list, n: int = PROCHAINS) -> set:
+    """Pur (27/10, Gaëtan : « une fois par jour, vérifier que les @ à créer sont bien libres, au moins les 10 prochains par
+    créatrice ; le clipper ne doit jamais changer de @, sinon on perd le suivi ») : les @ à créer attribués à un clipper (création
+    imminente) et les n premiers du stock de chaque onglet, dans l'ordre du LOG (les prochains distribués)."""
+    out, par_onglet = set(), {}
+    for l in a_controler(comptes):
+        if not l["stock"]:
+            out.add(l["handle"])
+        elif par_onglet.get(l["onglet"], 0) < n:
+            par_onglet[l["onglet"]] = par_onglet.get(l["onglet"], 0) + 1
+            out.add(l["handle"])
+    return out
+
+
+def a_revoir(memo: dict, h: str, maintenant: datetime, heures: int = None) -> bool:
+    """Pur : jamais vérifié, ou vérifié libre il y a plus de REVERIFIER_J jours (`heures` : délai plus court pour les prochains).
+    Un @ pris ou déjà créé le reste : pas revérifié."""
     m = (memo or {}).get(h)
     if not m:
         return True
     if m.get("statut") in ("pris", "cree"):
         return False
     try:
-        return maintenant - datetime.fromisoformat(m["le"]) > timedelta(days=REVERIFIER_J)
+        delai = timedelta(hours=heures) if heures else timedelta(days=REVERIFIER_J)
+        return maintenant - datetime.fromisoformat(m["le"]) > delai
     except (KeyError, ValueError, TypeError):
         return True
 
@@ -112,11 +136,12 @@ async def passage(session, store: dict, comptes: list, maintenant: datetime = No
     bilan = {"verifies": 0, "libres": 0, "pris": 0, "remplaces": 0, "signales": 0, "doute": 0, "requetes": 0, "chiffres_effaces": 0}
     remplacements = []
     n0 = I._jour["n"]
-    for ligne in a_controler(comptes):
+    proch = prochains(comptes)
+    for ligne in sorted(a_controler(comptes), key=lambda l: l["handle"] not in proch):    # les prochains d'abord
         if I._jour["n"] - n0 >= PAR_PASSAGE or not I._quota_ok(I.RESERVE):
             break
         h = ligne["handle"]
-        if not a_revoir(memo, h, maintenant):
+        if not a_revoir(memo, h, maintenant, REVERIFIER_PROCHAINS_H if h in proch else None):
             continue
         r = await existe(session, h)
         bilan["verifies"] += 1
