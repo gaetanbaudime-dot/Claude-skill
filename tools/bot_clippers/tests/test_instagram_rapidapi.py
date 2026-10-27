@@ -636,4 +636,5 @@ def test_compte_a_creer_retrouve_sous_la_suggestion_instagram(monkeypatch):
     e = store["comptes"]["sarah.clic"]
     assert b["existantes"] == 1 and e["id"] == "99" and e["renomme_en"] == "sara_hclic" and e["statut"] == "public"
     assert store["pseudos"]["sarah.clic"]["statut"] == "cree" and store["pseudos"]["sarah.clic"]["cree_sous"] == "sara_hclic"
+    assert "sara_hclic" in I.crees_possibles(store)                       # renommé par le bot : toujours suivi sous son nouvel @
     assert I.lignes_comptes(suivis, store, maintenant)[0][22] == "sara_hclic"

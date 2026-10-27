@@ -882,6 +882,8 @@ async def chercher_variantes(session, store: dict, suivis: list, maintenant: dat
                 e.update({"id": str(res[v_cree]["id"]), "renomme_en": v_cree, "variante_creee": v_cree, "statut": "public"})
                 store.setdefault("pseudos", {})[h] = {**(store.get("pseudos", {}).get(h) or {}), "statut": "cree", "cree_sous": v_cree,
                                                       "vu_cree_le": maintenant.isoformat(timespec="seconds")}
+                # le bot renomme la ligne en v_cree (« Renommé en ») : sous son nouvel @, elle reste suivie et passe GOOD
+                store["pseudos"][v_cree] = {"statut": "cree", "variante_de": h, "vu_cree_le": maintenant.isoformat(timespec="seconds")}
                 journal.info("Compte à créer %s retrouvé sous %s (suggestion d'Instagram, compte neuf)", h, v_cree)
                 if await relire_profil(session, store, h, maintenant):
                     await relire_reels(session, store, h, maintenant, jusqu_a=maintenant - timedelta(days=FENETRE_RELUE_J), pages=PAGES_FENETRE)
