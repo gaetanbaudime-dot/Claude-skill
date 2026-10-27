@@ -830,13 +830,14 @@ def variante_creee(res: dict, creatrice: str = ""):
     """Pur (27/10) : (variante, preuve) — EXACTEMENT une variante existe et elle est toute neuve (peu d'abonnés, presque pas de
     publications) ; `preuve` : son profil prouve qu'elle est à nous (preuve_a_nous). None : plusieurs comptes, aucun, ou un
     compte installé. Sans preuve, la variante est seulement proposée (jamais suivie ni renommée)."""
-    existe = [(v, r) for v, r in (res or {}).items() if r.get("statut") == "existe"]
-    if len(existe) != 1:
+    # 27/10 (« sarah.clic » : sara_hclic, 2 abonnés, au clipper ; sarah_clic, 208 abonnés, une photographe au Brésil) : un compte
+    # installé n'est jamais un candidat, il ne bloque donc pas le choix entre les comptes neufs
+    neufs = [(v, r) for v, r in (res or {}).items() if r.get("statut") == "existe"
+             and (r.get("followers") or 0) <= NEUF_FOLLOWERS and (r.get("publications") or 0) <= NEUF_PUBLICATIONS]
+    if len(neufs) != 1:
         return None
-    v, r = existe[0]
-    if (r.get("followers") or 0) <= NEUF_FOLLOWERS and (r.get("publications") or 0) <= NEUF_PUBLICATIONS:
-        return v, preuve_a_nous(r, creatrice)
-    return None
+    v, r = neufs[0]
+    return v, preuve_a_nous(r, creatrice)
 
 
 def detacher_sans_preuve(store: dict, suivis: list) -> list:
@@ -893,6 +894,9 @@ async def chercher_variantes(session, store: dict, suivis: list, maintenant: dat
         if s.get("a_creer") and avant.get("complet"):
             try:                                                         # pas encore créé, sans doute : un jour sur deux
                 if (date.fromisoformat(jour) - date.fromisoformat(avant.get("jour"))).days < A_CREER_TOUS_LES_J:
+                    trouve = variante_creee(avant.get("resultats") or {}, s.get("creatrice"))
+                    if trouve and not trouve[1]:                         # décision rejouée sur la dernière recherche
+                        store.setdefault("pseudos", {})[h] = {**(store.get("pseudos", {}).get(h) or {}), "propose": trouve[0]}
                     continue
             except (TypeError, ValueError):
                 pass
