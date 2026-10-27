@@ -196,7 +196,7 @@ def _signature(liste: list) -> str:
 async def _trancher(onboarding, e: dict, quoi: str) -> str:
     """Applique une décision ; '' si c'est fait, sinon la raison."""
     if quoi == "fiche_suit_classeur":
-        return await onboarding.suivre_classeur(e["uid"], e["fiche"], e["classeur"])
+        return await onboarding.suivre_classeur(e["uid"], e["fiche"], e["classeur"], e.get("mail", ""))
     raison = await onboarding.classeur_suit_fiche(e["uid"], e["classeur"], e["fiche"], e.get("mail", ""))
     if not raison and quoi == "classeur_suit_fiche_cree":
         try:
@@ -220,7 +220,7 @@ async def passer(onboarding, admin=None, lire_json=None, ecrire_json=None, fichi
     bilan["absentes"] = sum(1 for e in liste if e["type"] in ("absente", "ambigue"))
     suivis, refus = [], []
     for e in [x for x in liste if a_suivre(x)]:
-        raison = await onboarding.suivre_classeur(e["uid"], e["fiche"], e["classeur"])
+        raison = await onboarding.suivre_classeur(e["uid"], e["fiche"], e["classeur"], e.get("mail", ""))
         if raison:
             refus.append({**e, "raison": raison})
         else:
