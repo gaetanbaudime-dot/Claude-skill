@@ -97,3 +97,14 @@ def test_attribue_vu_libre_puis_pris_est_cree():
     assert not P.a_revoir(memo, "neuf", T0)
     l = P.lignes_onglet([{"onglet": "Sarah", "ligne": 3, "handle": "neuf", "etat": "à créer", "gerant": "Mavie"}], memo)
     assert l[0][4] == "créé sur Instagram : passer GOOD dans le LOG"
+
+
+def test_prochains_et_revérification_quotidienne():
+    from datetime import datetime, timedelta, timezone
+    comptes = [{"onglet": "Sarah", "ligne": 2 + k, "handle": f"stock{k}", "etat": "à créer", "gerant": ""} for k in range(12)]
+    comptes.append({"onglet": "Sarah", "ligne": 30, "handle": "attribue1", "etat": "à créer", "gerant": "Mavie"})
+    p = P.prochains(comptes, 10)
+    assert "attribue1" in p and "stock9" in p and "stock10" not in p
+    T0 = datetime(2026, 10, 27, 6, 0, tzinfo=timezone.utc)
+    memo = {"stock0": {"statut": "libre", "le": (T0 - timedelta(hours=21)).isoformat()}}
+    assert P.a_revoir(memo, "stock0", T0, 20) and not P.a_revoir(memo, "stock0", T0)

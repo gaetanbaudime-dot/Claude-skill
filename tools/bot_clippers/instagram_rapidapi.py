@@ -27,6 +27,7 @@ import asyncio
 import json
 import logging
 import os
+import re
 import time
 import unicodedata
 from datetime import date, datetime, timedelta, timezone
@@ -767,6 +768,48 @@ async def passage_parcours(session) -> list:
     return faits
 
 
+RE_HANDLE = re.compile(r"^(?!\.)(?!.*\.\.)(?!.*\.$)[a-z0-9._]{1,30}$")
+NEUF_FOLLOWERS, NEUF_PUBLICATIONS = 100, 5                             # un compte « tout neuf » (créé il y a peu)
+A_CREER_TOUS_LES_J = 2                                                   # un @ à créer pas encore vu : cherché un jour sur deux
+
+
+def variantes_instagram(h: str) -> list:
+    """Pur (27/10) : les @ que propose Instagram quand le @ voulu n'est pas disponible. Relevé sur la capture d'un clipper :
+    « sarah.clic » → sara.hclic, sara_hclic, sar.ahclic (le séparateur glisse d'une ou deux lettres, point ou tiret bas), puis
+    les variantes courantes (point ↔ tiret bas, chiffre ou tiret bas final). Valides, sans doublon, dans l'ordre d'essai."""
+    h = str(h or "").strip().lstrip("@").lower()
+    if not h:
+        return []
+    cands = []
+    seps = [i for i, ch in enumerate(h) if ch in "._"]
+    if len(seps) == 1:                                                    # un seul séparateur : Instagram le fait glisser
+        p, lettres = seps[0], h.replace(".", "").replace("_", "")
+        for dec, sep in ((-1, "."), (-1, "_"), (-2, "."), (1, "."), (1, "_")):
+            q = p + dec
+            if 0 < q < len(lettres):
+                cands.append(lettres[:q] + sep + lettres[q:])
+    if seps:
+        cands += [h.replace(".", "_"), h.replace("_", ".")]
+    cands += [h + "_", h + "1", h + h[-1]]
+    out = []
+    for v in cands:
+        if v and v != h and v not in out and RE_HANDLE.match(v):
+            out.append(v)
+    return out
+
+
+def variante_creee(res: dict):
+    """Pur (27/10) : la variante qui est le compte du clipper : EXACTEMENT une variante existe, et elle est toute neuve (peu
+    d'abonnés, presque pas de publications). Plusieurs comptes existants ou un compte installé : aucun rattachement."""
+    existe = [(v, r) for v, r in (res or {}).items() if r.get("statut") == "existe"]
+    if len(existe) != 1:
+        return None
+    v, r = existe[0]
+    if (r.get("followers") or 0) <= NEUF_FOLLOWERS and (r.get("publications") or 0) <= NEUF_PUBLICATIONS:
+        return v
+    return None
+
+
 async def chercher_variantes(session, store: dict, suivis: list, maintenant: datetime) -> dict:
     """24/10 (Gaëtan : « développe la recherche d'un Instagram légèrement changé avec RapidAPI ») : chaque compte du LOG
     « introuvable » sans ID connu (jamais vu sous ce @ : faute de frappe, @ pris et changé à la création) est cherché sous ses @
@@ -794,9 +837,15 @@ async def chercher_variantes(session, store: dict, suivis: list, maintenant: dat
         avant = memo.get(h) or {}
         if avant.get("jour") == jour and avant.get("complet"):
             continue
+        if s.get("a_creer") and avant.get("complet"):
+            try:                                                         # pas encore créé, sans doute : un jour sur deux
+                if (date.fromisoformat(jour) - date.fromisoformat(avant.get("jour"))).days < A_CREER_TOUS_LES_J:
+                    continue
+            except (TypeError, ValueError):
+                pass
         if faits >= VARIANTES_COMPTES or not _quota_ok(RESERVE):
             break
-        cands = variantes_de(h)
+        cands = variantes_instagram(h) if s.get("a_creer") else variantes_de(h)
         res = {}
         for v in cands:
             if v in suivis_h:
@@ -820,8 +869,22 @@ async def chercher_variantes(session, store: dict, suivis: list, maintenant: dat
                 res[v] = {"statut": "non lu", "id": i}
                 continue
             p, b = lire_profil(corps), lire_bio(corps)
-            res[v] = {"statut": "existe", "id": i, "followers": p["followers"], "nom": b["nom"], "bio": b["bio"]}
+            res[v] = {"statut": "existe", "id": i, "followers": p["followers"], "publications": p["publications"],
+                      "nom": b["nom"], "bio": b["bio"]}
         complet = len(res) == len(cands) and all(r.get("statut") != "non lu" for r in res.values())
+        if s.get("a_creer") and complet:
+            v_cree = variante_creee(res)
+            if v_cree:
+                # 27/10 (Gaëtan : « le clipper a dû prendre la 2e suggestion d'Instagram, on a perdu le tracking ») : le @ prévu était
+                # libre pour nous mais refusé par Instagram ; exactement une suggestion d'Instagram existe et elle est toute neuve :
+                # c'est le compte du clipper. Le suivi se rattache à son ID (renommé en : le Cockpit signale le @ à corriger).
+                e = store.setdefault("comptes", {}).setdefault(h, {})
+                e.update({"id": str(res[v_cree]["id"]), "renomme_en": v_cree, "variante_creee": v_cree, "statut": "public"})
+                store.setdefault("pseudos", {})[h] = {**(store.get("pseudos", {}).get(h) or {}), "statut": "cree", "cree_sous": v_cree,
+                                                      "vu_cree_le": maintenant.isoformat(timespec="seconds")}
+                journal.info("Compte à créer %s retrouvé sous %s (suggestion d'Instagram, compte neuf)", h, v_cree)
+                if await relire_profil(session, store, h, maintenant):
+                    await relire_reels(session, store, h, maintenant, jusqu_a=maintenant - timedelta(days=FENETRE_RELUE_J), pages=PAGES_FENETRE)
         memo[h] = {"jour": jour, "le": maintenant.isoformat(timespec="seconds"), "complet": complet, "resultats": res}
         faits += 1
         existantes += sum(1 for r in res.values() if r.get("statut") == "existe")
@@ -908,8 +971,14 @@ async def passage_complet(session) -> dict:
         e = store["comptes"].get(h) or {}
         if e.get("statut") == "introuvable":
             continue
-        if s.get("a_creer"):
-            # 27/10 : un @ prévu, vu libre, qui existe maintenant : créé par le clipper (le contrôle des @ ne le signale plus « pris »)
+        if s.get("a_creer") and (store.get("pseudos", {}).get(h) or {}).get("statut") != "cree":
+            # 27/10 : un @ prévu, vu libre, qui existe maintenant : créé par le clipper (le contrôle des @ ne le signale plus « pris »).
+            # Garde : un compte déjà installé (beaucoup d'abonnés ou de publications) n'est pas le sien : jamais suivi.
+            dernier = (e.get("suivi") or [[None, 0, 0]])[-1]
+            if (dernier[1] or 0) > NEUF_FOLLOWERS * 10 or (len(dernier) > 2 and (dernier[2] or 0) > NEUF_PUBLICATIONS * 6):
+                store.setdefault("pseudos", {})[h] = {"statut": "pris", "attribue": True, "le": maintenant.isoformat(timespec="seconds")}
+                store["comptes"].pop(h, None)
+                continue
             store.setdefault("pseudos", {})[h] = {**(store.get("pseudos", {}).get(h) or {}), "statut": "cree",
                                                   "vu_cree_le": maintenant.isoformat(timespec="seconds")}
         rattrapage = a_rattraper(e, jours_r)

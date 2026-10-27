@@ -598,3 +598,42 @@ def test_compte_a_creer_vu_libre_suivi_des_qu_il_existe(monkeypatch):
     T0 = datetime(2026, 10, 27, 6, 0, tzinfo=timezone.utc)
     assert I.lignes_comptes(s, {"comptes": {"neuf": {"statut": "introuvable"}}}, T0) == []
     assert I.lignes_comptes(s, {"comptes": {"neuf": {"statut": "public", "suivi": [["t", 1, 0]]}}}, T0)[0][3] == "neuf"
+
+
+def test_variantes_instagram_comme_les_suggestions_du_27_10():
+    v = I.variantes_instagram("sarah.clic")
+    assert v[:3] == ["sara.hclic", "sara_hclic", "sar.ahclic"] and "sarah_clic" in v
+    assert all(I.RE_HANDLE.match(x) for x in v)
+
+
+def test_variante_creee_seulement_si_unique_et_neuve():
+    neuf = {"statut": "existe", "id": 9, "followers": 2, "publications": 0}
+    vieux = {"statut": "existe", "id": 8, "followers": 5000, "publications": 300}
+    rien = {"statut": "introuvable"}
+    assert I.variante_creee({"sara_hclic": neuf, "sara.hclic": rien}) == "sara_hclic"
+    assert I.variante_creee({"sara_hclic": neuf, "sara.hclic": dict(neuf, id=10)}) is None      # deux comptes : on ne choisit pas
+    assert I.variante_creee({"sara_hclic": vieux}) is None                                      # compte installé : pas le sien
+
+
+def test_compte_a_creer_retrouve_sous_la_suggestion_instagram(monkeypatch):
+    """27/10 : @ prévu libre pour l'API mais refusé par Instagram ; le clipper prend la 2e suggestion ; le suivi la retrouve,
+    se rattache à son ID et la relit (Renommé en)."""
+    import asyncio
+    maintenant = datetime.now(timezone.utc)
+    store = {"pseudos": {"sarah.clic": {"statut": "libre"}}, "comptes": {"sarah.clic": {"statut": "introuvable"}}}
+    suivis = [{"handle": "sarah.clic", "creatrice": "Sarah", "gerant": "Andrianina", "type": "Clipper", "a_creer": True}]
+
+    async def appeler(session, chemin, params):
+        I._jour["n"] += 1
+        if chemin == I.API["id"][0]:
+            return (200, {"status": True, "user_id": "99"}) if params.get("user") == "sara_hclic" else (404, {"message": "User not found"})
+        if chemin == I.API["profil"][0]:
+            return 200, {"user": {"pk": 99, "username": "sara_hclic", "follower_count": 2, "media_count": 0, "is_private": False}}
+        return 200, {"items": [], "paging_info": {"more_available": False}}
+    monkeypatch.setattr(I, "appeler", appeler)
+    I._jour.update({"jour": "", "n": 0, "restant": None})
+    b = asyncio.run(I.chercher_variantes(None, store, suivis, maintenant))
+    e = store["comptes"]["sarah.clic"]
+    assert b["existantes"] == 1 and e["id"] == "99" and e["renomme_en"] == "sara_hclic" and e["statut"] == "public"
+    assert store["pseudos"]["sarah.clic"]["statut"] == "cree" and store["pseudos"]["sarah.clic"]["cree_sous"] == "sara_hclic"
+    assert I.lignes_comptes(suivis, store, maintenant)[0][22] == "sara_hclic"

@@ -90,9 +90,12 @@ def anomalies(comptes: list, store: dict, creatrices: set = None) -> list:
         etat = _n(c.get("etat"))
         appel = "appel" in etat
         if h and "creer" in etat and cree(store, h):
-            # 27/10 : créé sur Instagram par le clipper, le LOG dit encore « à créer »
+            # 27/10 : créé sur Instagram par le clipper, le LOG dit encore « à créer » (et parfois sous la suggestion d'Instagram)
+            sous = ((store.get("pseudos") or {}).get(h) or {}).get("cree_sous")
+            texte = (f"compte créé sous @{sous} (Instagram refusait @{h}) : écrire @{sous} dans le LOG et passer GOOD" if sous
+                     else "compte créé sur Instagram : passer GOOD dans le LOG")
             out.append([str(c.get("creatrice") or c.get("onglet") or "").strip(), str(c.get("gerant") or "").strip(), h,
-                        str(c.get("utilisation") or "").strip(), libelle(store, h), "compte créé sur Instagram : passer GOOD dans le LOG"])
+                        str(c.get("utilisation") or "").strip(), libelle(store, h), texte])
             continue
         if not h or not (etat.startswith("good") or etat.startswith("priv") or appel):
             continue
