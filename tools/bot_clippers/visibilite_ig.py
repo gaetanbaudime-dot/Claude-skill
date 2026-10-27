@@ -119,6 +119,13 @@ def anomalies(comptes: list, store: dict, creatrices: set = None) -> list:
             out.append([str(c.get("creatrice") or c.get("onglet") or "").strip(), str(c.get("gerant") or "").strip(), h,
                         str(c.get("utilisation") or "").strip(), libelle(store, h), texte])
             continue
+        propose = ((store.get("pseudos") or {}).get(h) or {}).get("propose")
+        if h and "creer" in etat and propose and not cree(store, h):
+            # 27/10 : une seule suggestion d'Instagram existe, toute neuve, mais rien ne prouve qu'elle est au clipper
+            out.append([str(c.get("creatrice") or c.get("onglet") or "").strip(), str(c.get("gerant") or "").strip(), h,
+                        str(c.get("utilisation") or "").strip(), "", f"le clipper a peut-être créé @{propose} (Instagram refusait "
+                        f"@{h}) : si c'est lui, écrire @{propose} dans le LOG"])
+            continue
         if not h or not (etat.startswith("good") or etat.startswith("priv") or appel):
             continue
         v = libelle(store, h)

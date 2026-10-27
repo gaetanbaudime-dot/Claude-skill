@@ -607,12 +607,35 @@ def test_variantes_instagram_comme_les_suggestions_du_27_10():
 
 
 def test_variante_creee_seulement_si_unique_et_neuve():
-    neuf = {"statut": "existe", "id": 9, "followers": 2, "publications": 0}
+    neuf = {"statut": "existe", "id": 9, "followers": 2, "publications": 0, "bio": "Fan de Sarah 💛 Ses meilleurs moments, chaque jour"}
     vieux = {"statut": "existe", "id": 8, "followers": 5000, "publications": 300}
     rien = {"statut": "introuvable"}
-    assert I.variante_creee({"sara_hclic": neuf, "sara.hclic": rien}) == "sara_hclic"
-    assert I.variante_creee({"sara_hclic": neuf, "sara.hclic": dict(neuf, id=10)}) is None      # deux comptes : on ne choisit pas
-    assert I.variante_creee({"sara_hclic": vieux}) is None                                      # compte installé : pas le sien
+    assert I.variante_creee({"sara_hclic": neuf, "sara.hclic": rien}, "Sarah") == ("sara_hclic", True)
+    assert I.variante_creee({"sara_hclic": neuf, "sara.hclic": dict(neuf, id=10)}, "Sarah") is None   # deux comptes : on ne choisit pas
+    assert I.variante_creee({"sara_hclic": vieux}, "Sarah") is None                                    # compte installé : pas le sien
+    assert I.variante_creee({"sara_hclic": dict(neuf, bio="")}, "Sarah") == ("sara_hclic", False)     # sans preuve : proposé
+
+
+def test_preuve_a_nous():
+    assert I.preuve_a_nous({"bio": "Fan de Jade 💛 Ses meilleurs moments, chaque jour"}, "Jade")
+    assert I.preuve_a_nous({"bio": "Chloé, 34 ans 🤍 Marseille"}, "Chloé")
+    assert I.preuve_a_nous({"statut": "privé", "bio": "Par ici 👇", "liens": ["https://sarah-ivanova.fr/5"]}, "Sarah")
+    assert not I.preuve_a_nous({"statut": "privé", "bio": "Secret 🌴", "liens": []}, "Sarah")       # le faux rattachement du 27/10
+    assert not I.preuve_a_nous({"bio": "", "nom": ""}, "Sarah")
+    assert not I.preuve_a_nous({"bio": "Sarahlove forever"}, "Sarah")                                  # un mot entier, pas un morceau
+
+
+def test_detacher_sans_preuve():
+    store = {"comptes": {"daily_sarah_x": {"id": "46", "statut": "privé", "renomme_en": "daily.sarah.x", "variante_creee": "daily.sarah.x",
+                                           "bio": "Secret 🌴", "liens": []}},
+             "pseudos": {"daily_sarah_x": {"statut": "cree", "cree_sous": "daily.sarah.x", "le": "2026-10-22T09:16:20+00:00"},
+                         "daily.sarah.x": {"statut": "cree", "variante_de": "daily_sarah_x"}}, "reels": {"daily_sarah_x": {"X": {}}}}
+    suivis = [{"handle": "daily_sarah_x", "creatrice": "Sarah", "a_creer": True}]
+    assert I.detacher_sans_preuve(store, suivis) == ["daily_sarah_x"]
+    e = store["comptes"]["daily_sarah_x"]
+    assert "id" not in e and "renomme_en" not in e and e["statut"] == "introuvable" and "daily_sarah_x" not in store["reels"]
+    assert store["pseudos"]["daily_sarah_x"]["statut"] == "libre" and store["pseudos"]["daily_sarah_x"]["propose"] == "daily.sarah.x"
+    assert "daily.sarah.x" not in store["pseudos"]
 
 
 def test_compte_a_creer_retrouve_sous_la_suggestion_instagram(monkeypatch):
@@ -628,7 +651,8 @@ def test_compte_a_creer_retrouve_sous_la_suggestion_instagram(monkeypatch):
         if chemin == I.API["id"][0]:
             return (200, {"status": True, "user_id": "99"}) if params.get("user") == "sara_hclic" else (404, {"message": "User not found"})
         if chemin == I.API["profil"][0]:
-            return 200, {"user": {"pk": 99, "username": "sara_hclic", "follower_count": 2, "media_count": 0, "is_private": False}}
+            return 200, {"user": {"pk": 99, "username": "sara_hclic", "follower_count": 2, "media_count": 0, "is_private": False,
+                                  "biography": "Compte fan de Sarah 🌸 Bonne humeur garantie"}}
         return 200, {"items": [], "paging_info": {"more_available": False}}
     monkeypatch.setattr(I, "appeler", appeler)
     I._jour.update({"jour": "", "n": 0, "restant": None})
