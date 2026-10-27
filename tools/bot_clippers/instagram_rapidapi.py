@@ -889,14 +889,15 @@ async def chercher_variantes(session, store: dict, suivis: list, maintenant: dat
         if e.get("statut") != "introuvable" or e.get("id"):
             continue
         avant = memo.get(h) or {}
+        if s.get("a_creer") and avant.get("complet"):
+            trouve = variante_creee(avant.get("resultats") or {}, s.get("creatrice"))
+            if trouve and not trouve[1]:                                 # décision rejouée sur la dernière recherche gardée
+                store.setdefault("pseudos", {})[h] = {**(store.get("pseudos", {}).get(h) or {}), "propose": trouve[0]}
         if avant.get("jour") == jour and avant.get("complet"):
             continue
         if s.get("a_creer") and avant.get("complet"):
             try:                                                         # pas encore créé, sans doute : un jour sur deux
                 if (date.fromisoformat(jour) - date.fromisoformat(avant.get("jour"))).days < A_CREER_TOUS_LES_J:
-                    trouve = variante_creee(avant.get("resultats") or {}, s.get("creatrice"))
-                    if trouve and not trouve[1]:                         # décision rejouée sur la dernière recherche
-                        store.setdefault("pseudos", {})[h] = {**(store.get("pseudos", {}).get(h) or {}), "propose": trouve[0]}
                     continue
             except (TypeError, ValueError):
                 pass
