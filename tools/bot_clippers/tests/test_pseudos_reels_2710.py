@@ -216,7 +216,7 @@ class PasserTests(unittest.IsolatedAsyncioTestCase):
         onb.lire_comptes.assert_not_awaited()
 
 
-class SuivreClasseurTests(unittest.IsolatedAsyncioTestCase):
+class _FicheDoublee:
     async def asyncSetUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
@@ -240,6 +240,8 @@ class SuivreClasseurTests(unittest.IsolatedAsyncioTestCase):
             p.start()
             self.addCleanup(p.stop)
 
+
+class SuivreClasseurTests(_FicheDoublee, unittest.IsolatedAsyncioTestCase):
     async def test_la_fiche_suit_le_classeur_sans_ecrire_le_classeur(self):
         with patch.object(o.google_api, "sheets_ecrire", AsyncMock()) as ecrit:
             self.assertEqual("", await o.suivre_classeur("42", "ancien", "Nouveau_C"))
@@ -299,6 +301,125 @@ class PreuveMailSilenceTests(unittest.IsolatedAsyncioTestCase):
                                     "fermer": AsyncMock(return_value=False), "admin": admin})
             await preuve_mail.traiter("a@x.invalid", "fictive_compte45", quand)
             self.assertEqual(attendu, admin.await_count, f"courant={courant}")
+
+
+# ------------------------------------------------------------------------------------------- 4. trancher avec Instagram
+class TrancherTests(unittest.IsolatedAsyncioTestCase):
+    from datetime import datetime as _dt, timezone as _tz
+    MAINTENANT = _dt(2026, 10, 27, 12, 0, tzinfo=_tz.utc)
+
+    def verif(self, recu, classeur, bio="", abonnes=3, le="2026-10-27T08:00:00+00:00"):
+        l = ["recu_x", "classeur_x", "Sarah", "30", "Fictif", "2", recu, str(abonnes), "1", bio, classeur, "", "", "", le]
+        return rm.lire_verifs([rm.ENTETE_ONGLET, l])[("recu_x", "classeur_x")]
+
+    def test_decisions(self):
+        e = {"onglet": "Sarah"}
+        self.assertEqual("classeur_suit_fiche", rm.decision(e, self.verif("introuvable", "introuvable"), self.MAINTENANT))
+        self.assertEqual("fiche_suit_classeur", rm.decision(e, self.verif("introuvable", "existe"), self.MAINTENANT))
+        bio = "Compte fan de Sarah 🌸 Bonne humeur garantie"
+        self.assertEqual("classeur_suit_fiche_cree", rm.decision(e, self.verif("existe", "introuvable", bio=bio), self.MAINTENANT))
+        self.assertEqual("", rm.decision(e, self.verif("existe", "introuvable", bio="Mon compte perso"), self.MAINTENANT),
+                         "un inconnu sous le @ reçu : jamais rattaché")
+        self.assertEqual("", rm.decision(e, self.verif("existe", "introuvable", bio=bio, abonnes=5000), self.MAINTENANT))
+        self.assertEqual("", rm.decision(e, self.verif("existe", "existe"), self.MAINTENANT))
+        self.assertEqual("", rm.decision(e, self.verif("introuvable", "introuvable", le="2026-10-20T08:00:00+00:00"),
+                                         self.MAINTENANT), "vérification trop vieille")
+        self.assertEqual("", rm.decision(e, None, self.MAINTENANT))
+
+    def test_bio_du_bot_ignore_emoji_et_casse(self):
+        self.assertTrue(rm.bio_du_bot("compte fan de SARAH bonne humeur garantie", "Sarah"))
+        self.assertFalse(rm.bio_du_bot("Compte fan de Chloé 🌸 Bonne humeur garantie", "Sarah"))
+
+    def test_onglet_garde_les_verifications_faites(self):
+        e = {"fiche": "recu_x", "classeur": "classeur_x", "onglet": "Sarah", "ligne": 30, "prenom": "Fictif", "n": 2}
+        v = {("recu_x", "classeur_x"): self.verif("introuvable", "existe")}
+        ligne = rm.lignes_onglet([e], v)[0]
+        self.assertEqual(["recu_x", "classeur_x", "Sarah", "30", "Fictif", "2", "introuvable"], ligne[:7])
+        self.assertEqual("2026-10-27T08:00:00+00:00", ligne[14])
+        self.assertEqual([""] * 9, rm.lignes_onglet([e], {})[0][6:])
+
+    async def test_passer_tranche_et_ecrit_l_onglet(self):
+        fiches = {"1": fiche(("recu_x", "b@x.invalid"))}
+        comptes = [ligne("classeur_x", "b@x.invalid", etat="à créer", onglet="Sarah", n=30)]
+        onb = N(actif=lambda: True, lire_comptes=AsyncMock(return_value=comptes), _lire_etat=lambda: {"clippers": fiches},
+                _cle_handle=lambda h: str(h or "").strip().lstrip("@").lower(), suivre_classeur=AsyncMock(return_value=""),
+                classeur_suit_fiche=AsyncMock(return_value=""), marquer_etat=AsyncMock(return_value=True))
+        onglet = [rm.ENTETE_ONGLET, ["recu_x", "classeur_x", "Sarah", "30", "Fictif", "1", "introuvable", "", "", "",
+                                     "introuvable", "", "", "", "2026-10-27T08:00:00+00:00"]]
+        ecrit, admin = AsyncMock(), AsyncMock()
+        bilan = await rm.passer(onb, admin=admin, lire_onglet=AsyncMock(return_value=onglet), ecrire_onglet=ecrit,
+                                maintenant=self.MAINTENANT)
+        self.assertEqual((1, 0), (bilan["tranches"], bilan["a_trancher"]))
+        onb.classeur_suit_fiche.assert_awaited_once_with("1", "classeur_x", "recu_x", "b@x.invalid")
+        onb.marquer_etat.assert_not_awaited()                           # rien de créé : pas de GOOD
+        self.assertEqual([], ecrit.await_args.args[0], "un compte tranché sort de l'onglet")
+        self.assertIn("le classeur prend le @ donné sur Discord", admin.await_args.args[0])
+
+    async def test_passer_sans_verification_publie_la_ligne_a_regarder(self):
+        fiches = {"1": fiche(("recu_x", "b@x.invalid"))}
+        comptes = [ligne("classeur_x", "b@x.invalid", etat="à créer", onglet="Sarah", n=30)]
+        onb = N(actif=lambda: True, lire_comptes=AsyncMock(return_value=comptes), _lire_etat=lambda: {"clippers": fiches},
+                _cle_handle=lambda h: str(h or "").strip().lstrip("@").lower(), classeur_suit_fiche=AsyncMock())
+        ecrit = AsyncMock()
+        await rm.passer(onb, lire_onglet=AsyncMock(return_value=[]), ecrire_onglet=ecrit, maintenant=self.MAINTENANT)
+        onb.classeur_suit_fiche.assert_not_awaited()
+        self.assertEqual(["recu_x", "classeur_x", "Sarah", "30", "Fictif", "1"], ecrit.await_args.args[0][0][:6])
+
+
+class ClasseurSuitFicheTests(_FicheDoublee, unittest.IsolatedAsyncioTestCase):
+    async def asyncSetUp(self):
+        await super().asyncSetUp()
+        self.rows = [{"handle": "classeur_x", "mail": "a@x.invalid", "etat": "à créer", "onglet": "Fictive", "ligne": 4}]
+        self.data["clippers"]["42"] = {"comptes": ["recu_x"], "acces": [{"handle": "recu_x", "mail": "a@x.invalid"}]}
+        for p in (patch.object(o, "lire_comptes", AsyncMock(side_effect=lambda: deepcopy(self.rows))),
+                  patch.object(o, "actif", return_value=True), patch.object(o, "cellule", return_value="Fictive!B4"),
+                  patch.object(o, "_proprietaires", side_effect=lambda: {"recu_x": {"42"}})):
+            p.start()
+            self.addCleanup(p.stop)
+
+    async def test_la_ligne_a_creer_reprend_le_at_de_discord(self):
+        with patch.object(o.google_api, "sheets_ecrire", AsyncMock()) as ecrit:
+            self.assertEqual("", await o.classeur_suit_fiche("42", "classeur_x", "recu_x", "A@x.invalid"))
+        ecrit.assert_awaited_once()
+        self.assertEqual([["recu_x"]], ecrit.await_args.args[2])
+
+    async def test_jamais_une_ligne_creee_ni_un_at_deja_au_classeur(self):
+        with patch.object(o.google_api, "sheets_ecrire", AsyncMock()) as ecrit:
+            self.rows[0]["etat"] = "GOOD"
+            self.assertTrue(await o.classeur_suit_fiche("42", "classeur_x", "recu_x", "a@x.invalid"))
+            self.rows[0]["etat"] = "à créer"
+            self.rows.append({"handle": "recu_x", "mail": "z@x.invalid", "etat": "à créer", "onglet": "Fictive", "ligne": 9})
+            self.assertTrue(await o.classeur_suit_fiche("42", "classeur_x", "recu_x", "a@x.invalid"))
+        ecrit.assert_not_awaited()
+
+
+class ATrancherIgTests(unittest.IsolatedAsyncioTestCase):
+    async def test_regarde_les_deux_at_et_ecrit_la_ligne(self):
+        import a_trancher_ig
+        from datetime import datetime, timezone
+        maintenant = datetime(2026, 10, 27, 12, 0, tzinfo=timezone.utc)
+        lignes = [a_trancher_ig.ENTETE, ["recu_x", "classeur_x", "Sarah", "30", "Fictif", "2"],
+                  ["vu_x", "vu_y", "Sarah", "31", "Fictif", "3"] + [""] * 8 + ["2026-10-27T10:00:00+00:00"]]
+        self.assertEqual([(2, "recu_x", "classeur_x")], a_trancher_ig.a_verifier(lignes, maintenant))
+
+        async def appeler(session, chemin, params):
+            if params.get("q") == "recu_x":
+                return 200, {"id": "111"}
+            if params.get("q") == "111":
+                return 200, {"profil": True}
+            return 404, {}
+        ig = N(API={"id": ("id", lambda h: {"q": h}), "profil": ("profil", lambda i: {"q": i})}, appeler=appeler,
+               lire_id=lambda c: c.get("id"), introuvable=lambda code, corps: code == 404,
+               lire_profil=lambda c: {"followers": 4, "publications": 1}, lire_bio=lambda c: {"bio": "Compte fan de Sarah"},
+               _quota_ok=lambda r: True, RESERVE=0)
+        google = N(sheets_lire=AsyncMock(return_value=lignes), sheets_ecrire=AsyncMock())
+        with patch.dict(sys.modules, {"instagram_rapidapi": ig, "google_api": google,
+                                      "paie_clics": N(_classeur_usage=AsyncMock(return_value="tableur"))}):
+            bilan = await a_trancher_ig.verifier(None, maintenant)
+        self.assertEqual({"vues": 1, "ecrites": 1}, bilan)
+        plage, valeurs = google.sheets_ecrire.await_args.args[1:3]
+        self.assertEqual("'IG · À trancher'!G2:O2", plage)
+        self.assertEqual(["existe", 4, 1, "Compte fan de Sarah", "introuvable", "", "", ""], valeurs[0][:8])
 
 
 if __name__ == "__main__":
