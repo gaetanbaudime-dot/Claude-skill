@@ -60,8 +60,28 @@ export function regrouper(liens: LienGaml[]): Clipper[] {
   return out.sort((a, b) => a.cle.localeCompare(b.cle));
 }
 
+/** 27/10 (Gaëtan : « envoie son application clippeur à Esperance ») : depuis le 24/10, le bot note les nouveaux liens
+ *  « Clipping UID:<id Discord> » (process_liens, aucune recherche par prénom). L'app affichait alors « UID:1560… » au lieu du prénom,
+ *  et aucun compte : les comptes se cherchent par prénom dans la colonne Gérant du LOG DASHBOARD. La clé reste « uid:<id> » : c'est
+ *  elle qui fait le jeton (le lien de l'app ne change pas) et qui relie l'app aux onglets du bot (« Comptes app », « Régime paie »,
+ *  « Équipes », « Adresses USDC »). Seul le prénom vient de l'onglet « Comptes app » du bot (clé → prénom). Pur, testé par
+ *  tests/clippers-uid.cjs. */
+export const estCleUid = (cle: string) => /^uid:\s*\d{6,}$/.test(cle);
+
+export function nommer(liste: Clipper[], noms: Map<string, string> | null): Clipper[] {
+  if (!noms) return liste;
+  return liste.map((c) => {
+    const p = estCleUid(c.cle) ? (noms.get(c.cle) || "").trim() : "";
+    return p ? { ...c, prenom: p } : c;
+  });
+}
+
 export async function clippers(): Promise<Clipper[]> {
-  return regrouper(await liensGaml());
+  const liste = regrouper(await liensGaml());
+  if (!liste.some((c) => estCleUid(c.cle))) return liste;
+  // import dynamique : comptesApp → usage → config → clippers ferait une boucle d'imports
+  const noms = await import("./comptesApp").then((m) => m.prenomsDesCles()).catch(() => null);
+  return nommer(liste, noms);                                      // onglet illisible : « UID:… » comme avant, rien ne casse
 }
 
 /** 13/10 (le lien de Yves ne marchait plus) : le jeton vient de la note GAML ; renommer « Clipping Yves Redirect YTB » en

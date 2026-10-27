@@ -25,7 +25,9 @@ async function dossierClipper(clipper: Clipper): Promise<Dossier | null> {
   const s = sourcesDe(clipper.creatrice);
   if (!s) return null;
   const dossiers = await driveDossiers(s.parent);
-  return dossiers.find((d) => plat(d.name) === clipper.cle) || dossiers.find((d) => plat(d.name).split(/\s+/)[0] === clipper.cle) || null;
+  // 27/10 : une clé « uid:<id> » (lien noté par le bot) ne nomme aucun dossier ; le dossier porte le prénom
+  const noms = Array.from(new Set([clipper.cle, plat(clipper.prenom)]));
+  return dossiers.find((d) => noms.includes(plat(d.name))) || dossiers.find((d) => noms.includes(plat(d.name).split(/\s+/)[0])) || null;
 }
 
 /** Les sous-dossiers du dossier Instagram de la créatrice (au-dessus de « 🎬 Clippers ») : Carrousel, Reels, Story… */

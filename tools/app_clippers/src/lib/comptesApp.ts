@@ -46,6 +46,13 @@ async function lignes(): Promise<Ligne[]> {
   return l;
 }
 
+/** Clé d'app → prénom, tel que le bot l'écrit (colonne « Prénom »). Sert aux clés « uid:<id> » (lib/clippers, nommer). */
+export async function prenomsDesCles(): Promise<Map<string, string>> {
+  const m = new Map<string, string>();
+  for (const x of await lignes()) if (x.cle && x.prenom && !m.has(x.cle)) m.set(x.cle, x.prenom);
+  return m;
+}
+
 export async function mesComptes(cle: string): Promise<{ comptes: CompteApp[]; tl: string }> {
   const l = (await lignes()).filter((x) => x.cle === cle);
   return { comptes: l.map((x) => x.compte).filter((c): c is CompteApp => !!c).sort((a, b) => a.n - b.n), tl: l[0]?.prenomTl || "" };
