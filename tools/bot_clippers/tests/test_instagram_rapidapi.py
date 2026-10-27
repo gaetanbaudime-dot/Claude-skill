@@ -614,6 +614,8 @@ def test_variante_creee_seulement_si_unique_et_neuve():
     assert I.variante_creee({"sara_hclic": neuf, "sara.hclic": dict(neuf, id=10)}, "Sarah") is None   # deux comptes : on ne choisit pas
     assert I.variante_creee({"sara_hclic": vieux}, "Sarah") is None                                    # compte installé : pas le sien
     assert I.variante_creee({"sara_hclic": dict(neuf, bio="")}, "Sarah") == ("sara_hclic", False)     # sans preuve : proposé
+    assert I.variante_creee({"sara_hclic": dict(neuf, bio=""), "sarah_clic": dict(vieux, followers=208, publications=40)},
+                            "Sarah") == ("sara_hclic", False)                                          # l'installé ne bloque pas
 
 
 def test_preuve_a_nous():
