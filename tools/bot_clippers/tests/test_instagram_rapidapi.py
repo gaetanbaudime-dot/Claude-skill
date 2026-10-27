@@ -664,3 +664,16 @@ def test_compte_a_creer_retrouve_sous_la_suggestion_instagram(monkeypatch):
     assert store["pseudos"]["sarah.clic"]["statut"] == "cree" and store["pseudos"]["sarah.clic"]["cree_sous"] == "sara_hclic"
     assert "sara_hclic" in I.crees_possibles(store)                       # renommé par le bot : toujours suivi sous son nouvel @
     assert I.lignes_comptes(suivis, store, maintenant)[0][22] == "sara_hclic"
+
+
+def test_proposition_rejouee_sur_la_recherche_du_jour():
+    import asyncio
+    maintenant = datetime.now(timezone.utc)
+    jour = I._paris(maintenant).date().isoformat()
+    store = {"pseudos": {"sarah.clic": {"statut": "libre"}}, "comptes": {"sarah.clic": {"statut": "introuvable"}},
+             "variantes": {"sarah.clic": {"jour": jour, "complet": True, "resultats": {
+                 "sara_hclic": {"statut": "existe", "id": 5, "followers": 2},
+                 "sarah_clic": {"statut": "existe", "id": 6, "followers": 208, "bio": "Fotógrafa"}}}}}
+    suivis = [{"handle": "sarah.clic", "creatrice": "Sarah", "gerant": "Andrianina", "type": "Clipper", "a_creer": True}]
+    asyncio.run(I.chercher_variantes(None, store, suivis, maintenant))
+    assert store["pseudos"]["sarah.clic"]["propose"] == "sara_hclic" and "id" not in store["comptes"]["sarah.clic"]
