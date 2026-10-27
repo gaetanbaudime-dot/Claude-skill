@@ -716,7 +716,62 @@ def _appliquer_nouveau_handle(uid: str, ancien_n: str, nouveau_n: str) -> None:
     series.renommer(ancien_n, nouveau_n)
 
 
-async def suivre_classeur(uid: str, ancien: str, nouveau: str) -> str:
+def _fusionner_doublon(uid: str, ancien_n: str, nouveau_n: str) -> None:
+    """27/10 (Moutakabirou, Thia, Clarisse, Josué : « 5/3 comptes ») : la fiche porte deux fois le même compte, sous le @ prévu
+    et sous son vrai @ (même e-mail). Le vrai @ prend la place du prévu (même numéro de compte), le doublon disparaît ; les
+    Reels suivis sous l'ancien @ passent au vrai s'il n'en a pas. Le classeur n'est pas touché."""
+    uid = str(uid)
+    etat = _lire_etat()
+    fiche = etat["clippers"].setdefault(uid, {})
+
+    def cle(h):
+        return normaliser_handle(h).lower()
+    vus, comptes = set(), []
+    for h in fiche.get("comptes", []):
+        k = nouveau_n if cle(h) == ancien_n else cle(h)
+        if k not in vus:
+            vus.add(k)
+            comptes.append(nouveau_n if cle(h) in (ancien_n, nouveau_n) else h)
+    fiche["comptes"] = comptes
+
+    def fusion(acces):
+        a_n = next((x for x in acces if isinstance(x, dict) and cle(x.get("handle")) == nouveau_n), None)
+        vus_a, out = set(), []
+        for x in acces:
+            if not isinstance(x, dict):
+                out.append(x)
+                continue
+            k = cle(x.get("handle"))
+            if k == ancien_n:
+                x, k = dict(a_n or x, handle=nouveau_n), nouveau_n
+            if k in vus_a:
+                continue
+            vus_a.add(k)
+            out.append(x)
+        return out
+    fiche["acces"] = fusion(list(fiche.get("acces") or []))
+    for t in (fiche.get("telephones") or {}).values():
+        if isinstance(t, dict) and t.get("acces"):
+            t["acces"] = fusion(list(t["acces"]))
+    livres = etat.setdefault("livres", {})
+    for k in [k for k in livres if cle(k) == ancien_n and str((livres[k] or {}).get("uid") or "") == uid]:
+        livres.pop(k)
+    fiche.setdefault("renommes", []).append({"ancien": ancien_n, "nouveau": nouveau_n, "fusion": True,
+                                             "date": datetime.now(timezone.utc).isoformat(timespec="seconds")})
+    _ecrire_etat(etat)
+    import parcours
+    d_parcours = parcours._lire()
+    f_parcours = d_parcours.get(uid) or {}
+    for champ in ("reels", "reels_soir"):
+        suivis = f_parcours.get(champ) or {}
+        if ancien_n in suivis:
+            ancien = suivis.pop(ancien_n)
+            suivis.setdefault(nouveau_n, ancien)
+    if uid in d_parcours:
+        parcours._ecrire(d_parcours)
+
+
+async def suivre_classeur(uid: str, ancien: str, nouveau: str, mail: str = "") -> str:
     """27/10 (Gaëtan : « on donne au clipper un compte différent de celui du tableau de bord ») : la ligne du classeur qui porte
     l'e-mail d'un compte de la fiche a un autre @, et ce compte existe (ligne hors « à créer ») : le classeur a raison (corrigé à la
     main, renommé sur Instagram). La fiche, le registre, le parcours et les séries suivent ce @ ; le classeur n'est pas réécrit.
@@ -736,10 +791,18 @@ async def suivre_classeur(uid: str, ancien: str, nouveau: str) -> str:
                   {normaliser_handle(h).lower() for h in handles_telephones(fiche)}
         if a not in propres:
             return "ce compte n'est plus dans sa fiche"
-        if n in propres:
-            return "ce @ est déjà un autre de ses comptes"
         if (_proprietaires().get(n) or set()) - {uid}:
             return "ce @ est le compte d'un autre clipper"
+        if n in propres:
+            # le même compte deux fois dans la fiche (prévu et réel) : fusion, seulement si les deux portent le même e-mail
+            mails = {cle_h: str(x.get("mail") or "").strip().lower() for x in fiche.get("acces") or [] if isinstance(x, dict)
+                     for cle_h in [normaliser_handle(x.get("handle")).lower()]}
+            mail = str(mail or mails.get(a) or "").strip().lower()
+            if not mail or mails.get(n, mail) != mail:
+                return "ce @ est déjà un autre de ses comptes"
+            _fusionner_doublon(uid, a, n)
+            journal.info("Fiche : doublon fusionné pour %s : %s → %s (même e-mail)", uid, a, n)
+            return ""
         try:
             registre.observe_alias(uid, a, "rapprochement-e-mail-classeur")
             registre.rename(uid, a, n)

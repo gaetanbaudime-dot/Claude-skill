@@ -200,7 +200,7 @@ class PasserTests(unittest.IsolatedAsyncioTestCase):
         args = dict(admin=admin, lire_json=lambda f, d: dict(memo), ecrire_json=lambda f, d: memo.update(d), fichier="memo")
         bilan = await rm.passer(onb, **args)
         self.assertEqual((2, 1, 1), (bilan["ecarts"], bilan["suivis"], bilan["a_trancher"]))
-        onb.suivre_classeur.assert_awaited_once_with("1", "prevu", "prevu_c")
+        onb.suivre_classeur.assert_awaited_once_with("1", "prevu", "prevu_c", "a@x.invalid")
         texte = admin.await_args.args[0]
         self.assertIn("`prevu` → `prevu_c`", texte)
         self.assertIn("!pseudo @Fictif 2 <son @>", texte)
@@ -257,6 +257,28 @@ class SuivreClasseurTests(_FicheDoublee, unittest.IsolatedAsyncioTestCase):
         with patch.object(o, "_proprietaires", return_value={"ancien": {"42"}, "nouveau_c": {"43"}}):
             self.assertTrue(await o.suivre_classeur("42", "ancien", "nouveau_c"))
         self.assertEqual(["ancien"], self.data["clippers"]["42"]["comptes"])
+
+    async def test_doublon_meme_e_mail_fusionne_a_la_place_du_prevu(self):
+        """Moutakabirou « 5/3 comptes » : le prévu et le réel, même e-mail, tous deux dans la fiche."""
+        self.data["clippers"]["42"] = {"comptes": ["ancien", "autre", "nouveau_c"],
+                                       "acces": [{"handle": "ancien", "mail": "a@x.invalid"}, {"handle": "autre", "mail": "b@x.invalid"},
+                                                 {"handle": "nouveau_c", "mail": "a@x.invalid", "cree": True}]}
+        self.parcours["42"]["reels"] = {"ancien": {"n": 3}}
+        with patch.object(o, "_proprietaires", return_value={"ancien": {"42"}, "nouveau_c": {"42"}}):
+            self.assertEqual("", await o.suivre_classeur("42", "ancien", "nouveau_c", "a@x.invalid"))
+        f = self.data["clippers"]["42"]
+        self.assertEqual(["nouveau_c", "autre"], f["comptes"], "le vrai @ prend le numéro du prévu, plus de doublon")
+        self.assertEqual(["nouveau_c", "autre"], [x["handle"] for x in f["acces"]])
+        self.assertTrue(f["acces"][0].get("cree"))
+        self.assertEqual({"nouveau_c": {"n": 3}}, self.parcours["42"]["reels"])
+
+    async def test_doublon_d_un_autre_e_mail_jamais_fusionne(self):
+        self.data["clippers"]["42"] = {"comptes": ["ancien", "nouveau_c"],
+                                       "acces": [{"handle": "ancien", "mail": "a@x.invalid"},
+                                                 {"handle": "nouveau_c", "mail": "z@x.invalid"}]}
+        with patch.object(o, "_proprietaires", return_value={"ancien": {"42"}, "nouveau_c": {"42"}}):
+            self.assertTrue(await o.suivre_classeur("42", "ancien", "nouveau_c", "a@x.invalid"))
+        self.assertEqual(["ancien", "nouveau_c"], self.data["clippers"]["42"]["comptes"])
 
     async def test_compte_hors_fiche_ou_dossier_sorti(self):
         self.assertTrue(await o.suivre_classeur("42", "inconnu", "nouveau_c"))
