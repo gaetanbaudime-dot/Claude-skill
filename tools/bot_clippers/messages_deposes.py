@@ -20,6 +20,10 @@ le circuit habituel (GAML cloné, MYM et OF posés et vérifiés, fiche et paie 
 texte par son adresse. Le salon est vérifié AVANT : sans salon, aucun lien n'est créé. Lien pas prêt (forfait GAML plein, MYM/OF
 manquant, départ enregistré) : rien n'est envoyé, la raison va au salon admin, retenté au démarrage suivant — sans second clone,
 le circuit reprenant son travail déjà fait.
+"app": true (27/10, Gaëtan : « envoie son application clippeur à Esperance ») : avec « pour », le bot envoie dans son salon perso
+le message de l'app avec son bouton, par le même chemin que `!app @clipper` (parcours.livrer_app, forcé). Pas de « texte » : le
+lien personnel de l'app ne passe jamais par le dépôt. App pas envoyée (aucun lien GAML, app qui ne connaît pas le lien, refus
+Discord) : la raison va au salon admin, retenté au démarrage suivant.
 """
 
 import json
@@ -48,7 +52,8 @@ def lire_deposes() -> list:
             return []
         contenu = json.loads(FICHIER_REPO.read_text(encoding="utf-8"))
         return [m for m in (contenu if isinstance(contenu, list) else contenu.get("messages", []))
-                if isinstance(m, dict) and m.get("id") and (m.get("texte") or m.get("accueil_liaison") or m.get("creer_salon"))]
+                if isinstance(m, dict) and m.get("id") and (m.get("texte") or m.get("accueil_liaison") or m.get("creer_salon")
+                                                             or (m.get("app") and m.get("pour")))]
     except (json.JSONDecodeError, OSError) as erreur:
         journal.warning("messages_a_envoyer.json illisible : %s", erreur)
         return []
@@ -127,6 +132,17 @@ async def _lien_du_membre(membre) -> tuple:
         return "", f"{type(erreur).__name__} : {str(erreur)[:200]}"
     url = str(url or "").strip()
     return (url, "") if url.startswith("http") else ("", str(raison or "adresse absente")[:200])
+
+
+async def _app_du_membre(membre, salon) -> tuple:
+    """(état, raison) : « envoye » si le message de l'app est parti. Jamais d'exception."""
+    if membre is None or salon is None or not _deps.get("app_pour"):
+        return "pas_pret", "membre, salon ou envoi d'app indisponible"
+    try:
+        etat, raison = await _deps["app_pour"](membre, salon)
+    except Exception as erreur:                                         # noqa: BLE001 — retenté au démarrage suivant
+        return "erreur", f"{type(erreur).__name__} : {str(erreur)[:200]}"
+    return str(etat or ""), str(raison or etat or "raison inconnue")[:200]
 
 
 async def resoudre(client, entree: dict):
@@ -232,6 +248,24 @@ async def envoyer_au_demarrage(client) -> list:
             await _dire_echec(admin, ident, f"📨 Message déposé « {ident} » non envoyé : {raison}. Je réessaie au prochain démarrage.")
             continue
         membre = _deps["chercher_membre"](str(entree["pour"]), exact=True) if entree.get("pour") else None
+        if entree.get("app"):                                           # 27/10 : l'app du clipper, comme `!app @clipper`
+            etat, raison_app = await _app_du_membre(membre, salon)
+            if etat != "envoye":
+                journal.warning("App déposée « %s » non envoyée : %s", ident, raison_app)
+                await _dire_echec(admin, ident, f"📱 App déposée « {ident} » non envoyée : {raison_app}. Je réessaie au prochain démarrage.")
+                continue
+            envoyes[ident] = {"date": datetime.now(timezone.utc).isoformat(timespec="seconds"), "salon": getattr(salon, "name", str(salon.id)),
+                              "app": True}
+            _deps["ecrire_json"](_deps["FICHIER"], envoyes)
+            faits.append(ident)
+            journal.info("App déposée « %s » envoyée dans #%s", ident, getattr(salon, "name", salon.id))
+            essais = _essais_reussis(ident)
+            if admin is not None and admin is not salon:
+                try:
+                    await admin.send(f"📱 App déposée « {ident} » envoyée dans {getattr(salon, 'mention', '#' + getattr(salon, 'name', '?'))}{essais}.")
+                except (discord.Forbidden, discord.HTTPException):
+                    pass
+            continue
         if entree.get("lien_nouveau") and membre is not None and _deps.get("lien_pour"):
             url, raison_lien = await _lien_du_membre(membre)
             if not url:
