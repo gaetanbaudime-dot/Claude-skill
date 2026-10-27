@@ -798,16 +798,68 @@ def variantes_instagram(h: str) -> list:
     return out
 
 
-def variante_creee(res: dict):
-    """Pur (27/10) : la variante qui est le compte du clipper : EXACTEMENT une variante existe, et elle est toute neuve (peu
-    d'abonnés, presque pas de publications). Plusieurs comptes existants ou un compte installé : aucun rattachement."""
+def _mots(t) -> str:
+    return re.sub(r"[^a-z0-9]+", " ", _n(t)).strip()
+
+
+def preuve_a_nous(r: dict, creatrice: str) -> bool:
+    """Pur (27/10, après un faux rattachement : un compte privé « Secret 🌴 » pris pour celui d'un clipper qui ne l'avait pas encore
+    créé) : le profil porte une preuve qu'il est à nous, jamais le seul @ (il contient le prénom par construction) :
+    1. une bio de la banque du bot (profil.BIOS, « Fan de {prénom}… ») ;
+    2. le prénom de la créatrice dans la bio ou le nom affiché (« Chloé, 34 ans », « Fan de Jade ») ;
+    3. un lien en bio vers un site de la créatrice (domaine qui contient son prénom : sarah-ivanova.fr, chloe-callista.fr…).
+    Un compte privé n'est à nous qu'avec le lien (3) : nos comptes privés portent tous le lien de la créatrice."""
+    prenom = _mots((str(creatrice or "").split() or [""])[0])
+    if not prenom:
+        return False
+    liens = " ".join(str(x) for x in (r.get("liens") or []))
+    lien = prenom.replace(" ", "") in _n(liens).replace("-", "").replace(".", "")
+    if r.get("prive") or r.get("statut") == "privé":
+        return lien
+    bio, nom = _mots(r.get("bio")), _mots(r.get("nom"))
+    try:
+        import profil
+        if bio and any(bio == _mots(b.format(prenom=prenom)) for b in profil.BIOS):
+            return True
+    except Exception:                                                   # noqa: BLE001
+        pass
+    return lien or f" {prenom} " in f" {bio} " or f" {prenom} " in f" {nom} "
+
+
+def variante_creee(res: dict, creatrice: str = ""):
+    """Pur (27/10) : (variante, preuve) — EXACTEMENT une variante existe et elle est toute neuve (peu d'abonnés, presque pas de
+    publications) ; `preuve` : son profil prouve qu'elle est à nous (preuve_a_nous). None : plusieurs comptes, aucun, ou un
+    compte installé. Sans preuve, la variante est seulement proposée (jamais suivie ni renommée)."""
     existe = [(v, r) for v, r in (res or {}).items() if r.get("statut") == "existe"]
     if len(existe) != 1:
         return None
     v, r = existe[0]
     if (r.get("followers") or 0) <= NEUF_FOLLOWERS and (r.get("publications") or 0) <= NEUF_PUBLICATIONS:
-        return v
+        return v, preuve_a_nous(r, creatrice)
     return None
+
+
+def detacher_sans_preuve(store: dict, suivis: list) -> list:
+    """27/10 : un compte « à créer » rattaché à une variante sans preuve (rattachements du premier jour) est détaché : plus d'ID,
+    plus de « Renommé en », le @ prévu redevient « libre » et la variante est seulement proposée. Renvoie les @ détachés."""
+    out = []
+    for s in suivis or []:
+        h = s["handle"]
+        e = (store.get("comptes") or {}).get(h) or {}
+        v = e.get("variante_creee")
+        if not s.get("a_creer") or not v or preuve_a_nous(e, s.get("creatrice")):
+            continue
+        for k in ("id", "renomme_en", "variante_creee", "suivi", "reels_le", "bio", "nom", "liens", "bio_le"):
+            e.pop(k, None)
+        e["statut"] = "introuvable"
+        (store.get("reels") or {}).pop(h, None)
+        m = (store.get("pseudos") or {}).get(h) or {}
+        store.setdefault("pseudos", {})[h] = {"statut": "libre", "le": m.get("le") or "", "propose": v}
+        if ((store.get("pseudos") or {}).get(v) or {}).get("variante_de") == h:
+            store["pseudos"].pop(v, None)
+        out.append(h)
+        journal.warning("Rattachement %s → %s annulé : aucune preuve que ce compte est celui du clipper", h, v)
+    return out
 
 
 async def chercher_variantes(session, store: dict, suivis: list, maintenant: datetime) -> dict:
@@ -822,6 +874,7 @@ async def chercher_variantes(session, store: dict, suivis: list, maintenant: dat
     except Exception as erreur:                                         # noqa: BLE001
         return {"erreur": type(erreur).__name__}
     jour = _paris(maintenant).date().isoformat()
+    detaches = detacher_sans_preuve(store, suivis)
     suivis_h = {s["handle"] for s in suivis}
     memo = store.setdefault("variantes", {})
     for h in list(memo):                                                # plus introuvable, ou sorti du LOG : oublié
@@ -870,10 +923,14 @@ async def chercher_variantes(session, store: dict, suivis: list, maintenant: dat
                 continue
             p, b = lire_profil(corps), lire_bio(corps)
             res[v] = {"statut": "existe", "id": i, "followers": p["followers"], "publications": p["publications"],
-                      "nom": b["nom"], "bio": b["bio"]}
+                      "nom": b["nom"], "bio": b["bio"], "liens": b.get("liens") or [], "prive": p["prive"] is True}
         complet = len(res) == len(cands) and all(r.get("statut") != "non lu" for r in res.values())
         if s.get("a_creer") and complet:
-            v_cree = variante_creee(res)
+            trouve = variante_creee(res, s.get("creatrice"))
+            v_cree = trouve[0] if trouve and trouve[1] else None
+            if trouve and not trouve[1]:
+                # sans preuve : proposée seulement (IG · Visibilité), jamais suivie ni renommée
+                store.setdefault("pseudos", {})[h] = {**(store.get("pseudos", {}).get(h) or {}), "propose": trouve[0]}
             if v_cree:
                 # 27/10 (Gaëtan : « le clipper a dû prendre la 2e suggestion d'Instagram, on a perdu le tracking ») : le @ prévu était
                 # libre pour nous mais refusé par Instagram ; exactement une suggestion d'Instagram existe et elle est toute neuve :
@@ -890,7 +947,7 @@ async def chercher_variantes(session, store: dict, suivis: list, maintenant: dat
         memo[h] = {"jour": jour, "le": maintenant.isoformat(timespec="seconds"), "complet": complet, "resultats": res}
         faits += 1
         existantes += sum(1 for r in res.values() if r.get("statut") == "existe")
-    return {"comptes": faits, "existantes": existantes}
+    return {"comptes": faits, "existantes": existantes, **({"detaches": detaches} if detaches else {})}
 
 
 # ------------------------------------------------------------------ 2 et 3. suivi complet et top Reels
