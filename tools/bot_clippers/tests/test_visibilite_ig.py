@@ -61,3 +61,12 @@ def test_compte_a_creer_cree_par_le_clipper():
     assert [(r[2], r[5]) for r in a] == [("neuf", "compte créé sur Instagram : passer GOOD dans le LOG")]
     col = V.valeurs_colonne([["à créer", "neuf"], ["à créer", "inconnu"], ["GOOD", "inconnu"]], 1, store, 0)
     assert col == [["Public"], [""], ["Public"]]
+
+
+def test_compte_cree_passe_good_seulement_si_prouve():
+    store = {"comptes": {"neuf": {"statut": "public"}, "var": {"statut": "public", "renomme_en": "var_x"},
+                         "inconnu": {"statut": "public"}, "pasencore": {"statut": "introuvable"}},
+             "pseudos": {"neuf": {"statut": "cree"}, "var": {"statut": "cree", "cree_sous": "var_x"},
+                         "inconnu": {"statut": "pris", "attribue": True}, "pasencore": {"statut": "libre"}}}
+    lignes = [["à créer", "neuf"], ["À créer", "var"], ["à créer", "inconnu"], ["à créer", "pasencore"], ["GOOD", "neuf"], ["BAN", "neuf"]]
+    assert V.a_passer_good(lignes, 1, 0, store) == [(2, "neuf")]          # ligne 2 du LOG ; jamais une autre valeur réécrite

@@ -16,6 +16,9 @@ Un compte privé ne montre ni ses Reels ni ses vues à l'API : seuls ses followe
    - compte vivant dans le LOG mais introuvable sur Instagram (renommé, banni ou faute de frappe) ;
    - compte « en appel » dans le LOG mais de nouveau visible sur Instagram (l'appel a abouti : repasser GOOD) ;
    - compte « à créer » dans le LOG mais créé sur Instagram par le clipper (27/10 : passer GOOD).
+3. 27/10 : une ligne « à créer » dont le compte est prouvé créé par le clipper (@ vu libre puis existant, compte neuf suivi par
+   son ID) passe GOOD dans le LOG. Le parcours du bot voit alors la ligne créée et ouvre l'étape suivante (profil, warm-up,
+   compte suivant à 48 h) sans attendre le bouton « Compte créé ». Seule la cellule « à créer » change.
 """
 
 import logging
@@ -76,6 +79,25 @@ def valeurs_colonne(lignes: list, i_handle: int, store: dict, i_etat: int = None
     return out
 
 
+ETAT_CREE = "GOOD"
+
+
+def a_passer_good(lignes: list, i_handle: int, i_etat: int, store: dict) -> list:
+    """Pur (27/10, Gaëtan : « créé mais pas ajouté en statut GOOD : je compte sur toi pour qu'on n'ait plus ce genre de
+    problème ») : les lignes « à créer » dont le compte existe et est celui du clipper (@ vu libre puis créé, suivi par ID) :
+    [(n° de ligne du LOG, @)]. Pas un compte retrouvé sous un autre @ : le bot le renomme d'abord (ligne et fiche), il passe GOOD
+    au passage suivant. Seule une cellule qui dit encore « à créer » change : jamais ce que Gaëtan a écrit à la main."""
+    out = []
+    for k, l in enumerate(lignes or [], start=2):
+        h = str(l[i_handle] if len(l) > i_handle else "").strip().lstrip("@").lower()
+        etat = _n(l[i_etat] if len(l) > i_etat else "")
+        m = (store.get("pseudos") or {}).get(h) or {}
+        e = (store.get("comptes") or {}).get(h) or {}
+        if h and "creer" in etat and cree(store, h) and not m.get("cree_sous") and not e.get("renomme_en"):
+            out.append((k, h))
+    return out
+
+
 def _gerant_clipper(g: str) -> bool:
     gn = _n(g)
     return bool(gn) and not any(m in gn for m in ("metricool", "rianah", "a mettre", "stock", "libre"))
@@ -133,7 +155,7 @@ async def passage(store: dict) -> dict:
     """Écrit la colonne « Visibilité Insta » dans chaque onglet du LOG et l'onglet des anomalies. Jamais d'exception."""
     import google_api
     import onboarding
-    bilan = {"onglets": [], "ignores": [], "anomalies": 0}
+    bilan = {"onglets": [], "ignores": [], "anomalies": 0, "passes_good": []}
     if not google_api.actif():
         return bilan
     try:
@@ -153,11 +175,18 @@ async def passage(store: dict) -> dict:
                 continue
             lettre = google_api.colonne(i)
             ecritures = [(f"{onboarding.onglet_a1(titre)}!{lettre}1", [[ENTETE_LOG]])]
+            if "etat" in cols:
+                # 27/10 : compte créé par le clipper → ETAT GOOD (le parcours du bot ouvre alors l'étape suivante tout seul)
+                for k, h in a_passer_good(corps, cols["handle"], cols["etat"], store):
+                    ecritures.append((f"{onboarding.onglet_a1(titre)}!{google_api.colonne(cols['etat'])}{k}", [[ETAT_CREE]]))
+                    bilan["passes_good"].append(f"{titre} : {h}")
+                    journal.info("Compte créé par son clipper : %s (%s, ligne %s) → %s", h, titre, k, ETAT_CREE)
             if corps:
                 ecritures.append((f"{onboarding.onglet_a1(titre)}!{lettre}2:{lettre}{len(corps) + 1}", valeurs_colonne(corps, cols["handle"], store, cols.get("etat"))))
             await google_api.sheets_ecrire_plusieurs(onboarding.CLASSEUR_LOGINS_ID, ecritures)
             bilan["onglets"].append(f"{titre} ({lettre})")
-        lignes_anomalies = anomalies(comptes, store, onboarding.creatrices_connues(comptes))
+        passes = {x.split(" : ", 1)[1] for x in bilan["passes_good"]}
+        lignes_anomalies = [a for a in anomalies(comptes, store, onboarding.creatrices_connues(comptes)) if a[2] not in passes]
         bilan["anomalies"] = len(lignes_anomalies)
         import paie_clics
         import pilotage
