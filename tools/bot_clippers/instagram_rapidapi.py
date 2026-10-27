@@ -1019,6 +1019,11 @@ async def passage_complet(session) -> dict:
             bilan["variantes"] = await chercher_variantes(session, store, comptes, maintenant)
         except Exception as erreur:                                     # noqa: BLE001 — le suivi est fait
             bilan["variantes"] = {"erreur": str(erreur)[:160]}
+        try:                                                            # 27/10 : @ donné sur Discord ≠ @ du classeur, les deux regardés
+            import a_trancher_ig
+            bilan["a_trancher"] = await a_trancher_ig.verifier(session, maintenant)
+        except Exception as erreur:                                     # noqa: BLE001
+            bilan["a_trancher"] = {"erreur": str(erreur)[:160]}
     # 22/10 : Reels des comptes branchés à Metricool (source officielle ; l'API RapidAPI en voit une partie seulement)
     try:
         import metricool_reels

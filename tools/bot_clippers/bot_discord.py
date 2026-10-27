@@ -4332,7 +4332,19 @@ def lier_references(reponse: str) -> str:
 
 async def boucle_rapprochement_mail():
     """27/10 (Gaëtan : « on donne au clipper un compte différent de celui du tableau de bord ») : la fiche de chaque clipper et le
-    classeur rapprochés par l'e-mail de chaque compte (rapprochement_mail), 6 minutes après le démarrage puis toutes les 6 h."""
+    classeur rapprochés par l'e-mail de chaque compte (rapprochement_mail), 6 minutes après le démarrage puis toutes les heures.
+    Les comptes à trancher passent par l'onglet « IG · À trancher » du tableur App clippers · usage : le suivi Instagram y regarde les
+    deux @ (a_trancher_ig), le passage suivant tranche."""
+    import pilotage
+
+    async def lire_onglet():
+        classeur = await paie_clics._classeur_usage()
+        return await google_api.sheets_lire(classeur, f"'{rapprochement_mail.ONGLET}'!A1:O") if classeur else []
+
+    async def ecrire_onglet(lignes):
+        classeur = await paie_clics._classeur_usage()
+        if classeur:
+            await pilotage._ecrire(classeur, rapprochement_mail.ONGLET, rapprochement_mail.ENTETE_ONGLET, lignes)
     await client.wait_until_ready()
     try:
         await roster.attendre_demarrage()
@@ -4341,11 +4353,13 @@ async def boucle_rapprochement_mail():
     await asyncio.sleep(360)
     while not client.is_closed():
         try:
+            prenoms = {u: str((f or {}).get("prenom") or "") for u, f in parcours._lire().items() if isinstance(f, dict)}
             await rapprochement_mail.passer(onboarding, admin=_admin_preuve_mail, lire_json=lire_json, ecrire_json=ecrire_json,
-                                            fichier=DONNEES / "rapprochement_mail.json")
+                                            fichier=DONNEES / "rapprochement_mail.json", prenoms=prenoms,
+                                            lire_onglet=lire_onglet, ecrire_onglet=ecrire_onglet)
         except Exception as erreur:                                     # noqa: BLE001 — classeur saturé : passage suivant
             journal.warning("Rapprochement par e-mail : %s", erreur)
-        await asyncio.sleep(6 * 3600)
+        await asyncio.sleep(3600)
 
 
 async def boucle_posts_formation():

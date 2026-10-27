@@ -744,9 +744,45 @@ async def suivre_classeur(uid: str, ancien: str, nouveau: str) -> str:
             registre.observe_alias(uid, a, "rapprochement-e-mail-classeur")
             registre.rename(uid, a, n)
         except Exception as erreur:                                     # noqa: BLE001 — Bloque : rapprochement humain
-            return f"registre : {erreur}"
+            # le registre connaît déjà le @ du classeur comme un compte de CE clipper (réservé sous ce nom) : la fiche suit seule
+            if str(registre.owner_for_handle(n) or "") != uid:
+                return f"registre : {erreur}"
         _appliquer_nouveau_handle(uid, a, n)
     journal.info("Fiche alignée sur le classeur pour %s : %s → %s (même e-mail)", uid, a, n)
+    return ""
+
+
+async def classeur_suit_fiche(uid: str, classeur_h: str, fiche_h: str, mail: str) -> str:
+    """27/10 : l'inverse de suivre_classeur, quand Instagram a tranché (rapprochement_mail.decision) : la ligne « à créer » qui porte
+    l'e-mail du compte reprend le @ donné au clipper sur Discord. Une cellule, rien d'autre ; jamais un @ déjà dans le classeur ou
+    dans la fiche d'un autre clipper. Renvoie '' si c'est fait, sinon la raison."""
+    registre = process_adapters.store()
+    uid = str(uid)
+    with registre.lock("renommage:" + uid):
+        hs, hf = normaliser_handle(classeur_h).lower(), normaliser_handle(fiche_h).lower()
+        mail = str(mail or "").strip().lower()
+        if not RE_HANDLE_IG.match(hf) or "@" not in mail:
+            return "@ reçu ou e-mail non valable"
+        if not actif():
+            return "le classeur est indisponible"
+        fiche = _lire_etat()["clippers"].get(uid) or {}
+        if fiche.get("sorti"):
+            return "dossier sorti"
+        if hf not in {normaliser_handle(h).lower() for h in fiche.get("comptes", [])}:
+            return "le @ reçu n'est plus dans sa fiche"
+        if (_proprietaires().get(hf) or set()) - {uid}:
+            return "le @ reçu est le compte d'un autre clipper"
+        tous = await lire_comptes()
+        if any(normaliser_handle(c.get("handle")).lower() == hf for c in tous):
+            return "le @ reçu est déjà une ligne du classeur"
+        lignes = [c for c in tous if normaliser_handle(c.get("handle")).lower() == hs
+                  and str(c.get("mail") or "").strip().lower() == mail]
+        if len(lignes) != 1:
+            return "ligne du classeur absente ou ambiguë"
+        if not any(x in _norm(lignes[0].get("etat")) for x in A_CREER):
+            return "la ligne n'est plus « à créer »"
+        await google_api.sheets_ecrire(CLASSEUR_LOGINS_ID, cellule(lignes[0], "handle"), [[hf]])
+    journal.info("Classeur aligné sur la fiche pour %s : %s → %s (même e-mail, @ donné sur Discord)", uid, hs, hf)
     return ""
 
 
