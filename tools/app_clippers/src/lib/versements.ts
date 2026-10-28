@@ -8,6 +8,7 @@ import { ANCIENS_AVANT, BASCULE_CLIC, CLICS_DEPUIS, montant, PAIE_FIXE, periodeE
 import { normaliser, type Clipper } from "./clippers";
 import { regimeDe } from "./regimes";
 import { equipeDe, type MonEquipe } from "./equipes";
+import { completer, lignesClicsBot, periodeBot, visitesBot } from "./clicsBot";
 
 export type Jour = { jour: string; visites: number; complet: boolean };
 export type Bloc = { debut: string; fin: string; paie: string; libelle: string; libellePaie: string; visites: number; montant: number; complet: boolean };
@@ -87,6 +88,23 @@ export async function versements(c: Clipper): Promise<Versements> {
     const cible = x.jour !== undefined ? parJour.get(x.jour)! : parPeriode[x.periode!];
     if (v === null) cible.complet = false; else cible.visites += v;
   });
+  // 28/10 (audit) : un jour que GAML n'a pas rendu (limite de 60 requêtes par minute partagée avec le bot) est repris du relevé du
+  // bot (« Pilotage clics », lib/clicsBot) ; une période précédente aussi, si le bot a tous ses jours
+  const incomplets = [...parJour.values()].some((x) => !x.complet) || parPeriode.some((x) => !x.complet);
+  if (incomplets && liens.length) {
+    try {
+      const plusAncien = precedentsP.length ? precedentsP[precedentsP.length - 1].debut : debutSerie;
+      const bot = visitesBot(await lignesClicsBot(), c.prenom, plusAncien < debutSerie ? plusAncien : debutSerie);
+      completer(parJour, bot);
+      precedentsP.forEach((pp, n) => {
+        if (parPeriode[n].complet) return;
+        const joursP: string[] = [];
+        for (let j = max(pp.debut, plancher || pp.debut); j <= pp.fin; j = decaler(j, 1)) joursP.push(j);
+        const total = periodeBot(bot, pp.debut, pp.fin, joursP);
+        if (total !== null) parPeriode[n] = { visites: total, complet: true };
+      });
+    } catch { /* tableur indisponible : les chiffres partiels restent signalés */ }
+  }
   const serie: Jour[] = [...jours].reverse().map((j) => ({ jour: j, ...parJour.get(j)! }));
   const dansPeriode = serie.filter((j) => j.jour >= depuis && j.jour <= p.fin);
   const visitesPeriode = dansPeriode.reduce((s, j) => s + j.visites, 0);
@@ -99,7 +117,7 @@ export async function versements(c: Clipper): Promise<Versements> {
     hier: serie.find((j) => j.jour === hier) || { jour: hier, visites: 0, complet: false },
     serie,
     precedents: precedentsP.map((pp, n) => ({ ...bloc(pp, parPeriode[n].visites, parPeriode[n].complet), versee: pp.paie < aujourdhui })),
-    partiel: etat.limite || serie.some((j) => !j.complet) || parPeriode.some((x) => !x.complet),
+    partiel: serie.some((j) => !j.complet) || parPeriode.some((x) => !x.complet),
     majA: new Date().toISOString(),
     equipe: await equipeP,
   };

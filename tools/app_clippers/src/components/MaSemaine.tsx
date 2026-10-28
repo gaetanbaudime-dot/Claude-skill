@@ -19,7 +19,10 @@ function Tuile({ titre, valeur, unite, sous }: { titre: string; valeur: string; 
   );
 }
 
-export default function MaSemaine({ s }: { s: Semaine }) {
+const pluriel = (n: number, mot: string) => `${fmt(n)} ${mot}${n > 1 ? "s" : ""}`;
+const usd = (clics: number) => (Math.round(clics * 5) / 100).toLocaleString("fr-FR", { minimumFractionDigits: 2 });
+
+export default function MaSemaine({ s, fixe = false }: { s: Semaine; fixe?: boolean }) {
   const max = Math.max(1, ...s.jours.map((j) => j.reels || 0));
   return (
     <section className="carte p-4 apparait" aria-label="Ma semaine">
@@ -29,10 +32,11 @@ export default function MaSemaine({ s }: { s: Semaine }) {
       </div>
       <div className="grid grid-cols-2 gap-2.5 mt-3">
         <Tuile titre="Cadence" valeur={s.cadence !== null ? s.cadence.toLocaleString("fr-FR") : "–"} unite="Reels / jour"
-               sous={s.reels !== null ? `${fmt(s.reels)} Reels publiés` : "Reels pas encore relevés"} />
+               sous={s.reels !== null ? `${pluriel(s.reels, "Reel")} publié${s.reels > 1 ? "s" : ""}` : "Reels pas encore relevés"} />
         <Tuile titre="Vues" valeur={s.vues !== null ? compact(s.vues) : "–"} sous="Sur tes Reels de la semaine" />
         <Tuile titre="Followers" valeur={s.followers !== null ? fmt(s.followers) : "–"} sous="Sur tous tes comptes" />
-        <Tuile titre="Clics" valeur={s.clics !== null ? fmt(s.clics) : "–"} sous={s.clics !== null ? `Payés, soit ${(Math.round(s.clics * 5) / 100).toLocaleString("fr-FR", { minimumFractionDigits: 2 })} $` : "Pas encore relevés"} />
+        <Tuile titre="Clics" valeur={s.clics !== null ? fmt(s.clics) : "–"}
+               sous={s.clics === null ? "Pas encore relevés" : fixe ? "Visites francophones, pour info" : `Payés, soit ${usd(s.clics)} $`} />
       </div>
       {s.parJour ? (
         <div className="mt-4">
@@ -55,7 +59,7 @@ export default function MaSemaine({ s }: { s: Semaine }) {
               </div>
             ))}
           </div>
-          <div className="text-[11px] text-argent2/80 mt-2 flex gap-3"><span><span className="text-accent">●</span> Reels publiés</span><span><span className="text-emerald-300">●</span> clics payés</span></div>
+          <div className="text-[11px] text-argent2/80 mt-2 flex gap-3"><span><span className="text-accent">●</span> Reels publiés</span><span><span className="text-emerald-300">●</span> {fixe ? "clics" : "clics payés"}</span></div>
         </div>
       ) : null}
     </section>

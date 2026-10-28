@@ -15,6 +15,7 @@ import { semaine } from "@/lib/activite";
 import { suiviIg } from "@/lib/igSource";
 import { appliquerIg, porteursDeLien } from "@/lib/igSuivi";
 import { aujourdhuiParis } from "@/lib/dates";
+import { regimeDe } from "@/lib/regimes";
 
 export const dynamic = "force-dynamic";
 const ENTETES = { "Cache-Control": "private, no-store" };
@@ -24,7 +25,7 @@ export async function GET(_req: Request, { params }: { params: { token: string }
   const c = await clipperParJeton(params.token).catch(() => null);
   if (!c) return NextResponse.json({ erreur: "lien invalide" }, { status: 404 });
   try {
-    const [m, demandes, stats] = await Promise.all([mesComptes(c.cle), mesDemandes(c.cle), pilotage().catch(() => null)]);
+    const [m, demandes, stats, regime] = await Promise.all([mesComptes(c.cle), mesDemandes(c.cle), pilotage().catch(() => null), regimeDe(c.cle)]);
     const parcours = m.comptes.filter(x => x.n >= 1 && x.n <= 3);
     const personnel = stats ? pilotageEquipe(stats, [{ prenom: c.prenom, creatrice: c.creatrice, comptes: parcours }]) : null;
     // 24/10 : la liste part du LOG DASHBOARD (Gérant), la fiche du bot donne les n° pour corriger un @ (lib/comptesReels)
@@ -39,7 +40,8 @@ export async function GET(_req: Request, { params }: { params: { token: string }
       for (const k of personnel.clics) if (k.axe === "Horizontal" && k.source === "Clipper") clicsParJour[k.jour] = (clicsParJour[k.jour] || 0) + k.visites;
     }
     const sem = semaine(comptes, jour, clicsParJour);
-    return NextResponse.json({ comptes, tl: m.tl, demandes, pilotage: personnel, semaine: sem }, { headers: ENTETES });
+    // 28/10 : au fixe, ses clics ne sont pas payés (« Ma semaine » ne dit plus « Payés, soit … $ »)
+    return NextResponse.json({ comptes, tl: m.tl, demandes, pilotage: personnel, semaine: sem, fixe: regime?.regime === "fixe" }, { headers: ENTETES });
   } catch (e) {
     return NextResponse.json({ erreur: "comptes en cours de mise à jour", detail: (e as Error).message }, { status: 503, headers: ENTETES });
   }

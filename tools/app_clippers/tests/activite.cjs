@@ -82,6 +82,11 @@ eq(p.parCompte.map(c => [c.handle, c.moyenne, Boolean(c.suspendu)]), [['fort', 6
 // Deux bons comptes et un suspendu : on garde les 2 bons
 p = a.reelsPrime([suspendu, fort, { ...fort, handle: 'fort2' }], '2026-10-20', '2026-11-04', auj);
 assert.equal(p.moyenne, 6); eq(p.parCompte.slice(0, 2).map(c => c.handle), ['fort', 'fort2']);
+// 28/10 : un compte introuvable sur Instagram (actif au LOG) compte pour 0 lui aussi, au lieu de « 2e compte pas encore suivi »
+const parti = { ...vide, handle: 'parti', etat: 'INTROUVABLE', reels7: null };
+p = a.reelsPrime([fort, parti], '2026-10-20', '2026-11-04', auj);
+assert.equal(p.manque, ''); assert.equal(p.moyenne, 0);
+eq(p.parCompte.map(c => [c.handle, c.moyenne, Boolean(c.suspendu), Boolean(c.introuvable)]), [['fort', 6, false, false], ['parti', 0, true, true]]);
 // Un compte suspendu seul ne fait pas un clipper « suivi »
 assert.equal(a.reelsPrime([suspendu, { ...suspendu, handle: 'susp2' }], '2026-10-20', '2026-11-04', auj).mesure, false);
 p = a.reelsPrime([croissance1], '2026-10-24', '2026-11-04', auj);

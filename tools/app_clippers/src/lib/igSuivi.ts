@@ -9,6 +9,8 @@
  *  comptes « restreints » : le 24/10, le compte de croissance de Caroline (1 669 followers, 20 Reels et 223 683 vues en 7 jours
  *  selon RapidAPI) s'affichait vide. Pur, testé par tests/ig-suivi.cjs. */
 
+import { etatEffectif } from "./comptesVisibles";
+
 export type IgCompte = {
   handle: string; statut: string;                    // « public », « privé » ou « introuvable »
   followers: number | null; publications: number | null;
@@ -98,19 +100,24 @@ export function dernierReelRelatif(iso: string, aujourdhui: string): string {
   return n <= 0 ? "aujourd'hui" : n === 1 ? "hier" : `il y a ${n} j`;
 }
 
-type Base = { handle: string; followers: number | null; reels7: number | null; vues7: number | null; role?: string; jours?: Record<string, number>; mesure?: string; dernierReel?: string };
+type Base = { handle: string; followers: number | null; reels7: number | null; vues7: number | null; role?: string; jours?: Record<string, number>; mesure?: string; dernierReel?: string; etat?: string };
 
 /** Les chiffres RapidAPI remplacent ceux de l'ancien relevé pour un compte que RapidAPI connaît ; sinon rien ne change. */
 export function appliquerIg<T extends Base>(c: T, ig: IgSuivi | null, aujourdhui: string, liens?: Set<string>): T {
   const porteLien = Boolean(liens?.has(cleIg(c.handle)));
   const x = ig?.comptes.get(cleIg(c.handle));
   if (!ig || !x) return porteLien && c.role !== "privé" ? { ...c, role: "privé" } : c;
-  if (x.statut === "introuvable") return { ...c, mesure: "introuvable (RapidAPI)" };
+  if (x.statut === "introuvable") {
+    const mesure = "introuvable (RapidAPI)";
+    return { ...c, mesure, role: porteLien ? "privé" : c.role, ...(c.etat !== undefined ? { etat: etatEffectif(c.etat, mesure, c.reels7) } : {}) };
+  }
   const prive = x.statut === "prive";
+  const reels7 = prive ? c.reels7 : x.reels7;
   return {
     ...c,
+    ...(c.etat !== undefined ? { etat: etatEffectif(c.etat, prive ? "privé" : "lu (RapidAPI)", reels7) } : {}),
     followers: x.followers ?? c.followers,
-    reels7: prive ? c.reels7 : x.reels7,
+    reels7,
     vues7: prive ? c.vues7 : x.vues7,
     jours: prive ? c.jours : (ig.jours.get(cleIg(c.handle)) || ig.jours.get(x.handle) || {}),
     role: roleIg(c.role, x, porteLien),
