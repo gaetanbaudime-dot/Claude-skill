@@ -48,9 +48,17 @@ function MetricoolBouton({ jeton, n, etat, charger }: { jeton: string; n: number
         className="rounded-xl px-4 py-2.5 font-semibold bg-accent text-[#071226] disabled:opacity-40">{envoi ? "Envoi…" : "Préparer Metricool"}</button> :
       <p className="text-accent">{etat.statut === "connecte" ? "Metricool connecté · validé par l’agence" :
         etat.statut === "renouveler" ? "Lien à renouveler par l’agence" : "Connexion Metricool demandée · validation agence en attente"}</p>}
-    <p className="mt-2 text-argent2">Dès 500 abonnés vérifiés, le bot crée la marque de l’agence et prépare ton lien temporaire, selon les places disponibles et les accès de récupération validés.</p>
+    <p className="mt-2 text-argent2">{etat.statut === "pret" ? "Ce compte a passé 500 abonnés : connecte-le à Metricool pour l’agence. Le lien de connexion expire, utilise-le vite."
+      : etat.statut === "disponible" ? "Ce compte a passé 500 abonnés : il peut passer sur Metricool. Le bot prépare ton lien de connexion, 15 minutes au plus."
+      : "Ce compte a passé 500 abonnés : il passe sur Metricool avec l’agence."}</p>
     {message ? <p role="status" className="mt-2 text-argent2">{message}</p> : null}
   </div>;
+}
+
+/** 28/10 (audit : « ligne déplacée pendant le renommage : rapprochement requis » affiché tel quel à un clipper) : un refus technique
+ *  du bot devient une consigne simple ; un refus déjà clair (« cet identifiant est déjà dans le classeur ») reste tel quel. */
+function raisonRefus(detail: string): string {
+  return /rapprochement|synchronisation|ligne d[ée]plac|requis/i.test(detail || "") ? "l'agence doit vérifier ce compte. Écris-lui dans ton salon Discord" : (detail || "refusé");
 }
 
 function Ligne({ c, demande, jeton, recharger, metricool, rechargerMetricool }: { c: Compte; demande?: Demande; jeton: string; recharger: () => void; metricool?: Metricool; rechargerMetricool: () => Promise<void> }) {
@@ -70,6 +78,7 @@ function Ligne({ c, demande, jeton, recharger, metricool, rechargerMetricool }: 
     } finally { setEnvoi(false); }
   };
   const etat = etatAffiche(c.etat);
+  const introuvable = etat.libelle === "Introuvable" || /introuvable/i.test(c.mesure || "");
   const alerte = etat.enLigne ? alerteMesure(c) : null;
   return (
     <div className="carte p-4 apparait">
@@ -88,15 +97,15 @@ function Ligne({ c, demande, jeton, recharger, metricool, rechargerMetricool }: 
         </div>
         {etat.enLigne ? (
           <div className="text-right shrink-0 text-[12px] text-argent2 leading-tight">
-            <div><b className="text-white text-[15px] tabular-nums">{c.followers !== null ? fmt(c.followers) : "–"}</b> followers</div>
-            <div className="mt-0.5">{c.reels7 !== null ? `${fmt(c.reels7)} Reels en 7 j` : ""}</div>
+            <div><b className="text-white text-[15px] tabular-nums">{c.followers !== null && !introuvable ? fmt(c.followers) : "–"}</b> follower{c.followers !== null && c.followers > 1 && !introuvable ? "s" : ""}</div>
+            <div className="mt-0.5">{c.reels7 !== null && !introuvable ? `${fmt(c.reels7)} Reel${c.reels7 > 1 ? "s" : ""} en 7 j` : ""}</div>
           </div>
         ) : null}
       </div>
       {!etat.enLigne ? <div className="mt-3 text-[12.5px] text-argent2">Pas encore créé. Tes accès sont dans ton salon Discord.</div> : null}
       {alerte ? <div className={`mt-3 text-[12.5px] rounded-xl px-3 py-2 ${alerte.grave ? "bg-rose-400/10 text-rose-200" : "bg-amber-400/10 text-amber-200"}`}>⚠ {alerte.texte.charAt(0).toUpperCase() + alerte.texte.slice(1)}.</div> : null}
       {enAttente ? <div className="mt-3 text-[12.5px] rounded-xl px-3 py-2 bg-amber-400/10 text-amber-200">⏳ Changement vers @{demande!.handle} en cours : le bot le fait sous 15 minutes.</div> : null}
-      {demande?.statut === "refusé" ? <div className="mt-3 text-[12.5px] rounded-xl px-3 py-2 bg-rose-400/10 text-rose-200">❌ @{demande.handle} refusé : {demande.detail}</div> : null}
+      {demande?.statut === "refusé" ? <div className="mt-3 text-[12.5px] rounded-xl px-3 py-2 bg-rose-400/10 text-rose-200">❌ @{demande.handle} refusé : {raisonRefus(demande.detail)}</div> : null}
       {edition ? (
         <div className="mt-3 flex gap-2">
           <input value={saisie} onChange={(e) => setSaisie(e.target.value)} placeholder="ton vrai @" autoCapitalize="none" autoCorrect="off" spellCheck={false}
@@ -108,13 +117,13 @@ function Ligne({ c, demande, jeton, recharger, metricool, rechargerMetricool }: 
         <button onClick={() => setEdition(true)} className="mt-3 text-[13px] font-semibold text-accent">Ce n'est pas le bon @ ? Modifier</button>
       )}
       {message ? <div className="mt-2 text-[12.5px] text-rose-200">{message}</div> : null}
-      <MetricoolBouton key={c.handle} jeton={jeton} n={c.n} etat={metricool} charger={rechargerMetricool} />
+      {etat.libelle === "Actif" && !introuvable ? <MetricoolBouton key={c.handle} jeton={jeton} n={c.n} etat={metricool} charger={rechargerMetricool} /> : null}
     </div>
   );
 }
 
 function MesComptes({ jeton }: { jeton: string }) {
-  const [d, setD] = useState<{ comptes: Compte[]; demandes: Demande[]; semaine?: Semaine } | null>(null);
+  const [d, setD] = useState<{ comptes: Compte[]; demandes: Demande[]; semaine?: Semaine; fixe?: boolean } | null>(null);
   const [erreur, setErreur] = useState(false);
   const [metricool, setMetricool] = useState<Metricool[]>([]);
   const chargerMetricool = useCallback(async () => {
@@ -135,7 +144,7 @@ function MesComptes({ jeton }: { jeton: string }) {
   useEffect(() => { chargerMetricool(); const id = setInterval(chargerMetricool, 60_000); return () => clearInterval(id); }, [chargerMetricool]);
   return (
     <section className="space-y-3">
-      {d?.semaine ? <MaSemaine s={d.semaine} /> : null}
+      {d?.semaine ? <MaSemaine s={d.semaine} fixe={Boolean(d.fixe)} /> : null}
       <div className="apparait px-1 pt-2">
         <h2 className="text-[18px] font-bold">Mes comptes Instagram</h2>
         <p className="text-argent2 text-[13px] mt-1 leading-relaxed">Touche un @ pour l'ouvrir dans Instagram.</p>

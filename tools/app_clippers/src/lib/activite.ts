@@ -90,7 +90,7 @@ export function semaine(comptes: CompteActivite[], aujourdhui: string, clicsParJ
 }
 
 /** `suspendu` : compte en « appel à faire », que le suivi ne relit plus ; il ne publie rien, il compte pour 0 (« comptes en règle »). */
-export type CadenceCompte = { handle: string; reels: number; moyenne: number | null; lu: boolean; suspendu?: boolean };
+export type CadenceCompte = { handle: string; reels: number; moyenne: number | null; lu: boolean; suspendu?: boolean; introuvable?: boolean };
 export type ReelsPrime = {
   debut: string; fin: string;
   joursEcoules: number;           // jours clos de la période (aujourd'hui exclu)
@@ -113,9 +113,12 @@ export function reelsPrime(comptes: CompteActivite[], debut: string, fin: string
   for (let j = debut; j <= dernier; j = decaler(j, 1)) jours.push(j);
   const parCompte: CadenceCompte[] = croissance.map((c) => {
     const reels = jours.reduce((t, j) => t + ((c.jours || {})[j] || 0), 0);
-    const suspendu = !reelsMesures(c, debut) && plat(c.etat).includes("appel");
+    // 28/10 : un compte introuvable sur Instagram (banni, supprimé, renommé) ne publie plus : 0, comme un compte en appel
+    const introuvable = plat(c.etat) === "introuvable";
+    const suspendu = !reelsMesures(c, debut) && (plat(c.etat).includes("appel") || introuvable);
     const lu = suspendu || reelsMesures(c, debut);
-    return { handle: c.handle, reels, lu, suspendu, moyenne: lu && jours.length ? Math.round((reels / jours.length) * 10) / 10 : null };
+    return { handle: c.handle, reels, lu, suspendu, ...(introuvable ? { introuvable } : {}),
+      moyenne: lu && jours.length ? Math.round((reels / jours.length) * 10) / 10 : null };
   }).sort((a, b) => Number(b.lu) - Number(a.lu) || (b.moyenne ?? 0) - (a.moyenne ?? 0));
   const lus = parCompte.filter((c) => c.lu);
   const deux = parCompte.slice(0, COMPTES_CROISSANCE);

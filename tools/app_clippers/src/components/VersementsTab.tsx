@@ -199,14 +199,19 @@ export default function VersementsTab({ jeton }: { jeton: string }) {
       <div className={`carte apparait p-5 ${chargement && v ? "opacity-70" : ""}`} style={{ transition: "opacity 200ms" }}>
         <div className="flex items-baseline justify-between">
           <div className="text-[13px] text-argent2 font-medium">{p ? `Période en cours · ${p.libelle}` : "Chargement…"}</div>
-          {v && <span className="text-[11px] text-argent2/70">{fmtUsd(v.taux, true)} la visite</span>}
+          {v && !v.fixe && <span className="text-[11px] text-argent2/70">{fmtUsd(v.taux, true)} la visite</span>}
         </div>
-        <div className="inline-flex items-center gap-1.5 mt-2 rounded-full px-2.5 py-1 text-[11px] font-bold tracking-wide" style={{ background: "rgba(52,211,153,0.12)", color: "#7ef0b2" }}>
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="5" width="18" height="16" rx="4" /><path d="M3 10h18M8 3v4M16 3v4" /></svg>
-          Payé le 5 et le 20 de chaque mois
-        </div>
-        <div className="titre-argent text-[40px] font-bold leading-none mt-2 tabular-nums">{p ? <Compteur valeur={v?.fixe ? p.montant : p.montant + prime} format={(n) => fmtUsd(Math.round(n * 100) / 100, true)} /> : <span className="squelette inline-block h-9 w-40" />}</div>
-        <div className="text-[12px] text-argent2 mt-1">{p ? `${fmtNb(p.visites)} visite${p.visites > 1 ? "s" : ""} francophone${p.visites > 1 ? "s" : ""} depuis le ${jourCourt(v?.depuis || p.debut)}` : "visites francophones"}</div>
+        {v?.fixe ? null : (
+          <div className="inline-flex items-center gap-1.5 mt-2 rounded-full px-2.5 py-1 text-[11px] font-bold tracking-wide" style={{ background: "rgba(52,211,153,0.12)", color: "#7ef0b2" }}>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="5" width="18" height="16" rx="4" /><path d="M3 10h18M8 3v4M16 3v4" /></svg>
+            Payé le 5 et le 20 de chaque mois
+          </div>
+        )}
+        {/* 28/10 (audit) : au fixe, ses clics ne sont pas payés ; le titre est le nombre de visites, jamais un montant en dollars */}
+        <div className="titre-argent text-[40px] font-bold leading-none mt-2 tabular-nums">{p ? (v?.fixe
+          ? <Compteur valeur={p.visites} format={(n) => fmtNb(Math.round(n))} />
+          : <Compteur valeur={p.montant + prime} format={(n) => fmtUsd(Math.round(n * 100) / 100, true)} />) : <span className="squelette inline-block h-9 w-40" />}</div>
+        <div className="text-[12px] text-argent2 mt-1">{p ? `${v?.fixe ? "" : `${fmtNb(p.visites)} `}visite${p.visites > 1 ? "s" : ""} francophone${p.visites > 1 ? "s" : ""} depuis le ${jourCourt(v?.depuis || p.debut)}${v?.fixe ? ", pour info" : ""}` : "visites francophones"}</div>
         {p && v?.equipe ? (
           /* 12/10 (Gaëtan : « il fait les deux jobs, il faut séparer ses revenus ») : clipper d'un côté, Team Leader de l'autre */
           <div className="mt-3 rounded-2xl overflow-hidden text-[13px]" style={{ background: "rgba(255,255,255,0.04)" }}>
@@ -241,12 +246,12 @@ export default function VersementsTab({ jeton }: { jeton: string }) {
           <div className="rounded-2xl p-3" style={{ background: "rgba(122,167,255,0.09)" }}>
             <div className="text-[11px] font-bold tracking-widest text-accent">AUJOURD'HUI</div>
             <div className="text-[20px] font-bold mt-1 tabular-nums">{v ? <Compteur valeur={v.aujourdhui.visites} format={(n) => fmtNb(Math.round(n))} /> : "—"}</div>
-            <div className="text-[12px] text-argent2 mt-1">{v ? `visites · ${fmtUsd(Math.round(v.aujourdhui.visites * v.taux * 100) / 100, true)}` : ""}</div>
+            <div className="text-[12px] text-argent2 mt-1">{v ? (v.fixe ? "visites" : `visites · ${fmtUsd(Math.round(v.aujourdhui.visites * v.taux * 100) / 100, true)}`) : ""}</div>
           </div>
           <div className="rounded-2xl p-3" style={{ background: "rgba(255,255,255,0.05)" }}>
             <div className="text-[11px] font-bold tracking-widest text-argent2">HIER</div>
             <div className="text-[20px] font-bold mt-1 tabular-nums">{v ? <Compteur valeur={v.hier.visites} format={(n) => fmtNb(Math.round(n))} /> : "—"}</div>
-            <div className="text-[12px] text-argent2 mt-1">{v ? `visites · ${fmtUsd(Math.round(v.hier.visites * v.taux * 100) / 100, true)}` : ""}</div>
+            <div className="text-[12px] text-argent2 mt-1">{v ? (v.fixe ? "visites" : `visites · ${fmtUsd(Math.round(v.hier.visites * v.taux * 100) / 100, true)}`) : ""}</div>
           </div>
         </div>
         {v?.partiel && <div className="text-[12px] text-amber-300/90 mt-3">Chiffres en cours de mise à jour : certains jours ne sont pas encore comptés.</div>}

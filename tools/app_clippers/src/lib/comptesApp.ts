@@ -78,13 +78,25 @@ export async function estTl(cle: string): Promise<boolean> {
 export async function mesDemandes(cle: string): Promise<Demande[]> {
   let brut: string[][] = [];
   try { brut = await lirePlage(await tableur(), `'${ONGLET_PSEUDOS}'!A2:F`); } catch { return []; }
+  return demandesRecentes(brut, cle, Date.now());
+}
+
+/** 28/10 (audit : un refus du 12/10 s'affichait encore le 28/10, sur un autre compte depuis que les n° avaient bougé) : la plus
+ *  récente par compte, en attente depuis moins de 24 h ou refusée depuis moins de 3 jours. Une demande faite ne s'affiche pas. Pur. */
+export function demandesRecentes(brut: string[][], cle: string, maintenant: number): Demande[] {
   const par = new Map<number, Demande>();
   for (const r of brut) {
     if ((r[1] || "").trim() !== cle) continue;
     const n = parseInt(r[2] || "0", 10) || 0;
     par.set(n, { n, handle: (r[3] || "").trim(), statut: (r[4] || "").trim(), detail: (r[5] || "").trim(), date: (r[0] || "").trim() });
   }
-  return [...par.values()].sort((a, b) => a.n - b.n);
+  const age = (d: string) => {                                     // « 2026-10-12 15:09:56 », heure de Paris : à une heure près
+    const t = Date.parse(d.replace(" ", "T") + "Z");
+    return Number.isFinite(t) ? (maintenant - t) / 3_600_000 : Infinity;
+  };
+  return [...par.values()]
+    .filter((d) => (!d.statut && age(d.date) < 24) || (d.statut === "refusé" && age(d.date) < 72))
+    .sort((a, b) => a.n - b.n);
 }
 
 /** Un @ Instagram valide : lettres, chiffres, point, tiret bas ; 1 à 30 caractères ; pas de point au début ni à la fin. */

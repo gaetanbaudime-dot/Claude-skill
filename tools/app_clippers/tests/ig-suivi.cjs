@@ -4,10 +4,15 @@ const fs = require('node:fs');
 const vm = require('node:vm');
 const assert = require('node:assert/strict');
 const path = require('node:path');
-const mod = {};
-vm.runInNewContext(ts.transpileModule(fs.readFileSync(path.join(__dirname, '../src/lib/igSuivi.ts'), 'utf8'), {
-  compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 },
-}).outputText, { exports: mod, Date, Intl, Number, Map, Set, String, Math });
+const charger = (fichier, deps = {}) => {
+  const m = {};
+  vm.runInNewContext(ts.transpileModule(fs.readFileSync(path.join(__dirname, '../src/lib', fichier), 'utf8'), {
+    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 },
+  }).outputText, { exports: m, Date, Intl, Number, Map, Set, String, Math, require: (n) => deps[n] });
+  return m;
+};
+const visibles = charger('comptesVisibles.ts');
+const mod = charger('igSuivi.ts', { './comptesVisibles': visibles });
 const ig = mod;
 const eq = (x, y) => assert.deepEqual(JSON.parse(JSON.stringify(x)), y);
 
@@ -61,6 +66,17 @@ assert.equal(ig.appliquerIg(base('disparu', ''), suivi, '2026-10-24').mesure, 'i
 const inconnu = base('pas.suivi', 'croissance');
 assert.equal(ig.appliquerIg(inconnu, suivi, '2026-10-24'), inconnu);
 assert.equal(ig.appliquerIg(inconnu, null, '2026-10-24'), inconnu);
+
+// 28/10 : l'état affiché suit le suivi. « Faire appel » au LOG mais lu en public avec des Reels : actif ; actif au LOG mais
+// introuvable : « Introuvable » (et le compte du lien reste privé)
+const avecEtat = (handle, etat, role) => ({ ...base(handle, role), etat });
+assert.equal(ig.appliquerIg(avecEtat('croissance.a', 'Faire appel', 'croissance'), suivi, '2026-10-24').etat, 'GOOD');
+assert.equal(ig.appliquerIg(avecEtat('lien.ouvert', 'Faire appel', 'privé'), suivi, '2026-10-24').etat, 'Faire appel');   // 0 Reel : rien ne change
+const disparu = ig.appliquerIg(avecEtat('disparu', 'GOOD', 'croissance'), suivi, '2026-10-24', new Set(['disparu']));
+assert.equal(disparu.etat, 'INTROUVABLE'); assert.equal(disparu.role, 'privé');
+assert.equal(ig.appliquerIg(avecEtat('disparu', 'APPEL A FAIRE', 'croissance'), suivi, '2026-10-24').etat, 'APPEL A FAIRE');
+assert.equal(ig.appliquerIg(avecEtat('disparu', 'à créer', ''), suivi, '2026-10-24').etat, 'à créer');
+assert.equal(ig.appliquerIg(base('croissance.a', 'croissance'), suivi, '2026-10-24').etat, undefined);   // sans état : rien d'ajouté
 
 // Dernier Reel au format du bot (lu par alerteMesure)
 assert.equal(ig.dernierReelRelatif('2026-10-23T10:00:00+00:00', '2026-10-24'), 'hier');

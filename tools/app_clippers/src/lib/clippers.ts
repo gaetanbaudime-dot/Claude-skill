@@ -44,6 +44,9 @@ export function regrouper(liens: LienGaml[]): Clipper[] {
     const cle = normaliser(prenom);
     // 09/10 : « Clipping libre (ex-Eddy) » = lien d'un clipper parti, en attente du suivant (le bot le renomme) : à personne
     if (!prenom || prenom.length < 3 || EXCLURE.has(cle) || cle.split(/\s+/)[0] === "libre") continue;
+    // 28/10 (audit) : « Clipping Rianah (ex-Ckycia, lien recyclé, sans tracking à elle) » ouvrait une 15e app au nom de la note :
+    // un lien recyclé n'est l'app de personne
+    if (/\(\s*ex-/.test(cle)) continue;
     const g = parCle.get(cle) || { liens: [] };
     g.liens.push(l);
     parCle.set(cle, g);

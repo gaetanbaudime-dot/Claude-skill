@@ -15,7 +15,7 @@ const model = load('lib/classement.ts', { '@/components/pilotage/calc': calc, '@
 const visibles = load('lib/comptesVisibles.ts');
 const dates = load('lib/dates.ts');
 const activite = load('lib/activite.ts', { './dates': dates });
-const igSuivi = load('lib/igSuivi.ts');
+const igSuivi = load('lib/igSuivi.ts', { './comptesVisibles': visibles });
 const reels = load('lib/comptesReels.ts');
 const me = { prenom: 'Caroline', creatrice: 'Chloé', cle: 'caroline' };
 const compte = (handle, n, gerant) => ({ handle, n, numero: n, gerant, creatrice: 'Chloé', axe: 'Horizontal', type: 'Clipper', etat: 'GOOD' });
@@ -38,6 +38,7 @@ const route = load('app/api/k/[token]/comptes/route.ts', {
   '@/lib/igSuivi': igSuivi,
   '@/lib/igSource': { suiviIg: async () => null },                                // suivi RapidAPI illisible : l'ancien relevé reste
   '@/lib/dates': dates,
+  '@/lib/regimes': { regimeDe: async () => ({ regime: 'fixe', clicDepuis: '', liens: new Map() }) },   // 28/10 : « Ma semaine » au fixe
 });
 (async () => {
   let r = await route.GET({}, { params: { token: 'invalid-token' } });
@@ -47,6 +48,7 @@ const route = load('app/api/k/[token]/comptes/route.ts', {
   assert.equal(r.body.pilotage.clippers.length, 1); assert.equal(r.body.pilotage.clippers[0].prenom, 'Caroline');
   assert.ok(r.body.pilotage.comptes.every(c => c.gerant === 'Caroline' && c.numero <= 3));
   assert.ok(r.body.pilotage.clics.every(c => c.qui === 'Caroline'));
+  assert.equal(r.body.fixe, true);
   assert.equal(r.body.semaine.clics, 10);                                          // ses 10 visites du 16/10, pas celles de Romaric
   assert.equal(r.body.semaine.jours.length, 7);
   assert.equal(r.body.pilotage.subs.length, 0); assert.equal(r.body.pilotage.boutons.length, 0);
