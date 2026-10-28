@@ -77,15 +77,22 @@ async function preparer(id: string): Promise<void> {
 }
 
 /** Un onglet de plus dans le même tableur (ex. « Adresses USDC »), créé avec son en-tête s'il n'existe pas encore. */
+/** 28/10 (audit : des 503 sur /metricool quand plusieurs apps sont ouvertes) : un onglet vu une fois n'est plus redemandé à Google
+ *  par cette instance. Avant, chaque ouverture de l'onglet Comptes relisait la liste des onglets, toutes les minutes et par app,
+ *  sur un quota de 60 lectures par minute pour tout le compte de service. */
+const ongletsVus = new Set<string>();
 export async function assurerOnglet(id: string, titre: string, entete: string[]): Promise<void> {
+  if (ongletsVus.has(`${id}|${titre}`)) return;
   const meta = await appel(`https://sheets.googleapis.com/v4/spreadsheets/${id}?fields=sheets.properties(sheetId,title)`);
   const feuilles = ((meta.sheets as { properties: { sheetId: number; title: string } }[] | undefined) || []).map((s) => s.properties);
+  feuilles.forEach((f) => ongletsVus.add(`${id}|${f.title}`));
   if (feuilles.some((f) => f.title === titre)) return;
   await appel(`https://sheets.googleapis.com/v4/spreadsheets/${id}:batchUpdate`, {
     method: "POST", body: JSON.stringify({ requests: [{ addSheet: { properties: { title: titre, gridProperties: { frozenRowCount: 1 } } } }] }),
   });
   const fin = String.fromCharCode(64 + entete.length);
   await appel(`https://sheets.googleapis.com/v4/spreadsheets/${id}/values/${encodeURIComponent(`${titre}!A1:${fin}1`)}?valueInputOption=RAW`, { method: "PUT", body: JSON.stringify({ values: [entete] }) });
+  ongletsVus.add(`${id}|${titre}`);
 }
 
 /** Lecture et écriture brutes d'une plage du tableur (pour les onglets autres que le journal). */

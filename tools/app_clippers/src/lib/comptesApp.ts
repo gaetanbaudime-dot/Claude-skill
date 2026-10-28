@@ -75,9 +75,14 @@ export async function estTl(cle: string): Promise<boolean> {
 }
 
 /** Les dernières demandes de changement de @ de ce clipper (la plus récente par compte). */
+let cachePseudos: { t: number; brut: string[][] } | null = null;
+/** « Pseudos app » relu au plus toutes les 30 secondes par instance (28/10 : quota Sheets) ; une demande envoyée vide le cache. */
 export async function mesDemandes(cle: string): Promise<Demande[]> {
   let brut: string[][] = [];
-  try { brut = await lirePlage(await tableur(), `'${ONGLET_PSEUDOS}'!A2:F`); } catch { return []; }
+  try {
+    if (cachePseudos && Date.now() - cachePseudos.t < 30_000) brut = cachePseudos.brut;
+    else { brut = await lirePlage(await tableur(), `'${ONGLET_PSEUDOS}'!A2:F`); cachePseudos = { t: Date.now(), brut }; }
+  } catch { return []; }
   return demandesRecentes(brut, cle, Date.now());
 }
 
@@ -113,4 +118,5 @@ export async function demanderPseudo(cle: string, n: number, handle: string): Pr
   await assurerOnglet(id, ONGLET_PSEUDOS, ENTETE_PSEUDOS);
   const { date, heure } = maintenantParis();
   await ajouterLignes(id, `'${ONGLET_PSEUDOS}'!A:F`, [[`${date} ${heure}`, cle, String(n), handle, "", ""]]);
+  cachePseudos = null;                                             // le clipper voit sa demande « en cours » tout de suite
 }

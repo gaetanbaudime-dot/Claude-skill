@@ -97,7 +97,7 @@ function Ligne({ c, demande, jeton, recharger, metricool, rechargerMetricool }: 
         </div>
         {etat.enLigne ? (
           <div className="text-right shrink-0 text-[12px] text-argent2 leading-tight">
-            <div><b className="text-white text-[15px] tabular-nums">{c.followers !== null && !introuvable ? fmt(c.followers) : "–"}</b> follower{c.followers !== null && c.followers > 1 && !introuvable ? "s" : ""}</div>
+            <div><b className="text-white text-[15px] tabular-nums">{c.followers !== null && !introuvable ? fmt(c.followers) : "–"}</b> follower{c.followers === null || introuvable || c.followers > 1 ? "s" : ""}</div>
             <div className="mt-0.5">{c.reels7 !== null && !introuvable ? `${fmt(c.reels7)} Reel${c.reels7 > 1 ? "s" : ""} en 7 j` : ""}</div>
           </div>
         ) : null}
