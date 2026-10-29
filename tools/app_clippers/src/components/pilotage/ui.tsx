@@ -1,6 +1,6 @@
 "use client";
 import { Bar, BarChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { compact, couleur, fmt, jourCourt } from "./calc";
+import { compact, couleur, fmt, jourCourt, texteDelta } from "./calc";
 
 /** « ▲ 12 % » vert, « ▼ 8 % » rouge, rien si pas comparable. */
 export function Delta({ v, petit = false }: { v: number | null | undefined; petit?: boolean }) {
@@ -9,7 +9,7 @@ export function Delta({ v, petit = false }: { v: number | null | undefined; peti
   const cls = nul ? "text-argent2 bg-white/5" : haut ? "text-emerald-300 bg-emerald-400/10" : "text-rose-300 bg-rose-400/10";
   return (
     <span className={`inline-flex items-center rounded-full font-semibold tabular-nums ${petit ? "text-[11px] px-1.5 py-0.5" : "text-[12px] px-2 py-0.5"} ${cls}`}>
-      {nul ? "=" : haut ? "▲" : "▼"} {Math.abs(v)} %
+      {nul ? "=" : haut ? "▲" : "▼"} {nul ? "0 %" : texteDelta(v)}
     </span>
   );
 }

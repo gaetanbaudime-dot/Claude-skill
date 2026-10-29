@@ -84,3 +84,9 @@ assert.equal(classementClippers(avecRianah, '', { sansSalaries: true }).length, 
 const sienne = classementClippers(avecRianah).find(x => x.id === '9');
 assert.equal(sienne.prenom, 'Rianah'); assert.equal(sienne.clics7, 5000);
 console.log('Classement: fenêtres 7j, totaux croissance, bans, privé en 2, données absentes, homonymes, cloisonnement TL et salaire validés.');
+// 29/10 : une évolution énorme se lit en multiple (Ricardo de 1 à 346 clics : « × 346 », plus « 34500 % »)
+assert.equal(calc.texteDelta(calc.variation(346, 1)), '× 346');
+assert.equal(calc.texteDelta(899), '899 %');
+assert.equal(calc.texteDelta(-12), '12 %');
+assert.equal(calc.texteDelta(900), '× 10');
+console.log('Évolutions : multiple au-delà de +900 %.');

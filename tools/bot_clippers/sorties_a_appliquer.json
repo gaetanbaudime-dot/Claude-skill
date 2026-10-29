@@ -51,5 +51,28 @@
     "signe_avant": "2026-10-24",
     "expulser": true,
     "raison": "viré (24/10, Gaëtan : « Lucas aussi ») : expulsé, comptes rendus au vivier, lien libéré pour le suivant, visites dues gardées sur la prochaine paie"
+  },
+  {
+    "id": "benn-2910",
+    "prenom": "Benn",
+    "creatrice": "Sophie",
+    "signe_avant": "2026-10-28",
+    "expulser": true,
+    "raison": "viré dans le Cockpit Clipping (28/10, Gaëtan ; confirmé le 29/10 : « Sortie complète ») : expulsé, comptes rendus, lien libéré pour le suivant, visites dues gardées sur la prochaine paie"
+  },
+  {
+    "id": "oumar-2910",
+    "prenom": "Oumar",
+    "creatrice": "Sophie",
+    "signe_avant": "2026-10-28",
+    "expulser": true,
+    "raison": "viré dans le Cockpit Clipping (28/10, Gaëtan ; confirmé le 29/10 : « Sortie complète ») : expulsé, comptes rendus, lien libéré pour le suivant, visites dues gardées sur la prochaine paie"
+  },
+  {
+    "id": "meiji-2910",
+    "prenom": "Meiji",
+    "signe_avant": "2026-10-28",
+    "expulser": true,
+    "raison": "viré (Cockpit Clipping : « Viré le 20/10 » ; confirmé le 29/10 : « Sortie complète ») : expulsé, comptes rendus, lien libéré pour le suivant, visites dues gardées sur la prochaine paie"
   }
 ]

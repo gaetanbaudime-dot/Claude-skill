@@ -35,6 +35,13 @@ export function variation(cur: number, avant: number): number | null {
   return Math.round(((cur - avant) / avant) * 100);
 }
 
+/** 29/10 (app de Clarisse : « ▲ 34500 % » pour Ricardo, passé de 1 à 346 clics) : au-delà de +900 %, le multiple se lit mieux
+ *  (« × 346 ») ; en dessous, le pourcentage. Sans signe : la flèche du badge le porte. */
+export function texteDelta(v: number): string {
+  if (v >= 900) return `× ${new Intl.NumberFormat("fr-FR").format(Math.round(v / 100 + 1))}`;
+  return `${Math.abs(v)} %`;
+}
+
 /** Les jours de `debut` à `fin` inclus. */
 export function jours(debut: string, fin: string): string[] {
   const out: string[] = [];
