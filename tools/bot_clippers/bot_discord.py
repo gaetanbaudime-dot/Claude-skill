@@ -7236,8 +7236,12 @@ def chercher_sortant(prenom: str, creatrice=None, signe_avant=None):
     for g in client.guilds:
         role_c = None                                                   # cherché au premier membre qui passe les autres filtres
         for m in g.members:
-            if normaliser(prenom_de(m)) != cle and cle not in {normaliser(m.name), normaliser(m.display_name),
-                                                               normaliser(getattr(m, "global_name", "") or "")}:
+            # 29/10 (Meiji, viré dans le Cockpit : son pseudo Discord ne porte pas son prénom) : le prénom de sa fiche au registre
+            # compte aussi, avec les mêmes garde-fous (un seul clipper, sa créatrice, signé avant le dépôt)
+            prenom_fiche = normaliser(str((registre.get(str(m.id)) or {}).get("prenom") or "")).strip()
+            if (normaliser(prenom_de(m)) != cle and cle not in {normaliser(m.name), normaliser(m.display_name),
+                                                                normaliser(getattr(m, "global_name", "") or "")}
+                    and (prenom_fiche.split() or [""])[0] != cle):
                 continue
             if not _clipper_sortable(m, registre):
                 continue

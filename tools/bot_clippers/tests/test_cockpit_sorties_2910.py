@@ -155,3 +155,58 @@ class BrancheTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ChercherSortantTests(unittest.TestCase):
+    """La recherche du sortant (bot_discord.chercher_sortant), extraite du fichier : le prénom de la fiche au registre compte
+    aussi (Meiji, pseudo Discord sans son prénom), avec les mêmes garde-fous."""
+
+    def charger(self, membres, registre):
+        import ast
+        import unicodedata
+        texte = (ROOT / "bot_discord.py").read_text(encoding="utf-8")
+        arbre = ast.parse(texte)
+        fn = next(n for n in arbre.body if isinstance(n, ast.FunctionDef) and n.name == "chercher_sortant")
+        norm = lambda t: "".join(c for c in unicodedata.normalize("NFD", str(t or "").lower()) if unicodedata.category(c) != "Mn")  # noqa: E731
+        ns = {"normaliser": norm, "roster": types.SimpleNamespace(resoudre_alias=lambda c: c),
+              "_entree_sortie_deposee": lambda c: {}, "datetime": datetime, "timezone": timezone,
+              "lire_json": lambda f, d: registre, "FICHIER_EQUIPES": "equipes.json",
+              "client": types.SimpleNamespace(guilds=[types.SimpleNamespace(members=membres)]),
+              "prenom_de": lambda m: m.display_name.split(" - ")[0],
+              "_clipper_sortable": lambda m, reg: str(m.id) in reg, "role_creatrice": lambda g, c: False,
+              "SEPARATEURS_PSEUDO": (" - ",)}
+        exec(compile(ast.Module(body=[fn], type_ignores=[]), "bot_discord.py", "exec"), ns)
+        return ns["chercher_sortant"]
+
+    def membre(self, uid, pseudo):
+        return types.SimpleNamespace(id=uid, name=pseudo.lower(), display_name=pseudo, global_name=None, roles=[])
+
+    def test_prenom_de_la_fiche(self):
+        m = self.membre(3, "Shadow99")
+        chercher = self.charger([m, self.membre(4, "Autre")], {"3": {"prenom": "Meiji", "date": "2026-10-01"}, "4": {"prenom": "Autre"}})
+        self.assertIs(m, chercher("Meiji", creatrice="", signe_avant="2026-10-28"))
+        self.assertIsNone(chercher("Meiji", creatrice="", signe_avant="2026-09-30"), "signé après le dépôt : pas lui")
+
+    def test_deux_fiches_du_meme_prenom_personne(self):
+        chercher = self.charger([self.membre(3, "A1"), self.membre(5, "B2")],
+                                {"3": {"prenom": "Meiji"}, "5": {"prenom": "Meiji"}})
+        self.assertIsNone(chercher("Meiji", creatrice="", signe_avant="2026-10-28"))
+
+    def test_sans_fiche_jamais(self):
+        chercher = self.charger([self.membre(3, "Meiji")], {})
+        self.assertIsNone(chercher("Meiji", creatrice="", signe_avant="2026-10-28"), "ni fiche ni rôle : pas un clipper")
+
+
+class RefusEnCoursTests(PasseTests):
+    def test_operation_deja_en_cours_reprise_sans_bilan(self):
+        async def en_cours(membre, raison, metricool=False):
+            return {"roles": 0, "comptes": 0, "liens": 0, "refus": ["Opération déjà en cours, réessayer"], "expulse": False}
+        cs._deps["sortir_depose"] = en_cours
+        self.valeurs = [ENTETE, ligne("Benn", "Sophie", "Sorti")]
+        self.assertEqual([], self.passer(), "rien n'a été fait : pas de faux bilan au salon admin")
+        trace = self.fichiers[str(self.dossier / "cockpit_sorties.json")]
+        self.assertFalse(trace["benn|sophie"].get("fait"))
+        self.assertEqual(1, trace["benn|sophie"]["essais"])
+        self.membres = {}
+        self.assertEqual([], self.passer())
+        self.assertTrue(self.fichiers[str(self.dossier / "cockpit_sorties.json")]["benn|sophie"]["fait"], "parti : close sans bruit")

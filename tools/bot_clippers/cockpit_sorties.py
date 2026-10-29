@@ -184,6 +184,10 @@ async def passe(client) -> list:
         except Exception as erreur:                                     # noqa: BLE001
             res = {"annule": f"{type(erreur).__name__} {str(erreur)[:100]}"}
         res = res if isinstance(res, dict) else {}
+        if not res.get("annule") and not res.get("expulse") and res.get("refus"):
+            # 29/10 (premier passage : Benn et Oumar sortis au même instant par leur sortie déposée, « Opération déjà en cours ») :
+            # rien n'a été fait ici, on reprend au passage suivant (le membre parti, la ligne se ferme sans bruit)
+            res = {"annule": str(res["refus"][0])}
         if res.get("annule"):
             t["essais"] = int(t.get("essais", 0) or 0) + 1
             motif = str(res["annule"]).split(" : ")[0]
@@ -214,6 +218,11 @@ async def boucle(client):
         journal.info("Cockpit, sorties : éteint (COCKPIT_SORTIES=0)")
         return
     await asyncio.sleep(120)
+    try:                                                                # 29/10 : jamais en même temps que les sorties déposées
+        import roster
+        await roster.attendre_demarrage()
+    except Exception:                                                   # noqa: BLE001
+        pass
     while True:
         try:
             await passe(client)
