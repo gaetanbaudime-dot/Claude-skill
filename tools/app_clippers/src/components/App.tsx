@@ -67,7 +67,8 @@ export default function App({ prenom, creatrice, jeton, tl = false }: { prenom: 
         {onglet === "comptes" && <ComptesTab jeton={jeton} tl={tl} />}
         {onglet === "versements" && <VersementsTab jeton={jeton} />}
       </main>
-      <nav className={`barre fixed bottom-0 inset-x-0 ${onglets.length > 4 ? "px-1" : "px-4"} pt-2`} style={{ paddingBottom: "calc(var(--safe-bas) + 10px)" }} aria-label="Onglets">
+      {/* 29/10 : z-20 comme le pilotage admin ; sans lui, les boutons de période (z-index 1) passaient par-dessus la barre */}
+      <nav className={`barre fixed bottom-0 inset-x-0 z-20 ${onglets.length > 4 ? "px-1" : "px-4"} pt-2`} style={{ paddingBottom: "calc(var(--safe-bas) + 10px)" }} aria-label="Onglets">
         <div className={`grid ${onglets.length > 4 ? "grid-cols-5" : "grid-cols-4"} max-w-md mx-auto`}>
           {onglets.map((o) => {
             const actif = o.cle === onglet;
