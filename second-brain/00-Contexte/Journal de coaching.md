@@ -22,6 +22,17 @@ tags: [contexte/coaching]
 
 ## Décisions prises
 
+### 2026-10-29 (Cockpit, bot) — « Sorti » dans le Cockpit = sortie automatique par le bot
+
+> [!tip] Verdict
+> Passer quelqu'un en « Sorti » dans le Cockpit Clipping suffit désormais : dans le quart d'heure, le bot applique la sortie complète (expulsion, comptes rendus, lien libéré, visites dues gardées) et le dit au salon admin. Benn, Oumar et Meiji, virés dans le Cockpit mais encore actifs pour le bot, partent au déploiement ; Tassiana avait déjà quitté le serveur.
+
+- **Constat (vérification des apps des TL)** : le Cockpit écrivait « Sorti » dans le LOG DASHBOARD sans que le bot le lise. L'app de Mathieu montrait 7 clippers au lieu de 4, et les virés recevaient encore un compte toutes les 48 h.
+- **Décision de Gaëtan (29/10)** : « Sortie complète » pour les virés, « Sortie automatique » pour la suite.
+- **Avocat du diable** : une erreur de manipulation dans l'onglet (une colonne écrasée) pourrait virer du monde. Garde-fous : plus de 5 sortants d'un coup, rien n'est fait et une alerte part ; jamais un homonyme signé après la décision ; une ligne remise en Clipper est oubliée.
+- **Autre constat** : GitHub sautait chaque jour deux des cinq créneaux du suivi Instagram et retardait les autres de 2 à 4 h (relevé vieux de 9 h ce matin). Le cron passe à toutes les heures, avec une garde qui ne garde qu'un passage toutes les ~4 h 15.
+- **Prédiction (29/10, revue le 05/11)** : d'ici le 05/11, aucun clipper « Sorti » dans le Cockpit n'est encore dans une app de TL plus d'une heure après, et le suivi Instagram n'a jamais plus de 6 h de retard.
+
 ### 2026-10-26 (parcours) — Le lien GAML contre 6 Reels ; le trafic clipping est français à 82 %, concentré sur 5 personnes
 
 > [!tip] Verdict

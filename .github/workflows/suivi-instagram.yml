@@ -8,9 +8,14 @@ name: Suivi Instagram (RapidAPI)
 # GitHub à l'heure pile partent avec plus d'une heure de retard : « 5 h UTC » lancé à 6 h 11 le 24/10). Environ 200 requêtes par
 # passage, 1 000 par jour, sous la garde du quota (RAPIDAPI_QUOTA_JOUR, RAPIDAPI_RESERVE). Le bot (Dashboard, passage du matin)
 # lit ces heures dans SUIVI_IG_HEURES_UTC.
+# 29/10 (vérification des apps des TL : le suivi n'avait rien relu depuis 9 h) : GitHub sautait chaque jour les créneaux de 4 h 17
+# et 12 h 17 UTC et lançait les autres avec 2 à 4 h de retard, soit 3 passages par jour au lieu de 5. Le cron part désormais toutes
+# les heures ; l'étape « Garde » arrête tout de suite (sans quota RapidAPI ni installation) un départ qui suit de moins de
+# SUIVI_ECART_MIN minutes un vrai passage, ou qui en croise un en cours. Un créneau sauté est donc repris l'heure suivante, et le
+# rythme reste d'environ 5 passages par jour.
 on:
   schedule:
-    - cron: "17 4,8,12,16,20 * * *"    # 5 h 17, 9 h 17, 13 h 17, 17 h 17, 21 h 17 à Paris en hiver (une heure de plus en été)
+    - cron: "17 * * * *"               # toutes les heures ; la garde ne garde qu'un passage toutes les ~4 h 15
   workflow_dispatch:
     inputs:
       rattrapage_jours:
@@ -22,6 +27,10 @@ concurrency:
   group: suivi-instagram
   cancel-in-progress: false
 
+permissions:
+  contents: read
+  actions: read
+
 jobs:
   suivi:
     runs-on: ubuntu-latest
@@ -29,21 +38,43 @@ jobs:
     defaults:
       run:
         working-directory: tools/bot_clippers
+    env:
+      SUIVI_ECART_MIN: "255"
     steps:
+      - name: Garde (un départ du cron ne double jamais un passage récent)
+        id: garde
+        working-directory: ${{ github.workspace }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ "${{ github.event_name }}" != "schedule" ]; then echo "go=1" >> "$GITHUB_OUTPUT"; exit 0; fi
+          depuis=$(date -u -d "-${SUIVI_ECART_MIN} minutes" +%Y-%m-%dT%H:%M:%SZ)
+          # un vrai passage : en cours, ou réussi en plus de 4 minutes (une garde qui s'arrête dure quelques secondes)
+          n=$(gh api "repos/${{ github.repository }}/actions/workflows/suivi-instagram.yml/runs?per_page=30" --jq "[.workflow_runs[]
+                | select(.id != ${{ github.run_id }}) | select(.run_started_at != null and .run_started_at >= \"$depuis\")
+                | select(.status != \"completed\" or (.conclusion == \"success\"
+                    and ((.updated_at | fromdateiso8601) - (.run_started_at | fromdateiso8601)) > 240))] | length")
+          echo "Passages depuis $depuis : $n"
+          if [ "$n" -gt 0 ]; then echo "go=0" >> "$GITHUB_OUTPUT"; else echo "go=1" >> "$GITHUB_OUTPUT"; fi
       - uses: actions/checkout@v4
+        if: steps.garde.outputs.go == '1'
       - uses: actions/setup-python@v5
+        if: steps.garde.outputs.go == '1'
         with:
           python-version: "3.13"
           cache: pip
           cache-dependency-path: tools/bot_clippers/requirements.txt
       - run: pip install -r requirements.txt
+        if: steps.garde.outputs.go == '1'
       - name: Historique du suivi (passage précédent)
+        if: steps.garde.outputs.go == '1'
         uses: actions/cache/restore@v4
         with:
           path: tools/bot_clippers/donnees_ci
           key: suivi-instagram-${{ github.run_id }}
           restore-keys: suivi-instagram-
       - name: Passage complet
+        if: steps.garde.outputs.go == '1'
         run: python suivi_instagram_ci.py
         env:
           RAPIDAPI_KEY: ${{ secrets.RAPIDAPI_KEY }}
@@ -57,7 +88,7 @@ jobs:
           METRICOOL_API_KEY: ${{ secrets.METRICOOL_API_KEY }}
           METRICOOL_USER_ID: ${{ secrets.METRICOOL_USER_ID }}
       - name: Garder l'historique pour le prochain passage
-        if: always()
+        if: always() && steps.garde.outputs.go == '1'
         uses: actions/cache/save@v4
         with:
           path: tools/bot_clippers/donnees_ci

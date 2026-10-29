@@ -10236,6 +10236,11 @@ async def on_ready():
                            "onboarder_multi": onboarder_multi,                                            # 07/10 : entrée « onboarding »
                            "noter": noter_depose})                                                        # 07/10 : entrée « note »
         client.loop.create_task(roster.demarrage(client))                       # sorties appliquées, roster complété, compteur (26/09)
+        import cockpit_sorties                                          # 29/10 : « Sorti » dans le Cockpit = sortie automatique
+        cockpit_sorties.configurer({"DONNEES": DONNEES, "lire_json": lire_json, "ecrire_json": ecrire_json,
+                                    "FICHIER_EQUIPES": FICHIER_EQUIPES, "notifier": notifier_manager,
+                                    "sortir_depose": sortir_depose, "chercher_prenom": chercher_sortant})
+        client.loop.create_task(cockpit_sorties.boucle(client))
         remplacements.configurer({"lire_json": lire_json, "ecrire_json": ecrire_json, "DONNEES": DONNEES, "normaliser": normaliser,
                                   "membre_par_prenom": membre_par_prenom, "salon_perso": salon_perso_de, "notifier": notifier_manager})
         client.loop.create_task(remplacements.demarrage(client))
