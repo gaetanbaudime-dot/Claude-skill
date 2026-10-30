@@ -30,6 +30,7 @@ MANAGER = """🧰 **Aide manager · essentiel**
 • `!pipeline` · `!tableau` — avancement.
 • `!fiche @membre` · `!memoire @membre` — dossier, en salon privé.
 • `!comptes-libres Chloé` — stock disponible.
+• `!arobase @x` — ce @ est-il libre sur Instagram ? `!arobase-ok @x` après vérification à la main.
 • `!clics` — relevé des visites.
 
 **Agir — vérifier le résultat avant la suite**
