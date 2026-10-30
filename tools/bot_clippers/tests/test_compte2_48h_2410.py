@@ -250,6 +250,7 @@ class RelanceDesAcces(unittest.IsolatedAsyncioTestCase):
              patch.object(parcours, "_comptes_ordonnes", return_value=["fictif-un", "fictif-deux", "fictif-prive"]), \
              patch.object(parcours, "_onb", return_value={"gerant": "Fictif"}), \
              patch.object(parcours, "mention_salon_codes", return_value="#codes"), \
+             patch.object(parcours, "PSEUDO_SEUL_TOUS", False), \
              patch.object(remise_compte1, "identifiants_compte", AsyncMock(return_value=("b@exemple.invalid", mdp))), \
              patch.dict(parcours._deps, {"membre_par_id": lambda uid: SimpleNamespace(mention=f"<@{uid}>")}):
             remis = await parcours.relancer_acces(client, MAINTENANT)

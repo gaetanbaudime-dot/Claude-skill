@@ -338,8 +338,9 @@ REGLE_CODES = (
     "Un TOTP d'application, un SMS ou WhatsApp n'est pas reçu par e-mail. Aucun déblocage de compte n'est garanti. "
     # 30/10 (Gaëtan : « On va juste donner les arobas dans le bot pour tous les nouveaux clippers ») : les arrivés depuis le 30/10
     # créent leurs comptes avec LEUR e-mail ; le relais ne voit pas leurs codes.
-    "Depuis le 30 octobre 2026, un nouvel arrivant reçoit le @ seul et crée le compte avec son propre e-mail : son code "
-    "arrive dans sa boîte e-mail, le bouton 📩 Mon code ne le voit pas. Le salon des codes sert aux comptes à l'e-mail de l'agence.")
+    "Depuis le 30 octobre 2026, tout compte pas encore donné, pour tous les clippers, arrive avec son @ seul : le clipper le "
+    "crée avec son propre e-mail, son code arrive dans sa boîte e-mail, le bouton 📩 Mon code ne le voit pas. Le salon des codes "
+    "sert aux comptes déjà créés avec l'e-mail de l'agence.")
 
 # 01/10 (Gaëtan : « la même règle pour tous, nouveaux et anciens ») : une seule règle des comptes, plus de « un compte par
 # jour » ni de « 5 Reels en 72 h ». 01/10 (fusion des lots) : le texte vient de parcours.regle_comptes(), pour suivre
@@ -6063,7 +6064,8 @@ COMMANDES_MANAGER = ("!quiz-ok", "!fiche", "!pipeline", "!tableau", "!retro", "!
                      "!sortie", "!relance", "!creatrice", "!créatrice",
                      "!inviter", "!candidats", "!annonce", "!sortie-auto", "!clics", "!liens", "!lien", "!paie-clics", "!wallet", "!paie", "!comptes-libres", "!onboarding", "!liberer", "!libérer", "!etape", "!note", "!memoire", "!mémoire", "!bilan-fixe", "!etats-comptes", "!états-comptes", "!dashboard", "!capacite", "!capacité", "!build-capacity",
                      "!roster", "!bans", "!visites-telegram", "!wa", "!appel", "!purge", "!reserve-mym", "!app", "!pseudo",
-                     "!actifs", "!equipe-active")     # 11/10 (revue du lot W) : lecture seule du roster, promise au staff
+                     "!actifs", "!equipe-active",     # 11/10 (revue du lot W) : lecture seule du roster, promise au staff
+                     "!arobase", "!arobase-ok")       # 30/10 : vérifier qu'un @ est libre sur Instagram
 
 
 def texte_aide(membre, est_admin: bool, tout: bool = False) -> str:
@@ -11292,7 +11294,7 @@ COMMANDES_ADMIN = ("!aide", "!roster", "!pipeline", "!funnel", "!tableau", "!fic
                    "!tl", "!creatrice", "!onboarding", "!pseudo", "!dashboard", "!code", "!reprise", "!remettre-compte1",
                    "!sortie", "!sortie-auto", "!organisation", "!diagnostic-dossier", "!relances", "!annonce", "!rapport", "!etape",
                    "!note", "!paie-clics", "!clics", "!comptes-libres", "!monteur", "!audit-discussions", "!bans", "!appel",
-                   "!salon-clipping", "!acces-tl", "!archiver-sortis")
+                   "!salon-clipping", "!acces-tl", "!archiver-sortis", "!arobase", "!arobase-ok")
 
 
 def suggestion_admin(mot: str) -> str:

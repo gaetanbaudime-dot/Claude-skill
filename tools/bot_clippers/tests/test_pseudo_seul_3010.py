@@ -48,7 +48,18 @@ class MarqueTests(unittest.TestCase):
         fiche = {"pseudo_seul": "x"}
         self.assertTrue(p._remise_par_pseudo(fiche, {"creation2": p.CREATION_PSEUDO[1]}, 2))
         self.assertFalse(p._remise_par_pseudo(fiche, {"creation2": p.CONNEXION[1]}, 2))
-        self.assertFalse(p._remise_par_pseudo({}, {"creation2": p.CREATION[1]}, 2))
+        with patch.object(p, "PSEUDO_SEUL_TOUS", False):
+            self.assertFalse(p._remise_par_pseudo({}, {"creation2": p.CREATION[1]}, 2))
+
+    def test_anciens_clippers_aussi_a_l_arobase_seul(self):
+        """30/10, 7 h 54 : les comptes pas encore donnés d'un clipper déjà en route partent aussi avec l'@ seul."""
+        ancien = {"messages": {"1": "123"}}
+        with patch.object(p, "PSEUDO_SEUL_DEPUIS", "2026-10-30T00:00:00+00:00"), patch.object(p, "PSEUDO_SEUL_TOUS", True):
+            self.assertTrue(p.pseudo_seul(ancien))
+            with patch.object(p, "_lire", return_value={"7": ancien}):
+                self.assertTrue(p.pseudo_seul_uid("7"))
+        with patch.object(p, "PSEUDO_SEUL_DEPUIS", ""), patch.object(p, "PSEUDO_SEUL_TOUS", True):
+            self.assertFalse(p.pseudo_seul(ancien))                     # interrupteur général éteint
 
 
 class TextesTests(unittest.TestCase):

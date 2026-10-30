@@ -148,6 +148,9 @@ JOURS_NOUVEAU = int(os.environ.get("ONBOARDING_JOURS_NOUVEAU", "45") or 45)   # 
 A_CREER = ("a creer", "à créer")
 COMPTES_RENDUS = False   # 12/10 : comptes neufs seulement (voir disponibles)
 MENTION_LIBERE = "à mettre Metricool"                              # Utilisation d'un compte créé rendu par un clipper parti
+# 30/10 (Gaëtan : « Il ne faut jamais donner un arobas qui n'est pas disponible ») : une ligne dont le @ existe déjà sur Instagram
+# sort du stock (Utilisation n'est plus « Clipper ») ; Gaëtan voit dans le classeur quel @ remplacer.
+MENTION_AROBASE_PRIS = "@ pris sur Instagram"
 # 13/10 (Gaëtan : « Stéphane est viré, donne ses comptes à Rianah Metricool s'ils ne sont pas BAN ») : un compte créé et vivant
 # d'un clipper sorti passe directement à Rianah Metricool (Gérant et Utilisation), un BAN reste hors jeu (Gérant vidé).
 # METRICOOL_DIRECT=0 : l'ancien « à mettre Metricool » pour tous les créés.
@@ -544,6 +547,17 @@ def _mail_requis(uid: str = "") -> bool:
         return True
 
 
+def _arobase_deja_pris(c: dict) -> bool:
+    """30/10 : une ligne « à créer » dont le @ a déjà été vu pris sur Instagram (arobase_libre) ne se réserve plus."""
+    if _norm(c.get("etat") or "") not in A_CREER:
+        return False
+    try:
+        import arobase_libre
+        return arobase_libre.connu_pris(c.get("handle"))
+    except Exception:                                                   # noqa: BLE001
+        return False
+
+
 def disponibles(comptes: list, creatrice: str, n: int, uid: str = "") -> list:
     """Lignes libres pour cette créatrice : Utilisation = Clipper, Gérant libre, état utilisable, handle présent.
     Les comptes déjà créés (GOOD, WARMUP, PRIVÉ, ACTIF) passent avant ceux « à créer ». Le trio livré fait
@@ -560,6 +574,7 @@ def disponibles(comptes: list, creatrice: str, n: int, uid: str = "") -> list:
               and registre.owner_for_handle(c["handle"]) in (None, str(uid))]
     brulees = infos_brulees(comptes)                                    # 30/09 : jamais un compte qui partage une info d'un BAN
     libres = [c for c in libres if not infos_d_un_ban(c, brulees)]
+    libres = [c for c in libres if not _arobase_deja_pris(c)]           # 30/10 : jamais un @ déjà vu pris sur Instagram
     if not COMPTES_RENDUS:
         # 12/10 (Gaëtan : « ne donne que des comptes neufs aux nouveaux clippeurs, ça sera plus simple pour nous ») : seulement
         # des lignes « à créer » avec e-mail ; un compte rendu par un sortant (déjà créé, publications d'avant, codes de
@@ -1560,6 +1575,44 @@ def _debut_du_trio(candidates: list, deja: int, jusqu_a: int) -> list:
         vus.add(_cle_handle(c["handle"]))
         choix.append(c)
     return choix
+
+
+async def remplacer_arobase_pris(membre, creatrice: str, handle: str, prive: bool = False, salon=None):
+    """30/10 (Gaëtan : « Il ne faut jamais donner un arobas qui n'est pas disponible… comme ça, on est sûr d'avoir la bonne
+    attribution des clippers ») : le @ réservé pour un compte pas encore donné existe déjà sur Instagram (arobase_libre). La ligne
+    sort du stock (Utilisation « @ pris sur Instagram », Gérant vidé), la réservation est annulée au registre (preuve : le @ est à
+    quelqu'un d'autre, le clipper ne l'a jamais reçu), la fiche l'oublie, puis une autre ligne du même type est réservée
+    (reserver_compte, qui ne prend jamais un @ déjà vu pris). Renvoie la nouvelle ligne, ou None : plus de ligne libre, ou classeur
+    éteint. Une panne de lecture du classeur lève RuntimeError (l'appelant réessaie plus tard)."""
+    if not actif():
+        return None
+    uid, cle = str(membre.id), _cle_handle(handle)
+    async with _verrou_lignes():
+        tous = await lire_comptes()
+        for c in tous:
+            if _cle_handle(c.get("handle")) == cle and _norm(c.get("etat") or "") in A_CREER:
+                await google_api.sheets_ecrire(CLASSEUR_LOGINS_ID, cellule(c, "utilisation"), [[MENTION_AROBASE_PRIS]])
+                await google_api.sheets_ecrire(CLASSEUR_LOGINS_ID, cellule(c, "gerant"), [[""]])
+                if c.get("mail") and codes_2fa.actif():
+                    try:
+                        codes_2fa.detacher([c["mail"]])
+                    except Exception as erreur:                         # noqa: BLE001
+                        journal.info("Alias 2FA de %s : %s", handle, erreur)
+        try:
+            process_adapters.store().cancel(uid, handle, "@ déjà pris sur Instagram avant remise (arobase_libre)")
+        except Exception as erreur:                                     # noqa: BLE001 — réservation absente : rien à annuler
+            journal.info("Réservation de %s pour %s non annulée : %s", handle, uid, erreur)
+        etat = _lire_etat()
+        f = etat["clippers"].get(uid) or {}
+        f["comptes"] = [h for h in f.get("comptes") or [] if _cle_handle(h) != cle]
+        f["acces"] = [a for a in f.get("acces") or [] if not (isinstance(a, dict) and _cle_handle(a.get("handle")) == cle)]
+        etat["livres"] = {k: v for k, v in (etat.get("livres") or {}).items() if _cle_handle(k) != cle}
+        reste = len([h for h in f["comptes"] if h])
+        if uid in etat["clippers"]:
+            etat["clippers"][uid] = f
+        _ecrire_etat(etat)
+    journal.warning("@%s déjà pris sur Instagram : retiré du stock et des comptes de %s", handle, uid)
+    return await reserver_compte(membre, creatrice, reste + 1, salon=salon, prive=prive)
 
 
 async def reserver_compte(membre, creatrice: str, n: int, salon=None, prive: bool = False):
@@ -3056,11 +3109,35 @@ async def liberer(prenom: str, handles=(), pool: bool = False) -> list:
     return bilan
 
 
+async def _commande_arobase(message, mots: list) -> bool:
+    """30/10 : `!arobase @x` vérifie un @ sur Instagram (libre, pris, sans réponse) ; `!arobase-ok @x` le déclare libre après un
+    contrôle humain sur Instagram (l'API se trompe ou reste muette), pour que le compte parte."""
+    import arobase_libre
+    if len(mots) < 2 or not arobase_libre.norm(mots[1]):
+        await message.reply("Usage : `!arobase @identifiant` ou `!arobase-ok @identifiant`.")
+        return True
+    h = arobase_libre.norm(mots[1])
+    if mots[0].lower() == "!arobase-ok":
+        arobase_libre.forcer_libre(h, par=getattr(message.author, "display_name", ""))
+        await message.reply(f"✅ @{h} déclaré libre. Le bot pourra le donner.")
+        return True
+    if not arobase_libre.actif():
+        await message.reply("Vérification éteinte : `AROBASE_VERIF` vaut 0, ou `RAPIDAPI_KEY` manque dans Railway.")
+        return True
+    v = await arobase_libre.verdict(h)
+    await message.reply({arobase_libre.LIBRE: f"✅ @{h} est libre sur Instagram.",
+                         arobase_libre.PRIS: f"⛔ @{h} existe déjà sur Instagram : le bot ne le donnera jamais."}.get(
+        v, f"❔ Pas de réponse claire pour @{h}. Réessaie plus tard, ou vérifie sur Instagram puis `!arobase-ok @{h}`."))
+    return True
+
+
 async def commande_staff(message, texte: str) -> bool:
     """`!comptes-libres [Créatrice]` : ce que le classeur a de disponible ; `!onboarding @clipper` : rejouer la livraison (09/10 :
     comptes réservés et notés, puis l'étape en cours seule) ;
     `!liberer Prénom [handle …] [pool]` : rendre les comptes d'un clipper parti."""
     mots = texte.split()
+    if mots and mots[0].lower() in ("!arobase", "!arobase-ok"):
+        return await _commande_arobase(message, mots)
     if not mots or mots[0].lower() not in ("!comptes-libres", "!onboarding", "!liberer", "!libérer"):
         return False
     if not actif():

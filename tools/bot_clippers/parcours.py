@@ -151,9 +151,17 @@ def _marque_pseudo_pour(fiche_avant) -> dict:
     return _marque_pseudo()
 
 
+# 30/10, 7 h 54 (Gaëtan : « Il faut aussi dire aux anciens clippers que ceux qui ne sont pas encore à trois comptes sur trois, ils
+# peuvent créer les comptes eux-mêmes de leur côté ») : les comptes pas encore donnés d'un clipper déjà en route partent aussi avec
+# l'@ seul. Ses comptes déjà donnés gardent leurs accès de l'agence. 0 = seulement les fiches marquées « pseudo_seul ».
+PSEUDO_SEUL_TOUS = os.environ.get("REMISE_PSEUDO_SEUL_TOUS", "1").strip() != "0"
+
+
 def pseudo_seul(fiche_p) -> bool:
-    """30/10 : ce clipper reçoit ses comptes avec l'@ seul et les crée avec ses propres accès."""
-    return isinstance(fiche_p, dict) and bool(fiche_p.get("pseudo_seul"))
+    """30/10 : ce clipper reçoit ses prochains comptes avec l'@ seul et les crée avec ses propres accès."""
+    if not isinstance(fiche_p, dict):
+        return False
+    return bool(fiche_p.get("pseudo_seul")) or (PSEUDO_SEUL_TOUS and pseudo_seul_actif())
 
 
 def pseudo_seul_uid(uid) -> bool:
@@ -162,6 +170,8 @@ def pseudo_seul_uid(uid) -> bool:
         fiche = _lire().get(str(uid))
     except Exception:                                                   # noqa: BLE001 — sans fiche lisible, la règle du moment
         fiche = None
+    if PSEUDO_SEUL_TOUS and pseudo_seul_actif():
+        return True
     return bool(_marque_pseudo_pour(fiche if isinstance(fiche, dict) else None))
 # 08/10 (Gaëtan, GO n° 1 du checkup : « le compte privé en 2e position ») : compte 1 croissance, compte 2 PRIVÉ (le lien dans sa
 # bio), compte 3 croissance. Le lien existe à J+2 au lieu de J+5-6 : les Reels du compte 1 ont une destination dès leurs
@@ -1429,6 +1439,70 @@ def _compte_1_retenu(fiche_p: dict) -> bool:
             and not (f.get("dates") or {}).get("1"))
 
 
+AROBASE_REMPLACEMENTS_MAX = 4                                           # 30/10 : @ pris remplacés d'affilée, au plus, par envoi
+
+
+async def _arobase_libre_ou_remplace(salon, membre, uid: str, n: int) -> bool:
+    """30/10 (Gaëtan : « Il ne faut jamais donner un arobas qui n'est pas disponible. Je compte sur toi par rapport à ça. Comme ça,
+    on est sûr d'avoir la bonne attribution des clippers ») : avant le message du compte n, son @ est vérifié sur Instagram
+    (arobase_libre.verdict). Libre : vrai. Pris : la ligne sort du stock et une autre est réservée (onboarding.remplacer_arobase_pris),
+    puis le nouveau @ est vérifié à son tour. Doute (API muette, quota) ou plus de ligne libre : faux, l'étape reste au programme et
+    repart au tour suivant. Un compte qui existe déjà (connexion, « cree ») n'est pas vérifié : c'est le sien."""
+    import arobase_libre
+    if not arobase_libre.actif():
+        return True
+    fiche_p = _lire().get(uid) or {}
+    for _ in range(AROBASE_REMPLACEMENTS_MAX + 1):
+        handles = _comptes_ordonnes(uid, fiche_p=fiche_p)
+        if len(handles) < n:
+            return True                                                 # pas de ligne : la suite d'envoyer_etape le dit déjà
+        h = handles[n - 1]
+        acces = {str(a.get("handle", "")).lower(): a for a in (_onb(uid).get("acces") or []) if isinstance(a, dict)}
+        if (acces.get(str(h).lower()) or {}).get("cree"):
+            return True
+        verdict = await arobase_libre.verdict(h)
+        if verdict == arobase_libre.LIBRE:
+            return True
+        if verdict == arobase_libre.INCONNU:
+            _retenir(uid, n, f"@{h} pas encore vérifié sur Instagram (réponse de l'API à attendre)")
+            return False
+        creatrice = fiche_p.get("creatrice") or _onb(uid).get("creatrice") or ""
+        try:
+            nouvelle = await onboarding.remplacer_arobase_pris(membre, creatrice, h, prive=n == n_prive(fiche_p), salon=salon)
+        except Exception as erreur:                                     # noqa: BLE001 — classeur illisible : on réessaie
+            journal.warning("Remplacement de @%s pour %s : %s", h, uid, erreur)
+            _retenir(uid, n, f"@{h} pris sur Instagram, remplacement à refaire")
+            return False
+        await _dire_admin(f"🔁 @{h} existe déjà sur Instagram : jamais donné. "
+                          + (f"{fiche_p.get('prenom') or uid} reçoit @{nouvelle.get('handle')} à la place pour son compte {n}."
+                             if nouvelle else f"Plus de ligne libre chez {creatrice} pour le compte {n} de {fiche_p.get('prenom') or uid}.")
+                          + " La ligne est marquée « @ pris sur Instagram » dans le classeur.")
+        if not nouvelle:
+            _retenir(uid, n, f"@{h} pris sur Instagram, plus de ligne libre")
+            return False
+    _retenir(uid, n, "trop de @ pris d'affilée")
+    return False
+
+
+def _retenir(uid: str, n: int, raison: str) -> None:
+    """L'étape n reste au programme (nouvel essai LIGNE_REESSAI_MIN minutes plus tard) ; la raison va dans la fiche (`!memoire`)."""
+    journal.info("Parcours : étape %s de %s retenue (%s)", n, uid, raison)
+    _garder_au_programme(uid, n, noter=True)
+    d = _lire()
+    if uid in d:
+        d[uid]["retenue"] = {"n": int(n), "raison": raison[:160], "date": _maintenant()}
+        _ecrire(d)
+
+
+async def _dire_admin(texte: str) -> None:
+    try:
+        canal = await _deps["canal_admin"]() if _deps.get("canal_admin") else None
+        if canal is not None:
+            await canal.send(texte[:1990])
+    except Exception as erreur:                                         # noqa: BLE001
+        journal.warning("Salon admin : %s", type(erreur).__name__)
+
+
 async def _ligne_du_compte(salon, membre, uid: str, n: int) -> bool:
     """Vrai : la fiche d'onboarding a la ligne du compte n, ou elle vient d'être réservée (onboarding.reserver_compte : Gérant, fiche,
     alias 2FA) — l'étape peut partir. Faux : l'étape n'est pas envoyée et reste au programme (nouvel essai au tour suivant) ; sans
@@ -1568,6 +1642,8 @@ async def envoyer_etape(salon, membre, n: int, pointer: bool = True) -> bool:
     # panne pendant livrer), il partait avec l'identifiant « ? » et « demande-le à Gaëtan sur WhatsApp », sans nouvel essai.
     if n in (1, 2, 3) and pointer and not await _ligne_du_compte(salon, membre, uid, n):
         return False
+    if n in (1, 2, 3) and not (fiche_avant.get("messages") or {}).get(str(n)) and not await _arobase_libre_ou_remplace(salon, membre, uid, n):
+        return False                                                    # 30/10 : jamais un @ pris, jamais sur un doute
     if n in (1, 2, 3) and not (fiche_avant.get("messages") or {}).get(str(n)):
         handles = _comptes_ordonnes(uid, fiche_p=fiche_avant)
         if len(handles) < n:
@@ -3259,6 +3335,19 @@ async def relancer_acces(client, maintenant=None) -> list:
             n = int(k)
             handles = _comptes_ordonnes(uid, fiche_p=f)
             if len(handles) < n:
+                continue
+            if pseudo_seul(f) and not _cree(f, n):                      # 30/10 : il le crée avec ses propres accès
+                try:
+                    await salon.send(f"{membre.mention} 🔑 **Ton compte {n} · @{handles[n - 1]}**\n\n"
+                                     f"Tu n'attends plus d'accès de l'agence.\n\n{ACCES_PSEUDO}\n\n{PSEUDO_PRIS}")
+                except (discord.Forbidden, discord.HTTPException) as erreur:
+                    journal.warning("Consigne @ seul du compte %s de %s : %s", n, uid, erreur)
+                    continue
+                d = _lire()
+                if uid in d:
+                    d[uid].setdefault("acces_etape", {})[k] = "remis"
+                    _ecrire(d)
+                remis.append((uid, n))
                 continue
             import remise_compte1
             acces = await remise_compte1.identifiants_compte(
