@@ -1,5 +1,13 @@
 # Bot FAQ Clippers (Discord + Claude)
 
+**30/10, 9 h 36 : remise de tous les @ restants, variantes des @ pris (Gaëtan : « ceux qui ne l'ont pas créé, envoie-leur leur arobase dans leur salon privé… tu remplaces les points par des tirets du bas… ou tu rajoutes XO à la fin »)**
+
+- **Remise** (`remise_arobases.py`) : pour chaque clipper en route, chaque compte pas créé est examiné sur Instagram (`arobase_libre.examen`, profil compris). Libre : donné. Pris avec une preuve qu'il est à nous, ou tout neuf alors qu'on le lui avait donné : créé, rien envoyé. Pris par un inconnu et jamais donné : variante libre écrite dans la même ligne du LOG (`parcours.renommer`), puis donnée. Déjà donné mais pris par un compte installé : à trancher, jamais changé d'office. Un seul message par clipper, avec la date de chaque compte (48 h après la création du précédent) ; chaque @ donné est noté dans la fiche (`donnes`).
+- **Déclencher** : `remise_arobases.json` (`{"id", "mode": "apercu" | "envoi"}`, joué une fois par id, 150 s après le démarrage) ou `!remise-arobases` / `!remise-arobases go` (admin). Rapport : onglet « Remise des @ » du tableur App clippers · usage, et le salon admin.
+- **Variantes** (`arobase_libre.variantes`) : points ↔ tirets bas, puis « xo » à la fin. Utilisées à chaque remise d'étape (avant de prendre une autre ligne du stock) et par le contrôle quotidien du stock (`pseudos_uniques`).
+- **Jamais remplacé** : un @ déjà donné (fiche `donnes`), ou un compte tout neuf ou « à nous » (le clipper l'a créé en avance).
+- **Tests** : `tests/test_remise_arobases_3010.py`, `tests/test_arobase_libre_3010.py`.
+
 **30/10 : l'@ seul pour les nouveaux clippers (Gaëtan : « On va juste donner les arobas dans le bot pour tous les nouveaux clippers… on va vraiment ouvrir les vannes »)**
 
 - **Ce qui change** : une fiche de parcours créée à partir de `REMISE_PSEUDO_SEUL_DEPUIS` (défaut `2026-10-30T00:00:00+00:00`) est marquée `pseudo_seul`. Ses comptes 1, 2 et 3 partent avec l'@ seul (`remise_compte1.modele_pseudo`, `parcours.CREATION_PSEUDO`, `parcours.ACCES_PSEUDO`) : le clipper les crée avec son e-mail et son mot de passe, le code d'Instagram arrive chez lui. Pas de lecture e-mail / mot de passe au classeur, pas d'alerte « compte 1 sans accès ».

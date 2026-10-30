@@ -14,7 +14,9 @@ T = datetime(2026, 10, 22, 8, 0, tzinfo=timezone.utc)
 
 def test_variantes_valides_et_uniques():
     v = P.variantes("sophie.vanlife")
-    assert v[:3] == ["sophie_vanlife", "sophie.vanlife_x", "x_sophie.vanlife"]
+    # 30/10 (Gaëtan) : points ↔ tirets bas, puis « xo » à la fin, avant les anciennes variantes
+    assert v[:4] == ["sophie_vanlife", "sophie.vanlifexo", "sophie.vanlife_xo", "sophie.vanlife.xo"]
+    assert "x_sophie.vanlife" in v
     assert all(P.valide(x) and x != "sophie.vanlife" for x in v) and len(v) == len(set(v))
     assert all(len(x) <= 30 for x in P.variantes("a" * 29)) and P.variantes("abcdefghijklmnopqrstuvwxyz1234")
     assert not P.valide(".abc") and not P.valide("abc.") and not P.valide("a..b") and not P.valide("A b")
@@ -72,8 +74,8 @@ def test_passage_remplace_le_stock_pris_et_signale_l_attribue(monkeypatch):
     store = {}
     b = asyncio.run(P.passage(None, store, comptes, T))
     assert (b["libres"], b["pris"], b["remplaces"], b["signales"]) == (1, 2, 1, 1)
-    assert ecrit == [("Sophie!B5", [["sophie.prise_x"]])]               # seule la ligne du stock est réécrite
-    assert store["pseudos"]["sophie.prise"]["remplace_par"] == "sophie.prise_x" and store["pseudos"]["sophie.prise_x"]["statut"] == "libre"
+    assert ecrit == [("Sophie!B5", [["sophie.prisexo"]])]               # seule la ligne du stock est réécrite (30/10 : « xo »)
+    assert store["pseudos"]["sophie.prise"]["remplace_par"] == "sophie.prisexo" and store["pseudos"]["sophie.prisexo"]["statut"] == "libre"
     statuts = {r[3]: r[4] for r in onglets[P.ONGLET]}
     assert statuts["sophie.thia"].startswith("pris, déjà attribué") and statuts["sophie.prise"] == "pris, remplacé dans le LOG"
     assert onglets[P.ONGLET][0][3] == "sophie.thia"                         # le problème à régler en haut

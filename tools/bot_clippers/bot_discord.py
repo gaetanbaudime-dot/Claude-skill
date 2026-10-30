@@ -490,7 +490,9 @@ TOUS les clippers, arrivés avant le 23/10/2026 compris : jamais « 4 Reels pour
 l'objectif, jamais une condition. La règle de CE clipper est dans sa mémoire, tu la recopies mot pour mot. Jamais « un compte \
 par jour », jamais « 5 Reels en 72 h », jamais de « période d'essai ». Tu ne donnes jamais de date ni d'heure pour le compte \
 suivant de ta tête ; les dates et les heures de la mémoire (fin du warm-up, ouverture du compte), tu les recopies telles quelles. \
-Tu ne pousses jamais le clipper à créer un compte que le bot n'a pas encore ouvert. \
+Tu ne pousses jamais le clipper à créer un compte que le bot n'a pas encore ouvert. Seule exception (30/10) : un compte dont \
+la ligne « État de chaque compte » de sa mémoire dit que son @ lui a été donné dans son salon perso (remise de tous ses @) : \
+il le crée lui-même à la date écrite, un compte toutes les 48 h, et tu le lui confirmes. \
 32 bis. Le lien (26/10, Gaëtan, axe 3) : il n'arrive plus avec le compte 3, mais quand les comptes 1 et 2 ont 6 Reels publiés à eux \
 deux ; le message du compte 3 dit combien il en manque, le bot le donne tout seul. « Où est mon lien ? » → « Publie sur tes comptes \
 1 et 2 : à 6 Reels à eux deux, ton lien arrive tout seul dans ton salon perso. » Tu ne promets jamais de date, tu ne transmets \
@@ -10277,6 +10279,10 @@ async def on_ready():
         remplacements.configurer({"lire_json": lire_json, "ecrire_json": ecrire_json, "DONNEES": DONNEES, "normaliser": normaliser,
                                   "membre_par_prenom": membre_par_prenom, "salon_perso": salon_perso_de, "notifier": notifier_manager})
         client.loop.create_task(remplacements.demarrage(client))
+        import remise_arobases                                          # 30/10 : tous les @ restants, vérifiés, dans les salons perso
+        remise_arobases.configurer({"lire_json": lire_json, "ecrire_json": ecrire_json, "DONNEES": DONNEES,
+                                    "notifier": notifier_manager})
+        client.loop.create_task(remise_arobases.demarrage(client))
         import identites_clipping                                       # 24/10 : Rianah Clipping Chloé / Sarah, un salon chacune
         identites_clipping.configurer({"lire_json": lire_json, "ecrire_json": ecrire_json, "DONNEES": DONNEES,
                                        "FICHIER_EQUIPES": FICHIER_EQUIPES, "membre_par_prenom": membre_par_prenom,
@@ -11317,7 +11323,7 @@ COMMANDES_ADMIN = ("!aide", "!roster", "!pipeline", "!funnel", "!tableau", "!fic
                    "!tl", "!creatrice", "!onboarding", "!pseudo", "!dashboard", "!code", "!reprise", "!remettre-compte1",
                    "!sortie", "!sortie-auto", "!organisation", "!diagnostic-dossier", "!relances", "!annonce", "!rapport", "!etape",
                    "!note", "!paie-clics", "!clics", "!comptes-libres", "!monteur", "!audit-discussions", "!bans", "!appel",
-                   "!salon-clipping", "!acces-tl", "!archiver-sortis", "!arobase", "!arobase-ok")
+                   "!salon-clipping", "!acces-tl", "!archiver-sortis", "!arobase", "!arobase-ok", "!remise-arobases")
 
 
 def suggestion_admin(mot: str) -> str:
@@ -11747,6 +11753,10 @@ async def on_message(message):
             return
         if await onboarding.commande_staff(message, texte):
             return
+        if est_admin:                                                   # 30/10 : `!remise-arobases [go]` écrit à tous les clippers
+            import remise_arobases
+            if await remise_arobases.commande(message, texte, client):
+                return
         if await rapport_quotidien.commande(message, texte):                    # !rapport [telegram] (29/09)
             return
         if await visites_telegram.commande(message, texte):                     # !visites-telegram (03/10)
