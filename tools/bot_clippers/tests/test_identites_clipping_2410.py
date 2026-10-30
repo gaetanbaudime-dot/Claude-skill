@@ -11,6 +11,7 @@ import secrets
 import sys
 import tempfile
 from types import SimpleNamespace
+import contextlib
 import unittest
 from unittest.mock import AsyncMock, Mock, patch
 
@@ -256,6 +257,39 @@ class ReserveUnique(unittest.IsolatedAsyncioTestCase):
             choix = await process_adapters.LiensAPI("42", []).capacite("Fictive")
         self.assertEqual(("https://mym.fans/app/t/libre", 4, "https://onlyfans.com/fictive/c5", 5, None),
                          (choix["mym"], choix["mym_ligne_u"], choix["of"], choix["of_ligne_u"], choix["mym_ligne"]))
+
+    async def test_capacite_apparie_la_ligne_of_du_meme_nom(self):
+        """30/10 : « gaml-lien31 » MYM part avec « GAML LIEN 31 » OF même si une autre ligne OF libre la précède ;
+        sans homonyme, première ligne OF libre."""
+        import paie_clics
+        import process_adapters
+        import reserve_mym
+        self.assertEqual(process_adapters.nom_tracking("GAML POD 5"), process_adapters.nom_tracking("gaml-pod5"))
+        liste = type("Liste", (list,), {"complete": True})([{"id": "m1", "name": "Fictive"}])
+        u = [{"ligne": 2, "creatrice": "Fictive", "kind": "mym", "nom": "gaml-lien30", "url": "https://mym.fans/app/t/t30", "pose": "https://x/1"},
+             {"ligne": 3, "creatrice": "Fictive", "kind": "mym", "nom": "gaml-lien31", "url": "https://mym.fans/app/t/t31", "pose": ""},
+             {"ligne": 4, "creatrice": "Fictive", "kind": "of", "nom": "gaml-lien15", "url": "https://onlyfans.com/fictive/c15", "pose": ""},
+             {"ligne": 5, "creatrice": "Fictive", "kind": "of", "nom": "GAML LIEN 31", "url": "https://onlyfans.com/fictive/c31", "pose": ""}]
+        store = SimpleNamespace(resource_owner=lambda kind, url: None)
+        patches = lambda lignes: (patch.object(paie_clics, "liens_de", return_value=[]), patch.object(paie_clics, "_lire", return_value={}),
+                                  patch.object(paie_clics, "liens_gaml", AsyncMock(return_value=liste)),
+                                  patch.object(paie_clics, "lien_detail", AsyncMock(return_value={"contents": []})),
+                                  patch.object(process_adapters.LiensAPI, "_verifier_modele", staticmethod(lambda d: None)),
+                                  patch.object(process_adapters, "store", return_value=store),
+                                  patch.object(reserve_mym, "lignes_reserve", AsyncMock(return_value=lignes)),
+                                  patch.object(reserve_mym, "lignes", AsyncMock(return_value=[])))
+        with contextlib.ExitStack() as pile:
+            for p in patches(u):
+                pile.enter_context(p)
+            choix = await process_adapters.LiensAPI("42", []).capacite("Fictive")
+        self.assertEqual(("https://mym.fans/app/t/t31", 3, "https://onlyfans.com/fictive/c31", 5),
+                         (choix["mym"], choix["mym_ligne_u"], choix["of"], choix["of_ligne_u"]))
+        sans_homonyme = [dict(r, nom="") for r in u]
+        with contextlib.ExitStack() as pile:
+            for p in patches(sans_homonyme):
+                pile.enter_context(p)
+            choix = await process_adapters.LiensAPI("42", []).capacite("Fictive")
+        self.assertEqual(("https://onlyfans.com/fictive/c15", 4), (choix["of"], choix["of_ligne_u"]))
 
 
 class LienImpose(unittest.IsolatedAsyncioTestCase):
