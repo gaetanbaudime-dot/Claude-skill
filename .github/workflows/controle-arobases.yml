@@ -8,6 +8,11 @@ on:
   schedule:
     - cron: "41 */4 * * *"
   workflow_dispatch:
+    inputs:
+      arobases:
+        description: "@ à contrôler en plus, séparés par des virgules (sans le @)"
+        required: false
+        default: ""
 
 concurrency:
   group: controle-arobases
@@ -41,3 +46,4 @@ jobs:
           DONNEES_DIR: donnees_ci_arobases
           SUIVI_FICHIER: donnees_ci_arobases/instagram.json
           RAPIDAPI_QUOTA_JOUR: "8000"
+          AROBASES_EN_PLUS: ${{ github.event.inputs.arobases || '' }}

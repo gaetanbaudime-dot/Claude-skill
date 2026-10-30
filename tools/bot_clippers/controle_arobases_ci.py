@@ -48,17 +48,29 @@ async def main() -> int:
     comptes = await onboarding.lire_comptes()
     dans_le_log = {A.norm(c.get("handle")) for c in comptes if c.get("handle")}
     cibles = A.cibles_ci(comptes)
+    # 30/10 : des @ en plus, donnés au lancement à la main (entrée « arobases » du workflow), même hors des lignes à créer
+    vus = {c["handle"] for c in cibles}
+    for h in os.environ.get("AROBASES_EN_PLUS", "").replace(",", " ").split():
+        if A.norm(h) and A.norm(h) not in vus:
+            vus.add(A.norm(h))
+            cibles.append({"handle": A.norm(h), "creatrice": "", "onglet": "", "ligne": "", "gerant": "en plus (lancement manuel)"})
     lignes, compte = [], {}
     for c in cibles:
         # jamais examen() ici : il relirait l'onglet de ce même contrôle et le daterait de maintenant
         ex = await A._examen_direct(c["handle"], c["creatrice"])
         variante = ""
-        if ex.get("verdict") == A.PRIS and ex.get("profil_lu") and not ex.get("a_nous") and not ex.get("neuf"):
-            for v in A.variantes(c["handle"])[:A.VARIANTES_MAX]:          # pris par un inconnu : la variante pour le bot
-                if v not in dans_le_log and (await A._examen_direct(v, ""))["verdict"] == A.LIBRE:
+        if ex.get("verdict") == A.PRIS and ex.get("profil_lu") and not ex.get("a_nous"):
+            # pris (même tout neuf : le bot décide si c'est celui du clipper) : la première variante libre, pour le bot
+            for v in A.variantes(c["handle"])[:A.VARIANTES_MAX]:
+                if v not in dans_le_log and v not in vus and (await A._examen_direct(v, ""))["verdict"] == A.LIBRE:
                     variante = v
                     break
         ligne = A.ligne_ci(c, ex, datetime.now(timezone.utc), variante)
+        if variante:                                                     # la variante a sa propre ligne : le bot la lit libre
+            vus.add(variante)
+            lignes.append(A.ligne_ci({**c, "handle": variante, "gerant": f"variante de {c['handle']}"}, {"verdict": A.LIBRE},
+                                     datetime.now(timezone.utc)))
+            compte["libre"] = compte.get("libre", 0) + 1
         compte[ligne[5]] = compte.get(ligne[5], 0) + 1
         lignes.append(ligne)
     ordre = {"existe": 0, "existe, profil illisible": 0, "pas lu": 1, "libre": 2}

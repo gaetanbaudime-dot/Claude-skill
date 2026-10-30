@@ -10274,7 +10274,8 @@ async def on_ready():
         import cockpit_sorties                                          # 29/10 : « Sorti » dans le Cockpit = sortie automatique
         cockpit_sorties.configurer({"DONNEES": DONNEES, "lire_json": lire_json, "ecrire_json": ecrire_json,
                                     "FICHIER_EQUIPES": FICHIER_EQUIPES, "notifier": notifier_manager,
-                                    "sortir_depose": sortir_depose, "chercher_prenom": chercher_sortant})
+                                    "sortir_depose": sortir_depose, "chercher_prenom": chercher_sortant,
+                                    "rendre_lignes": onboarding.rendre_lignes})       # 30/10 : lignes « à créer » des sortis
         client.loop.create_task(cockpit_sorties.boucle(client))
         remplacements.configurer({"lire_json": lire_json, "ecrire_json": ecrire_json, "DONNEES": DONNEES, "normaliser": normaliser,
                                   "membre_par_prenom": membre_par_prenom, "salon_perso": salon_perso_de, "notifier": notifier_manager})
@@ -10283,6 +10284,10 @@ async def on_ready():
         remise_arobases.configurer({"lire_json": lire_json, "ecrire_json": ecrire_json, "DONNEES": DONNEES,
                                     "notifier": notifier_manager})
         client.loop.create_task(remise_arobases.demarrage(client))
+        import corrections                                              # 30/10 : corrections décidées par Gaëtan, déposées ici
+        corrections.configurer({"lire_json": lire_json, "ecrire_json": ecrire_json, "DONNEES": DONNEES,
+                                "FICHIER_EQUIPES": FICHIER_EQUIPES, "notifier": notifier_manager})
+        client.loop.create_task(corrections.demarrage(client))
         import identites_clipping                                       # 24/10 : Rianah Clipping Chloé / Sarah, un salon chacune
         identites_clipping.configurer({"lire_json": lire_json, "ecrire_json": ecrire_json, "DONNEES": DONNEES,
                                        "FICHIER_EQUIPES": FICHIER_EQUIPES, "membre_par_prenom": membre_par_prenom,

@@ -1,0 +1,16 @@
+{
+  "id": "3010-corrections-1",
+  "note": "Gaëtan, 30/10 10 h 59 : libérer Benn, Oumar, Alvaro ; recommandations appliquées pour Georgial, Amour, Andrianina.",
+  "attendre_ci": [{"handle": "sarah.secret", "variante": true}, {"handle": "sovan.secret"}],
+  "actions": [
+    {"action": "rendre", "prenom": "Benn", "creatrice": "Sophie"},
+    {"action": "rendre", "prenom": "Oumar", "creatrice": "Sophie"},
+    {"action": "rendre", "prenom": "Alvaro", "creatrice": "Sophie"},
+    {"action": "log", "creatrice": "Sarah", "ancien": "sarah_conseille_", "nouveau": "sarahconseille", "etat": "GOOD"},
+    {"action": "fiche", "prenom": "Georgial", "creatrice": "Sarah", "ancien": "journaldesarah", "nouveau": "journaldesarahiva"},
+    {"action": "rendre", "prenom": "Amour", "creatrice": "Sophie", "handles": ["sophievan.journal"], "actifs_permis": true},
+    {"action": "attribuer", "prenom": "Amour", "creatrice": "Sophie", "handle": "sovan.secret"},
+    {"action": "variante", "prenom": "Andrianina", "creatrice": "Sarah", "n": 3},
+    {"action": "remise", "clippers": [["Georgial", "Sarah"], ["Amour", "Sophie"], ["Andrianina", "Sarah"]]}
+  ]
+}

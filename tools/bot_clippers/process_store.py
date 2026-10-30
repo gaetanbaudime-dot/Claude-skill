@@ -164,6 +164,23 @@ class Store:
             if result.rowcount != 1:
                 raise Bloque('Seule une réservation non créée peut être annulée')
 
+    def rendre_au_stock(self, uid, handle, evidence):
+        """30/10 (Gaëtan : « Tu libères Ben, Oumar et Alvaro… si je les vire dans mon cockpit, tu les libères automatiquement ») :
+        une réservation JAMAIS créée (statut « reserved ») dont la ligne du LOG est encore « à créer » et l'@ vu libre sur Instagram
+        (preuve explicite de non-création, exigée) repart au stock : le compte passe « cancelled » avec la preuve et l'@, et l'alias
+        est détaché pour qu'un autre clipper puisse le recevoir. Un compte créé, incertain ou d'un autre clipper : refusé."""
+        handle = str(handle or '').lower().lstrip('@')
+        if not handle or not evidence:
+            raise Bloque('Preuve de non-création requise')
+        with self.transaction() as db:
+            found = db.execute('SELECT a.id,a.uid,a.status FROM accounts a JOIN aliases h ON h.account_id=a.id WHERE h.handle=?',
+                               (handle,)).fetchone()
+            if not found or found[1] != str(uid) or found[2] != 'reserved':
+                raise Bloque('Seule une réservation non créée de ce clipper peut repartir au stock')
+            db.execute("UPDATE accounts SET status='cancelled',evidence=? WHERE id=?",
+                       (f'rendu-au-stock:{handle}:{evidence}', found[0]))
+            db.execute('DELETE FROM aliases WHERE account_id=?', (found[0],))
+
     def observe_alias(self, uid, handle, evidence):
         """Observation d'un compte existant, pas un historique complet ni une autorisation de créer."""
         handle = handle.lower().lstrip('@')

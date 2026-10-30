@@ -1,5 +1,12 @@
 # Bot FAQ Clippers (Discord + Claude)
 
+**30/10, 10 h 59 : les sortis rendent leurs lignes, corrections déposées (Gaëtan : « Si je les vire dans mon cockpit, tu les libères automatiquement. Je ne veux pas avoir à le faire »)**
+
+- **Cockpit** (`cockpit_sorties.rendre_lignes_des_sortis`) : à chaque passage, les lignes « à créer » encore au nom d'un « Sorti » repartent au stock (`onboarding.rendre_lignes`) : jamais un compte créé, jamais un @ pas vu libre, jamais si un clipper signé porte ce prénom. Le registre détache l'alias (`process_store.rendre_au_stock`, réservation jamais créée seulement) pour qu'un autre clipper puisse recevoir la ligne.
+- **Corrections déposées** (`corrections.py`, `corrections_a_appliquer.json`, une fois par id) : `log`, `fiche`, `attribuer`, `rendre`, `variante`, `remise`. Attendent d'abord le contrôle GitHub des @ demandés (`attendre_ci`).
+- **Contrôle GitHub** : entrée « arobases » du workflow pour des @ en plus ; une variante libre (avec sa propre ligne) pour chaque @ pris, même tout neuf.
+- **Tests** : `tests/test_corrections_3010.py`.
+
 **30/10, 9 h 36 : remise de tous les @ restants, variantes des @ pris (Gaëtan : « ceux qui ne l'ont pas créé, envoie-leur leur arobase dans leur salon privé… tu remplaces les points par des tirets du bas… ou tu rajoutes XO à la fin »)**
 
 - **Remise** (`remise_arobases.py`) : pour chaque clipper en route, chaque compte pas créé est examiné sur Instagram (`arobase_libre.examen`, profil compris). Libre : donné. Pris avec une preuve qu'il est à nous, ou tout neuf alors qu'on le lui avait donné : créé, rien envoyé. Pris par un inconnu et jamais donné : variante libre écrite dans la même ligne du LOG (`parcours.renommer`), puis donnée. Déjà donné mais pris par un compte installé : à trancher, jamais changé d'office. Un seul message par clipper, avec la date de chaque compte (48 h après la création du précédent) ; chaque @ donné est noté dans la fiche (`donnes`).
