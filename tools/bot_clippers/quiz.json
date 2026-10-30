@@ -14,7 +14,7 @@
   },
   {
    "id": "mot2",
-   "q": "Stratégie (résultats, cadence) : quel est le 2e mot-clé ?",
+   "q": "Stratégie : quel est le 2e mot-clé ?",
    "reponses": [
     "volume",
     "le volume",
@@ -23,7 +23,7 @@
   },
   {
    "id": "mot3",
-   "q": "Posting (Edits, variantes d'un Reel) : quel est le 3e mot-clé ?",
+   "q": "Posting : quel est le 3e mot-clé ?",
    "reponses": [
     "variation",
     "variations",
@@ -33,7 +33,7 @@
   },
   {
    "id": "mot4",
-   "q": "Bans (milieu de la vidéo) : quel est le 4e mot-clé ?",
+   "q": "Bans : quel est le 4e mot-clé ?",
    "reponses": [
     "sécurité",
     "securite",
@@ -51,54 +51,54 @@
    ]
   },
   {
-   "id": "warmup",
-   "q": "Warm-up de 24 h d'un compte neuf : tu fais quoi ?",
+   "id": "declarer",
+   "q": "Tu viens de créer un compte Instagram. Tu fais quoi tout de suite ?",
    "choix": [
-    "Je publie 2 Reels pour lancer le compte",
-    "Je regarde, je like et je suis des créatrices françaises. Je ne publie rien.",
-    "Je mets tout de suite le lien en story à la une"
-   ],
-   "bonne": 1
-  },
-  {
-   "id": "lien",
-   "q": "Où mets-tu ton lien ?",
-   "choix": [
-    "Dans la bio de chaque compte",
-    "Dans la légende de chaque Reel",
-    "Dans la bio de mon compte 3, le privé. Mes comptes 1 et 2 le mentionnent en story à la une"
-   ],
-   "bonne": 2
-  },
-  {
-   "id": "trois_comptes",
-   "q": "3 comptes sur un téléphone : quelle est la règle ?",
-   "choix": [
-    "Chaque compte a son e-mail, son mot de passe, sa photo et sa bio. Aucun n'est relié au Meta Business Center.",
-    "Le même e-mail et le même mot de passe pour les trois",
-    "Les trois reliés au même Meta Business Center"
+    "Je donne son @ dans mon salon perso sur Discord",
+    "Rien : l'agence le trouvera toute seule",
+    "J'attends d'avoir publié 10 Reels pour le dire"
    ],
    "bonne": 0
   },
   {
-   "id": "cadence",
-   "q": "Combien de Reels publies-tu par jour ?",
+   "id": "modifier",
+   "q": "Un Reel a très bien marché. Tu le republies comment ?",
    "choix": [
-    "Le plus possible : 10 Reels par compte dès le 1er jour",
-    "2 Reels par jour sur chaque compte qui publie, tous les jours",
-    "1 Reel par semaine, la qualité avant tout"
+    "Tel quel, sur mes 2 comptes",
+    "Tel quel, mais 24 h plus tard",
+    "Modifié à chaque fois : recadrage, texte, son, durée"
+   ],
+   "bonne": 2
+  },
+  {
+   "id": "trop_sexy",
+   "q": "Une vidéo te paraît trop sexy pour Instagram. Tu fais quoi ?",
+   "choix": [
+    "Je la publie : elle fera plus de vues",
+    "Je ne la publie pas",
+    "Je la publie sur un seul compte pour tester"
    ],
    "bonne": 1
   },
   {
-   "id": "reels_essai",
-   "q": "Les Reels d'essai arrivent à partir de combien d'abonnés ?",
+   "id": "comptes_separes",
+   "q": "Tes comptes Instagram : quelle est la règle ?",
    "choix": [
-    "50",
-    "200",
-    "1 000"
+    "Je les relie à mon compte perso pour passer de l'un à l'autre",
+    "Une appli like et s'abonne à ma place pour gagner du temps",
+    "Aucun n'est relié : ni entre eux, ni à mon perso, ni au Meta Business Center. Et aucune appli n'agit à ma place."
    ],
-   "bonne": 1
+   "bonne": 2
+  },
+  {
+   "id": "tunnel",
+   "q": "Comment un fan arrive jusqu'à ton lien ?",
+   "choix": [
+    "Mes comptes qui publient ont une story à la une avec le widget de mon compte privé. Le lien est dans la bio du privé.",
+    "Le lien est dans la bio de mes 2 comptes qui publient",
+    "Le lien est dans la légende de chaque Reel"
+   ],
+   "bonne": 0
   }
  ]
 }
