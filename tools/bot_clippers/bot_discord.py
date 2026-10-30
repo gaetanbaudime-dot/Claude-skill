@@ -46,6 +46,7 @@ import etats_comptes                      # colonne ETAT du classeur mise à jou
 import dashboard                          # 09/10 (dashboard) : onglet Dashboard, une ligne par compte, réécrit toutes les 15 min si changé
 import matin                              # un seul message du matin par clipper (26/09)
 import funnel_quotidien                   # 18/10 : M1 leads · M2 qualifiés · M3 actifs, jour par jour (actions 16-17)
+import sources_annonce                    # 30/10 : « Où as-tu vu notre annonce ? » → canal (telegram, discord, indeed…)
 import fusion_forms                       # 18/10 : réponses des anciens Google Forms en haut de « Candidatures bot »
 import sortie_auto                        # sortie automatique : averti à 3 jours sans Reel, sorti à 7 (30/09)
 import parrainage                         # !parrain : 5 $ au parrain à la première paie du filleul (28/09)
@@ -2853,7 +2854,7 @@ MOTS_CANDIDATURE = (("date", ("horodat",)), ("prenom", ("prenom",)), ("tel", ("w
                     ("experience", ("experience sur instagram", "experience")), ("montage", ("montes avec",)),
                     ("video", ("video qui a bien",)), ("reels_jour", ("reels tu peux",)), ("heures_jour", ("heures par jour",)),
                     ("shadowban", ("shadowban",)), ("motivation", ("pourquoi es-tu", "pourquoi es tu")), ("age", ("quel age", "ton age")),
-                    ("majeur", ("majeur",)), ("niche", ("niche",)), ("annonce", ("annonce de recrutement", "reseau social as-tu vu")),
+                    ("majeur", ("majeur",)), ("niche", ("niche",)), ("annonce", ("annonce de recrutement", "reseau social as-tu vu", "vu notre annonce", "vu annonce")),
                     ("conditions", ("5 regles", "regles de l'equipe")))
 CHAMP_PAR_QUESTION = {"whatsapp": "tel"}                                # id de question → champ du classeur quand ils diffèrent
 
@@ -5390,20 +5391,24 @@ def compteurs_funnel(pipe: dict, jour, registre: dict | None = None) -> dict:
 def sources_candidatures(cands: list, lignes: list, pipe: dict) -> list:
     """09/10 (l'annonce Telegram porte sa source : /candidature?src=tg-<groupe>) : [(source, nombre)] des candidatures `cands`
     (candidatures_du_jour), la plus fréquente d'abord. La source d'un numéro : celle du pipeline (candidatures[tel]["source"], posée
-    par le site), sinon la colonne Source du classeur, sinon « formulaire » pour l'ancien Google Form, sinon « web »."""
-    def _propre(s):
-        s = str(s or "").split(" · ")[0].strip().lower()[:30]
+    par le site), sinon la colonne Source du classeur, sinon « formulaire » pour l'ancien Google Form, sinon « web ».
+    30/10 (Gaëtan : « savoir d'où viennent les candidatures pour double down ») : sans source dans le lien, le canal que le
+    candidat a écrit à « Où as-tu vu notre annonce ? » (sources_annonce : telegram, discord, indeed…)."""
+    def _propre(src, reponse):
+        s = sources_annonce.source_candidature(src, reponse)
         return "" if s == "web" else s
 
     du_classeur, du_pipeline = {}, {}
     for c in lignes or []:
         cle = (c.get("tel_chiffres") or "")[-8:]
         if len(cle) == 8 and cle not in du_classeur:
-            du_classeur[cle] = _propre(c.get("src")) or ("formulaire" if c.get("source") == "formulaire" else "")
+            du_classeur[cle] = (_propre(c.get("src"), c.get("annonce"))
+                                or ("formulaire" if c.get("source") == "formulaire" else ""))
     for tel, c in ((pipe or {}).get("candidatures") or {}).items():
         chiffres = _chiffres_tel(tel)
         if len(chiffres) >= 8:
-            du_pipeline[chiffres[-8:]] = _propre((c or {}).get("source"))
+            c = c or {}
+            du_pipeline[chiffres[-8:]] = _propre(c.get("source"), (c.get("reponses") or {}).get("annonce"))
     compte = {}
     for c in cands or []:
         cle = (c.get("tel_chiffres") or "")[-8:]
