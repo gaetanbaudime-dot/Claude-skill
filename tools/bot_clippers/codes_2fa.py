@@ -105,15 +105,21 @@ TEXTE_GARDE = ("🔒 Le dernier e-mail reçu sur ton adresse n'est pas un code e
                "je ne le donne pas.\n\nBesoin d'aide ? `!aide-ig`.")
 URL_AIDE_INSTAGRAM = "https://help.instagram.com/366993040048856"
 URL_AIDE_META = "https://www.meta.com/account-recovery-support/"
+# 30/10 (Gaëtan : « prendre une capture d'écran de la partie « voir la règle » sur Instagram pour voir pourquoi le compte Instagram
+# a été banni et ensuite faire appel avec les informations du clipper : mail, carte d'identité, numéro de téléphone, vérification
+# vidéo de son visage »).
 TEXTE_APPEL_GARDE = (
-    "Ouvre le compte concerné dans Instagram et lis la notification. Si « Contester » ou « Demander un examen » "
-    "est proposé, suis ce parcours et le délai affiché. Si l'examen est en cours, consulte son statut.\n\n"
-    "Le titulaire réalise lui-même toute vérification d'identité, selfie ou pièce demandée par Meta. "
-    "Le bot ne soumet pas de recours et ne garantit pas le rétablissement.\n\n"
+    "1. Ouvre le compte dans Instagram. Appuie sur « Voir la règle » : c'est la raison du blocage. "
+    "Fais une capture et envoie-la dans ton salon perso.\n"
+    "2. Si « Contester » ou « Demander un examen » est proposé, suis ce parcours et le délai affiché. "
+    "Si l'examen est en cours, consulte son statut.\n"
+    "3. Fais l'appel avec tes infos à toi : ton e-mail, ton numéro, ta carte d'identité, un selfie vidéo de ton visage. "
+    "Jamais celles d'un autre. Ne les envoie jamais dans Discord.\n\n"
+    "Le bot ne soumet pas de recours à ta place et ne garantit pas le rétablissement.\n\n"
     f"[Aide officielle Instagram]({URL_AIDE_INSTAGRAM}) · [Centre d'aide Meta]({URL_AIDE_META})")
 TEXTE_RECUP_REFUSE = ("🔒 Les codes de récupération, de recours et de changement de sécurité ne passent pas par le bot. "
                     "Pour un accès perdu : https://www.instagram.com/hacked/ . "
-                    "Utilise ce parcours avec le titulaire.\n\n" + TEXTE_APPEL_GARDE)
+                    "Suis ce parcours toi-même, avec tes infos.\n\n" + TEXTE_APPEL_GARDE)
 
 TEXTE_MP = "📩 Je t'envoie ton code en message privé.\n\nPlus rapide : le bouton « 📩 Mon code »."
 TEXTE_MP_FERMES = ("🔒 Tes messages privés sont fermés : je ne peux pas t'écrire.\n\n"
@@ -133,7 +139,9 @@ def explication_salon() -> str:
             "Demande ton code dans l'application : je guette cinq minutes et le nouveau s'affiche automatiquement.\n\n"
             "Chaque code indique son service, son compte et son usage. Si un code est refusé, demande un renvoi.\n"
             "Les codes d'une application d'authentification ne viennent pas par e-mail. "
-            "Les codes de récupération et les changements de sécurité restent dans le parcours du titulaire.")
+            "Les codes de récupération et les changements de sécurité ne passent pas par ce salon.\n\n"
+            # 30/10 (règle C14) : les comptes donnés par leur @ seul se créent avec l'e-mail du clipper.
+            "Ton compte est créé avec ton e-mail à toi ? Son code arrive dans ta boîte, pas ici.")
 
 
 def _explication_v7() -> str:
@@ -144,20 +152,21 @@ def _explication_v7() -> str:
 def aide_instagram(cas="") -> str:
     """Aide déterministe, sans lecture de compte ni de boîte, disponible même si le relais est indisponible."""
     aide = {
-        "creation": ("🆕 **Créer le compte attribué**\n\n"
-                     # 23/10 (Julien a lu « coordonnées autorisées pour son titulaire » puis « Dans » au milieu d'une phrase) :
-                     # les mots du message de compte, une phrase par étape.
-                     "1. Crée-le avec l'identifiant, l'e-mail et le mot de passe de ton message de compte. "
-                     "S'il existe déjà, choisis « Se connecter ».\n"
-                     "2. Instagram demande un code envoyé par e-mail ? " + texte_salon_codes() + "\n"
-                     "3. Saisis le dernier code de création du bon compte. Une vérification personnelle demandée par Meta "
-                     "revient au titulaire. Après une suspension, ne crée pas de compte de remplacement : fais appel (Fiche 6). "
-                     "Les comptes de ton parcours se créent normalement, un à la fois, avec les identifiants de l'agence."),
+        "creation": ("🆕 **Créer ton compte**\n\n"
+                     # 30/10 (règle C14) : le bot donne l'@ ; le clipper crée avec son e-mail et son mot de passe.
+                     "1. Instagram → Créer un compte → prends l'identifiant de ton message de compte. "
+                     "Mets ton e-mail et ton mot de passe à toi.\n"
+                     "2. Le code de création arrive sur ton e-mail. Ton message de compte donne un e-mail de l'agence ? "
+                     "Utilise-le, et s'il existe déjà, choisis « Se connecter ». " + texte_salon_codes() + "\n"
+                     "3. Date de naissance, numéro ou selfie demandé ? Mets les tiens, les vrais. "
+                     "Après une suspension, ne crée pas de compte de remplacement : fais appel (Fiche 6). "
+                     "Les comptes de ton parcours se créent normalement, un à la fois, avec l'@ que le bot te donne."),
         "connexion": ("🔑 **Se connecter**\n\n"
-                      "1. Utilise les accès du compte déjà attribué.\n"
+                      "1. Utilise l'identifiant et le mot de passe de ton compte.\n"
                       "2. Lis le moyen demandé par Instagram : e-mail, application d'authentification, SMS ou WhatsApp.\n"
-                      "3. Pour l'e-mail, " + texte_salon_codes() + " Pour les autres moyens, "
-                      "utilise celui déjà lié au compte avec son titulaire : `!aide-ig authentificateur`. "
+                      "3. Compte créé avec ton e-mail : le code arrive dans ta boîte. Compte à l'e-mail de l'agence : "
+                      + texte_salon_codes() + " Pour les autres moyens, "
+                      "utilise celui déjà lié au compte : `!aide-ig authentificateur`. "
                       "Ne remplace pas l'e-mail ou le numéro pour te connecter."),
         "renvoi": ("🔁 **Code absent ou refusé**\n\n"
                    "1. Vérifie le compte, son adresse et le moyen d'envoi affiché par l'application.\n"
@@ -166,16 +175,18 @@ def aide_instagram(cas="") -> str:
                    "3. Utilise le dernier code du bon service et du bon usage. Après la fin de l'attente, "
                    "rappuie sur 📩 Mon code. Si l'affectation de ton compte est bloquée, les renvois ne la corrigent pas."),
         "authentificateur": ("🔐 **Quel code est demandé ?**\n\n"
-                            "**E-mail** : 📩 Mon code peut relayer les codes de création, connexion et vérification reconnus.\n\n"
+                            "**E-mail** : compte créé avec ton e-mail, le code arrive dans ta boîte. Compte à l'e-mail "
+                            "de l'agence : 📩 Mon code relaie les codes de création, connexion et vérification reconnus.\n\n"
                             "**Application d'authentification** : le bot ne génère pas ces codes. "
-                            "Utilise l'application déjà liée au compte avec son titulaire.\n\n"
+                            "Utilise l'application déjà liée au compte.\n\n"
                             "**SMS ou WhatsApp** : le code arrive sur le moyen déjà lié au compte, pas dans cette boîte e-mail.\n\n"
-                            "Si ce moyen n'est pas disponible, suis l'aide officielle proposée à l'écran avec le titulaire. "
+                            "Si ce moyen n'est pas disponible, suis l'aide officielle proposée à l'écran. "
                             "Ne publie aucun code, mot de passe, QR code ou code de secours dans Discord.\n"
                             f"[Aide officielle Meta]({URL_AIDE_META})"),
         "suspension": "🛟 **Compte suspendu ou désactivé**\n\n" + TEXTE_APPEL_GARDE +
                       "\n\nPrépare le motif et la date affichés, sans inventer de faits. "
-                      "Aucun code de recours n'est transmis par ce bot. Ne publie pas de pièce d'identité dans Discord.",
+                      "Compte à l'e-mail de l'agence : le bot ne relaie pas le code de recours, l'équipe te le donne "
+                      "dans ton salon perso.",
     }
     cle = _cle(cas)
     cle = {"creer": "creation", "connecter": "connexion", "code": "renvoi", "2fa": "authentificateur",
@@ -184,7 +195,7 @@ def aide_instagram(cas="") -> str:
     if cle in aide:
         return aide[cle]
     return ("📱 **Aide Instagram**\n\n"
-            "· Créer le compte attribué : `!aide-ig creation`\n"
+            "· Créer ton compte : `!aide-ig creation`\n"
             "· Se connecter : `!aide-ig connexion`\n"
             "· Code absent ou refusé : `!aide-ig renvoi`\n"
             "· Authentificateur, SMS ou WhatsApp : `!aide-ig authentificateur`\n"
@@ -2444,7 +2455,26 @@ async def _alerter_sans_adresse(membre) -> bool:
     return ok
 
 
+def _comptes_a_son_mail(membre) -> bool:
+    """30/10 (règle C14) : aucun compte de sa fiche n'a d'e-mail de l'agence. Ses comptes se créent avec SON e-mail : ses codes
+    arrivent dans sa boîte, aucune adresse n'a à être rattachée, ce n'est pas un blocage à signaler."""
+    try:
+        import onboarding
+        fiche = (onboarding._lire_etat().get("clippers") or {}).get(str(getattr(membre, "id", ""))) or {}
+    except Exception:                                                   # noqa: BLE001 — fiche illisible : l'ancien chemin
+        return False
+    return not any(str((x or {}).get("mail") or "").strip() for x in fiche.get("acces") or [] if isinstance(x, dict))
+
+
+TEXTE_CODE_SA_BOITE = ("📭 Tes comptes sont créés avec ton e-mail à toi : les codes d'Instagram arrivent dans ta boîte, pas ici.\n\n"
+                       "Ce bouton sert seulement aux comptes créés avec l'e-mail de l'agence.\n\n"
+                       "Pas de code ? Regarde tes spams, puis appuie sur « Renvoyer le code » dans Instagram.")
+
+
 async def _sans_adresse(membre, dire) -> None:
+    if not _est_staff(membre) and _comptes_a_son_mail(membre):
+        await dire(TEXTE_CODE_SA_BOITE)
+        return
     if _est_staff(membre):
         await dire("Ici, chacun ses codes : aucune adresse de compte n'est validée pour ton UID.\n\n"
                    "Pour aider un clipper, vérifie l'affectation de ses propres comptes dans le registre.")
