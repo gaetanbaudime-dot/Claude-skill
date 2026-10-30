@@ -6,6 +6,8 @@
 - **Déclencher** : `remise_arobases.json` (`{"id", "mode": "apercu" | "envoi"}`, joué une fois par id, 150 s après le démarrage) ou `!remise-arobases` / `!remise-arobases go` (admin). Rapport : onglet « Remise des @ » du tableur App clippers · usage, et le salon admin.
 - **Variantes** (`arobase_libre.variantes`) : points ↔ tirets bas, puis « xo » à la fin. Utilisées à chaque remise d'étape (avant de prendre une autre ligne du stock) et par le contrôle quotidien du stock (`pseudos_uniques`).
 - **Jamais remplacé** : un @ déjà donné (fiche `donnes`), ou un compte tout neuf ou « à nous » (le clipper l'a créé en avance).
+- **Clé RapidAPI de Railway refusée (403, pas d'abonnement FlashAPI)** : le workflow GitHub « Contrôle des @ » (`controle_arobases_ci.py`, toutes les 4 h, ou à la main) examine les @ à créer attribués et les prochains du stock avec la clé du dépôt, et écrit l'onglet « IG · Contrôle des @ » (avec une variante libre pour chaque @ pris par un inconnu). Le bot le lit quand sa clé est refusée (`arobase_libre.depuis_ci`, valable `AROBASE_CI_VALIDE_H` = 12 h). Pour que le bot vérifie lui-même : mettre dans Railway la même `RAPIDAPI_KEY` que le secret GitHub.
+- **Un compte que le LOG dit créé** (GOOD, BAN, appel…) n'est jamais vérifié ni remplacé à la remise de son étape.
 - **Tests** : `tests/test_remise_arobases_3010.py`, `tests/test_arobase_libre_3010.py`.
 
 **30/10 : l'@ seul pour les nouveaux clippers (Gaëtan : « On va juste donner les arobas dans le bot pour tous les nouveaux clippers… on va vraiment ouvrir les vannes »)**

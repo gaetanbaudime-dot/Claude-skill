@@ -1460,6 +1460,13 @@ async def _arobase_libre_ou_remplace(salon, membre, uid: str, n: int) -> bool:
         acces = {str(a.get("handle", "")).lower(): a for a in (_onb(uid).get("acces") or []) if isinstance(a, dict)}
         if (acces.get(str(h).lower()) or {}).get("cree"):
             return True
+        try:                                                            # 30/10 : un compte que le LOG dit créé n'est jamais vérifié
+            etat_log = next((str(c.get("etat") or "") for c in await onboarding.lire_comptes()
+                             if onboarding.normaliser_handle(c.get("handle")).lower() == str(h).lower()), "")
+        except Exception:                                               # noqa: BLE001 — classeur illisible : la vérification suit
+            etat_log = ""
+        if etat_log.strip() and onboarding._norm(etat_log) not in onboarding.A_CREER:
+            return True                                                 # GOOD, BAN, appel… : il existe, c'est le sien (connexion)
         if arobase_donne(fiche_p, n, h):
             # 30/10, 9 h 36 : ce @ lui a déjà été donné (remise de tous ses @, vérifiés libres à ce moment-là). S'il existe maintenant,
             # c'est le clipper qui l'a créé : jamais remplacé sous ses pieds.
