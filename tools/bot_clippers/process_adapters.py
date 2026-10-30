@@ -4,6 +4,12 @@ from process_store import Store, Bloque
 import process_liens
 
 
+def nom_tracking(nom: str) -> str:
+    """Clé d'appariement d'un nom de tracking de la réserve : minuscules, sans accents, lettres et chiffres seulement."""
+    import onboarding
+    return ''.join(c for c in onboarding._norm(str(nom or '')) if c.isalnum())
+
+
 def store():
     import onboarding
     fichier = onboarding._deps.get('FICHIER_ONBOARDING')
@@ -40,7 +46,11 @@ class LiensAPI:
                     and r['url'] not in utilises and not store().resource_owner(kind, r['url']))
         reserve_u = await m.lignes_reserve()
         mym_u = next((r for r in reserve_u if libre_u(r, 'mym')), None)
-        of_u = next((r for r in reserve_u if libre_u(r, 'of')), None)
+        # 30/10 : la paire MYM + OF part ensemble quand les deux lignes portent le même nom (« gaml-lien31 », « GAML POD 5 »
+        # = « gaml-pod5 » : casse, espaces et tirets ignorés) ; sans ligne OF de ce nom, première ligne OF libre comme avant.
+        nom_mym = nom_tracking(mym_u.get('nom')) if mym_u else ''
+        of_u = (next((r for r in reserve_u if libre_u(r, 'of') and nom_mym and nom_tracking(r.get('nom')) == nom_mym), None)
+                or next((r for r in reserve_u if libre_u(r, 'of')), None))
         reserve = [] if mym_u else await m.lignes()
         mym = next((r for r in reserve if o._norm(r['creatrice']) == o._norm(creatrice)
                     and not r['pose'] and r['url'] not in utilises and not store().resource_owner('mym', r['url'])), None)
