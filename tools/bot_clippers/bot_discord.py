@@ -7208,9 +7208,24 @@ def uid_parti(prenom: str, creatrice=None, signe_avant=None) -> str:
     return next(iter(candidats)) if len(candidats) == 1 else ""
 
 
+async def _paie_prete(attente_s: int = 90) -> bool:
+    """30/10 (audit du parcours : la sortie de Meiji échouait à chaque démarrage sur « 'lire_json' ») : la sortie déposée passe au
+    démarrage AVANT que la boucle de paie ait reçu ses dépendances (paie_clics.boucle). On l'attend un peu ; sinon la sortie est
+    retentée au passage suivant, jamais faite à moitié (liens GAML non libérés)."""
+    if not paie_clics.actif():
+        return True
+    for _ in range(max(0, attente_s)):
+        if paie_clics._deps.get("lire_json"):
+            return True
+        await asyncio.sleep(1)
+    return bool(paie_clics._deps.get("lire_json"))
+
+
 async def sortir_parti(prenom: str, creatrice=None, signe_avant=None, raison: str = "") -> list:
     """26/10 : la sortie déposée d'un clipper déjà parti du serveur : ses liens GAML libérés (visites dues gardées), sa fiche au
     registre des sortis, le roster, ses comptes au vivier (appliquer_sortis). [] si personne ne correspond, sinon les lignes."""
+    if not await _paie_prete():
+        raise RuntimeError("paie au clic pas encore prête : sortie retentée au passage suivant")
     uid = uid_parti(prenom, creatrice, signe_avant)
     if not uid:
         return []
