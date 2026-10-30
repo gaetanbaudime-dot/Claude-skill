@@ -1,0 +1,43 @@
+name: Contrôle des @ (RapidAPI)
+
+# 30/10 (Gaëtan : « il faut vraiment s'assurer que tous les arobas qu'on envoie… soient bien disponibles à chaque fois sur
+# Instagram ») : les @ « à créer » attribués et les prochains du stock sont examinés sur Instagram (ID, puis profil s'il existe) et
+# écrits dans l'onglet « IG · Contrôle des @ » du tableur App clippers · usage. Le bot le lit quand sa clé RapidAPI (Railway) est
+# refusée. Environ 70 requêtes par passage, toutes les 4 heures : ~420 par jour, en plus du suivi.
+on:
+  schedule:
+    - cron: "41 */4 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: controle-arobases
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  controle:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: tools/bot_clippers
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: tools/bot_clippers/requirements.txt
+      - run: pip install -r requirements.txt
+      - name: Contrôle des @
+        run: python controle_arobases_ci.py
+        env:
+          RAPIDAPI_KEY: ${{ secrets.RAPIDAPI_KEY }}
+          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+          CLASSEUR_LOGINS_ID: 1z7LxKU70PdXfU0HWCtPltWqT84GwFQJTnOAFZdBnyDY
+          ADRESSES_CLASSEUR_ID: 1-zZipXCmi1esYo8QsWDYk8DSDpKMxjQzfRt3uNuXPqI
+          DONNEES_DIR: donnees_ci_arobases
+          SUIVI_FICHIER: donnees_ci_arobases/instagram.json
+          RAPIDAPI_QUOTA_JOUR: "8000"

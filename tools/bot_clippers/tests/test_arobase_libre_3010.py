@@ -4,6 +4,7 @@ est sûr d'avoir la bonne attribution des clippers »).
 Un @ est vérifié sur Instagram (RapidAPI, route « id ») avant le message de son compte : pris = jamais donné, la ligne sort du stock
 et une autre est réservée ; doute = rien n'est donné, nouvel essai plus tard. Sans réseau ni Discord ni classeur."""
 from copy import deepcopy
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 import tempfile
 from types import SimpleNamespace as N
@@ -71,15 +72,35 @@ class VerdictTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(a.LIBRE, await a.verdict("verifie.fictif"))
             appel.assert_not_awaited()
 
-    async def test_sans_verification_possible_l_ancien_comportement(self):
-        with patch.object(a, "actif", return_value=False):
+    async def test_sans_verification_possible(self):
+        with patch.object(a, "ACTIVE", False):                          # AROBASE_VERIF=0 : l'ancien comportement
             self.assertEqual(a.LIBRE, await a.verdict("x.fictif"))
+        with patch.object(a, "actif", return_value=False), patch.object(a, "depuis_ci", AsyncMock(return_value=None)):
+            self.assertEqual(a.INCONNU, await a.verdict("x.fictif"))   # 30/10 : sans clé ni contrôle GitHub, jamais « libre »
+        with patch.object(a, "actif", return_value=False), \
+                patch.object(a, "depuis_ci", AsyncMock(return_value={"verdict": a.LIBRE})):
+            self.assertEqual(a.LIBRE, await a.verdict("x.fictif"))
+
+    async def test_cle_refusee_le_controle_github_prend_le_relais(self):
+        a._refus["jusqua"] = 0
+        self.addCleanup(a._refus.update, {"jusqua": 0})
+        appel = AsyncMock(return_value=(403, {"message": "You are not subscribed to this API."}))
+        with patch.object(ig, "appeler", appel), \
+                patch.object(a, "depuis_ci", AsyncMock(side_effect=lambda h: {"verdict": a.LIBRE} if h == "vu.fictif" else None)):
+            self.assertEqual(a.LIBRE, await a.verdict("vu.fictif"))
+            self.assertTrue(a.cle_refusee())
+            self.assertEqual(a.INCONNU, await a.verdict("jamais.fictif"))   # pas dans le contrôle : doute
+            self.assertEqual(a.LIBRE, (await a.examen("vu.fictif"))["verdict"])
+        self.assertEqual(1, appel.await_count)                          # une seule tentative : la clé est en pause
 
 
 class RemiseTests(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
         self.etat = {"42": {"prenom": "Fictif", "creatrice": "Fictive", "ordre": "prive3", "messages": {}}}
         self.membre = N(id=42, mention="<@42>")
+        patcher = patch.object(onboarding, "lire_comptes", AsyncMock(return_value=[]))
+        patcher.start()
+        self.addCleanup(patcher.stop)
 
         def ecrire(d):
             self.etat = deepcopy(d)
@@ -155,6 +176,13 @@ class RemiseTests(unittest.IsolatedAsyncioTestCase):
             self.assertTrue(await p._arobase_libre_ou_remplace(N(), self.membre, "42", 2))
         verdict.assert_not_awaited()
 
+    async def test_un_compte_que_le_log_dit_cree_n_est_jamais_verifie(self):
+        with patch.object(p, "_comptes_ordonnes", return_value=["vivant.fictif"]), \
+                patch.object(onboarding, "lire_comptes", AsyncMock(return_value=[{"handle": "Vivant.Fictif", "etat": "GOOD"}])), \
+                patch.object(a, "verdict", AsyncMock()) as verdict:
+            self.assertTrue(await p._arobase_libre_ou_remplace(N(), self.membre, "42", 1))
+        verdict.assert_not_awaited()
+
     async def test_un_doute_retient_le_compte(self):
         with patch.object(p, "_comptes_ordonnes", return_value=["doute.fictif"]), \
                 patch.object(a, "verdict", AsyncMock(return_value=a.INCONNU)), \
@@ -191,6 +219,41 @@ class VariantesTests(unittest.TestCase):
             for v in a.variantes(h):
                 self.assertRegex(v, r"^(?!\.)(?!.*\.\.)(?!.*\.$)[a-z0-9._]{1,30}$", (h, v))
                 self.assertNotEqual(a.norm(h), v)
+
+
+class ControleGithubTests(unittest.IsolatedAsyncioTestCase):
+    MAINTENANT = datetime(2026, 10, 30, 8, 0, tzinfo=timezone.utc)
+
+    def test_cibles_attribuees_puis_prochains_du_stock(self):
+        comptes = [{"etat": "à créer", "handle": "@Un.Fictif", "gerant": "Fictif", "onglet": "Jade", "ligne": 4},
+                   {"etat": "GOOD", "handle": "vivant", "gerant": "Fictif", "onglet": "Jade", "ligne": 5},
+                   {"etat": "à créer", "handle": "s1", "gerant": "", "onglet": "Jade", "ligne": 6},
+                   {"etat": "à créer", "handle": "s2", "gerant": "", "onglet": "Jade", "ligne": 7},
+                   {"etat": "A CREER", "handle": "s3", "gerant": "-", "onglet": "Jade", "ligne": 8},
+                   {"etat": "à créer", "handle": "un.fictif", "gerant": "Autre", "onglet": "Jade", "ligne": 9}]
+        self.assertEqual(["un.fictif", "s1", "s2"], [c["handle"] for c in a.cibles_ci(comptes, prochains=2)])
+
+    def test_aller_retour_de_l_onglet(self):
+        c = {"handle": "pris.fictif", "creatrice": "Jade", "onglet": "Jade", "ligne": "4", "gerant": "Fictif"}
+        ex = {"verdict": a.PRIS, "profil_lu": True, "abonnes": 141, "publications": 1, "nom": "X", "bio": "Y", "a_nous": False,
+              "neuf": False}
+        lu = a.lire_ligne_ci(a.ligne_ci(c, ex, self.MAINTENANT, "pris_fictif"), self.MAINTENANT + timedelta(hours=2))
+        self.assertEqual((a.PRIS, 141, 1, False, False, "pris_fictif"),
+                         (lu["verdict"], lu["abonnes"], lu["publications"], lu["a_nous"], lu["neuf"], lu["variante"]))
+        libre = a.ligne_ci({**c, "handle": "libre.fictif"}, {"verdict": a.LIBRE}, self.MAINTENANT)
+        self.assertEqual(a.LIBRE, a.lire_ligne_ci(libre, self.MAINTENANT)["verdict"])
+        self.assertIsNone(a.lire_ligne_ci(libre, self.MAINTENANT + timedelta(hours=a.CI_VALIDE_H + 1)))   # trop vieux : doute
+        self.assertIsNone(a.lire_ligne_ci(a.ligne_ci(c, {"verdict": a.INCONNU}, self.MAINTENANT), self.MAINTENANT))
+        illisible = a.ligne_ci(c, {"verdict": a.PRIS, "profil_lu": False}, self.MAINTENANT)
+        self.assertFalse(a.lire_ligne_ci(illisible, self.MAINTENANT)["profil_lu"])
+
+    async def test_variante_du_controle_quand_la_cle_est_refusee(self):
+        with patch.object(a, "actif", return_value=True), patch.object(a, "cle_refusee", return_value=True):
+            with patch.object(a, "depuis_ci", AsyncMock(return_value={"verdict": a.PRIS, "variante": "pris_fictif"})):
+                self.assertEqual("pris_fictif", await a.variante_libre("pris.fictif"))
+                self.assertEqual("", await a.variante_libre("pris.fictif", exclus={"pris_fictif"}))
+            with patch.object(a, "depuis_ci", AsyncMock(return_value={"verdict": a.PRIS, "variante": "autre.chose"})):
+                self.assertEqual("", await a.variante_libre("pris.fictif"))   # jamais un @ qui n'est pas une de ses variantes
 
 
 class StockTests(unittest.IsolatedAsyncioTestCase):

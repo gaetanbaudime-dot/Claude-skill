@@ -135,14 +135,22 @@ def variantes(handle) -> list:
 
 async def variante_libre(handle, exclus=()) -> str:
     """La première variante de `handle` vue LIBRE sur Instagram (jamais une variante déjà dans le LOG : `exclus`), sinon ''.
-    Une variante douteuse (API muette) est sautée, jamais donnée."""
+    Une variante douteuse (API muette) est sautée, jamais donnée. 30/10 : clé de Railway refusée → la variante trouvée libre par
+    le dernier contrôle GitHub de ce @ (colonne « Variante libre »), s'il a moins de CI_VALIDE_H heures."""
     exclus = {norm(x) for x in exclus or ()}
-    for v in variantes(handle)[:VARIANTES_MAX]:
-        if v in exclus:
-            continue
-        if await verdict(v) == LIBRE:
-            return v
-    return ""
+    if actif() and not cle_refusee():
+        for v in variantes(handle)[:VARIANTES_MAX]:
+            if v in exclus:
+                continue
+            if await verdict(v) == LIBRE:
+                return v
+            if cle_refusee():
+                break
+        if not cle_refusee():
+            return ""
+    ci = await depuis_ci(handle)
+    v = (ci or {}).get("variante") or ""
+    return v if v and v not in exclus and v in variantes(handle) else ""
 
 
 def vu_libre(handle) -> bool:
@@ -153,13 +161,28 @@ def vu_libre(handle) -> bool:
 async def examen(handle, creatrice: str = "") -> dict:
     """Le @ sur Instagram, avec son profil quand il existe : {verdict, id, abonnes, publications, nom, bio, prive, a_nous, neuf}.
     a_nous : le profil prouve qu'il est à nous (instagram_rapidapi.preuve_a_nous : bio du bot, prénom de la créatrice, lien) ;
-    neuf : au plus NEUF_ABONNES abonnés et NEUF_PUBLICATIONS publications. Jamais d'exception : un doute est INCONNU."""
+    neuf : au plus NEUF_ABONNES abonnés et NEUF_PUBLICATIONS publications. Jamais d'exception : un doute est INCONNU.
+    30/10 : la clé de Railway refusée (401/403) ou une réponse douteuse → le dernier contrôle GitHub de ce @ (depuis_ci), s'il a
+    moins de CI_VALIDE_H heures."""
     h = norm(handle)
     res = {"verdict": INCONNU, "handle": h}
     if not h:
         return res
-    if not actif():
+    if not ACTIVE:
         return {**res, "verdict": LIBRE}
+    direct = await _examen_direct(h, creatrice) if actif() and not cle_refusee() else None
+    if direct and direct.get("verdict") != INCONNU:
+        return direct
+    ci = await depuis_ci(h)
+    if ci:
+        return ci
+    if not actif() and not CI_SEUL:
+        return {**res, "verdict": LIBRE}                                # sans clé ni contrôle : l'ancien comportement
+    return direct or res
+
+
+async def _examen_direct(h: str, creatrice: str) -> dict:
+    res = {"verdict": INCONNU, "handle": h}
     try:
         import aiohttp
         import instagram_rapidapi as ig
@@ -172,6 +195,8 @@ async def examen(handle, creatrice: str = "") -> dict:
             if v != PRIS:
                 if v == LIBRE:
                     _noter(h, LIBRE)
+                else:
+                    _noter_refus(code)
                 return {**res, "verdict": v}
             res.update({"verdict": PRIS, "id": i})
             chemin, params = ig.API["profil"]
@@ -188,6 +213,130 @@ async def examen(handle, creatrice: str = "") -> dict:
     except Exception as erreur:                                         # noqa: BLE001 — un doute, jamais une conclusion
         journal.warning("Examen de @%s : %s", h, type(erreur).__name__)
         return res
+
+
+# ------------------------------------------------------------------ 30/10 : le contrôle des @ lancé par GitHub
+# La clé RapidAPI de Railway répond 403 (pas d'abonnement FlashAPI), celle de GitHub marche. Le workflow « Contrôle des @ »
+# (controle_arobases_ci.py) examine toutes les quelques heures les @ à créer attribués et les prochains du stock, et écrit
+# l'onglet ONGLET_CI du tableur App clippers · usage. Le bot le lit quand sa propre clé est refusée ou muette : un @ vu libre par
+# GitHub il y a moins de CI_VALIDE_H heures est libre ; plus vieux ou absent : doute, rien n'est donné.
+ONGLET_CI = "IG · Contrôle des @"
+ENTETE_CI = ["@", "Créatrice", "Onglet", "Ligne", "Gérant", "Instagram", "Abonnés", "Publications", "Nom", "Bio", "À nous", "Neuf",
+             "Vérifié le", "Variante libre"]
+CI_VALIDE_H = int(os.environ.get("AROBASE_CI_VALIDE_H", "12") or 12)
+CI_PROCHAINS = int(os.environ.get("AROBASE_CI_PROCHAINS", "4") or 4)     # prochains @ du stock contrôlés par créatrice
+CI_SEUL = os.environ.get("AROBASE_CI_SEUL", "1").strip() != "0"            # sans clé : le contrôle GitHub, jamais « libre » d'office
+REFUS_PAUSE_S = 3600
+_refus = {"jusqua": 0.0}
+_cache_ci = {"le": 0.0, "par_handle": {}}
+
+
+def cle_refusee() -> bool:
+    import time
+    return time.time() < _refus["jusqua"]
+
+
+def _noter_refus(code) -> None:
+    """Une réponse 401/403 : la clé n'a pas accès à l'API. Plus d'appel direct pendant REFUS_PAUSE_S (le contrôle GitHub prend le
+    relais) ; une ligne de journal par pause."""
+    import time
+    if code in (401, 403) and not cle_refusee():
+        _refus["jusqua"] = time.time() + REFUS_PAUSE_S
+        journal.warning("Clé RapidAPI de Railway refusée (%s) : le contrôle GitHub des @ prend le relais pendant %s min",
+                        code, REFUS_PAUSE_S // 60)
+
+
+def _stock(gerant) -> bool:
+    g = str(gerant or "").strip().lower()
+    return not g or g in ("stock", "libre", "-", "x", "?", "dispo")
+
+
+def cibles_ci(comptes: list, prochains: int = None) -> list:
+    """Pur : les lignes « à créer » à contrôler, une fois chacune : attribuées à un clipper (remise imminente), puis les
+    `prochains` premières du stock de chaque onglet, dans l'ordre du LOG. [{handle, creatrice, onglet, ligne, gerant}]."""
+    prochains = CI_PROCHAINS if prochains is None else prochains
+    attribuees, stock, vus, par_onglet = [], [], set(), {}
+    for c in comptes or []:
+        e = str(c.get("etat") or "").strip().lower()
+        h = norm(c.get("handle"))
+        if not h or h in vus or not ("créer" in e or "creer" in e):
+            continue
+        vus.add(h)
+        x = {"handle": h, "creatrice": str(c.get("creatrice") or c.get("onglet") or ""), "onglet": str(c.get("onglet") or ""),
+             "ligne": str(c.get("ligne") or ""), "gerant": str(c.get("gerant") or "").strip()}
+        if not _stock(x["gerant"]):
+            attribuees.append(x)
+        elif par_onglet.get(x["onglet"], 0) < prochains:
+            par_onglet[x["onglet"]] = par_onglet.get(x["onglet"], 0) + 1
+            stock.append(x)
+    return attribuees + stock
+
+
+def ligne_ci(c: dict, ex: dict, maintenant: datetime, variante: str = "") -> list:
+    """Pur : la ligne de l'onglet ONGLET_CI pour un @ examiné (`variante` : la première variante vue libre d'un @ pris par un
+    inconnu)."""
+    ex = ex or {}
+    ig = {LIBRE: "libre", PRIS: "existe"}.get(ex.get("verdict"), "pas lu")
+    if ex.get("verdict") == PRIS and ex.get("profil_lu") is False:
+        ig = "existe, profil illisible"
+
+    def n(v):
+        return "" if v is None else str(v)
+    return [c.get("handle", ""), c.get("creatrice", ""), c.get("onglet", ""), c.get("ligne", ""), c.get("gerant", ""), ig,
+            n(ex.get("abonnes")), n(ex.get("publications")), str(ex.get("nom") or "")[:80], str(ex.get("bio") or "")[:120],
+            "oui" if ex.get("a_nous") else "", "oui" if ex.get("neuf") else "", maintenant.isoformat(timespec="seconds"),
+            variante or ""]
+
+
+def lire_ligne_ci(ligne: list, maintenant: datetime = None, valide_h: int = None):
+    """Pur : une ligne de l'onglet ONGLET_CI → le même dictionnaire qu'examen(), ou None (pas lu, illisible ou trop vieux)."""
+    valide_h = CI_VALIDE_H if valide_h is None else valide_h
+    ligne = list(ligne or []) + [""] * (len(ENTETE_CI) - len(ligne or []))
+    ig, le = str(ligne[5]).strip(), str(ligne[12]).strip()
+    try:
+        quand = datetime.fromisoformat(le)
+        quand = quand if quand.tzinfo else quand.replace(tzinfo=timezone.utc)
+    except ValueError:
+        return None
+    if (maintenant or datetime.now(timezone.utc)) - quand > timedelta(hours=valide_h):
+        return None
+
+    def entier(v):
+        try:
+            return int(float(str(v).replace(",", ".")))
+        except ValueError:
+            return None
+    if ig == "libre":
+        return {"verdict": LIBRE, "handle": norm(ligne[0]), "source": "github", "le": le}
+    if ig == "existe":
+        return {"verdict": PRIS, "handle": norm(ligne[0]), "profil_lu": True, "abonnes": entier(ligne[6]),
+                "publications": entier(ligne[7]), "nom": ligne[8], "bio": ligne[9], "a_nous": ligne[10] == "oui",
+                "neuf": ligne[11] == "oui", "variante": norm(ligne[13]), "source": "github", "le": le}
+    if ig.startswith("existe"):
+        return {"verdict": PRIS, "handle": norm(ligne[0]), "profil_lu": False, "source": "github", "le": le}
+    return None
+
+
+async def depuis_ci(handle):
+    """Le dernier contrôle GitHub de ce @ (onglet ONGLET_CI, relu au plus toutes les 5 minutes), ou None. Jamais d'exception."""
+    import time
+    h = norm(handle)
+    if not h:
+        return None
+    if time.time() - _cache_ci["le"] > 300:
+        try:
+            import google_api
+            if not google_api.actif():                                  # sans compte de service : pas d'onglet à lire
+                _cache_ci["le"] = time.time()
+                return None
+            import paie_clics
+            classeur = await paie_clics._classeur_usage()
+            lignes = await google_api.sheets_lire(classeur, f"'{ONGLET_CI}'!A2:M") if classeur else []
+            _cache_ci.update({"le": time.time(), "par_handle": {norm(l[0]): l for l in lignes if l and norm(l[0])}})
+        except Exception as erreur:                                     # noqa: BLE001 — sans l'onglet : doute
+            journal.info("Contrôle GitHub des @ illisible : %s", type(erreur).__name__)
+            _cache_ci["le"] = time.time()
+    return lire_ligne_ci(_cache_ci["par_handle"].get(h))
 
 
 def lire_reponse(code: int, corps) -> tuple:
@@ -216,13 +365,16 @@ async def verdict(handle) -> str:
     h = norm(handle)
     if not h:
         return INCONNU
-    if not actif():
+    if not ACTIVE:
         return LIBRE
     e = _lire().get(h) or {}
     if e.get("etat") == PRIS:
         return PRIS
     if e.get("etat") == "force_libre" or (e.get("etat") == LIBRE and _encore_libre(e)):
         return LIBRE
+    if not actif() or cle_refusee():
+        ci = await depuis_ci(h)                                         # 30/10 : la clé de Railway est refusée, GitHub vérifie
+        return ci["verdict"] if ci else (LIBRE if not actif() and not CI_SEUL else INCONNU)
     try:
         import aiohttp
         import instagram_rapidapi as ig
@@ -237,6 +389,11 @@ async def verdict(handle) -> str:
         journal.warning("@%s non vérifié : %s", h, type(erreur).__name__)
         return INCONNU
     if resultat == INCONNU:
+        _noter_refus(code)
+        ci = await depuis_ci(h)
+        if ci:
+            journal.info("@%s : réponse RapidAPI %s, contrôle GitHub du %s : %s", h, code, ci.get("le"), ci["verdict"])
+            return ci["verdict"]
         journal.warning("@%s non vérifié : réponse RapidAPI %s", h, code)
         return INCONNU
     _noter(h, resultat, **({"id": i} if i else {}))
