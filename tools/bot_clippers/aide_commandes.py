@@ -14,6 +14,7 @@ ADMIN = """🧰 **Aide admin**
 
 • `!creatrice Prénom Chloé` — lui donner sa créatrice et lancer son parcours.
 • `!remettre-compte1 Prénom` — renvoyer son compte 1 avec e-mail et mot de passe.
+• `!remise-arobases` — aperçu : qui a créé quoi, quels @ donner. `go` : envoie les @ restants, vérifiés, dans les salons perso.
 • `!reprise Prénom Sarah` — un ancien revient (ses 3 comptes à vie sont gardés).
 • `!sortie Prénom raison` — le sortir et l'expulser (`garder` pour le laisser sur le serveur).
 • `!tl Sarah Prénom` — nommer le TL d'une créatrice.

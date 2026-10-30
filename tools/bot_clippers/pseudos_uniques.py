@@ -52,7 +52,13 @@ def variantes(handle: str) -> list:
     b = str(handle or "").strip().lstrip("@").lower()
     mots = [m for m in re.split(r"[._]+", b) if m]
     out = []
-    candidats = []
+    # 30/10 (Gaëtan : « tu remplaces les points par des tirets du bas, les tirets du bas par… des points, ou alors tu rajoutes XO à
+    # la fin ») : ses variantes d'abord, les mêmes que le bot au moment de donner un @ (arobase_libre.variantes)
+    try:
+        import arobase_libre
+        candidats = list(arobase_libre.variantes(b))
+    except Exception:                                                   # noqa: BLE001
+        candidats = []
     if len(mots) > 1:
         candidats += [".".join(mots), "_".join(mots)]
     candidats += [f"{b}_x", f"x_{b}", f"{b}.x", f"x.{b}", f"{b}1", f"1{b}", f"{b}_1", f"_{b}_", f"{b}__"]

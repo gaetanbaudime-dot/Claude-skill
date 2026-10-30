@@ -1460,6 +1460,10 @@ async def _arobase_libre_ou_remplace(salon, membre, uid: str, n: int) -> bool:
         acces = {str(a.get("handle", "")).lower(): a for a in (_onb(uid).get("acces") or []) if isinstance(a, dict)}
         if (acces.get(str(h).lower()) or {}).get("cree"):
             return True
+        if arobase_donne(fiche_p, n, h):
+            # 30/10, 9 h 36 : ce @ lui a déjà été donné (remise de tous ses @, vérifiés libres à ce moment-là). S'il existe maintenant,
+            # c'est le clipper qui l'a créé : jamais remplacé sous ses pieds.
+            return True
         verdict = await arobase_libre.verdict(h)
         if verdict == arobase_libre.LIBRE:
             return True
@@ -1467,6 +1471,36 @@ async def _arobase_libre_ou_remplace(salon, membre, uid: str, n: int) -> bool:
             _retenir(uid, n, f"@{h} pas encore vérifié sur Instagram (réponse de l'API à attendre)")
             return False
         creatrice = fiche_p.get("creatrice") or _onb(uid).get("creatrice") or ""
+        examen = await arobase_libre.examen(h, creatrice)
+        if examen.get("verdict") == arobase_libre.LIBRE:
+            return True
+        if examen.get("verdict") == arobase_libre.PRIS and (examen.get("a_nous") or examen.get("neuf")):
+            # 30/10, 9 h 36 : compte tout neuf, ou qui porte une preuve qu'il est à nous (bio du bot, prénom de la créatrice, lien) :
+            # le clipper l'a créé en avance (il voit ses @ dans son app). Jamais remplacé : il appuiera sur « ✅ Compte créé ».
+            await _dire_admin(f"ℹ️ @{h} existe déjà sur Instagram, compte {'à nous' if examen.get('a_nous') else 'tout neuf'} : "
+                              f"sans doute créé en avance par {fiche_p.get('prenom') or uid} (compte {n}). Rien remplacé.")
+            return True
+        if examen.get("verdict") != arobase_libre.PRIS or examen.get("profil_lu") is False:
+            _retenir(uid, n, f"@{h} pris sur Instagram, profil à relire avant de le remplacer")
+            return False
+        # 30/10, 9 h 36 (Gaëtan : « tu remplaces les points par des tirets du bas… ou tu rajoutes XO à la fin ») : d'abord une
+        # variante proche et libre, écrite dans la même ligne du LOG (renommer : classeur, fiche, registre) ; le clipper garde sa
+        # ligne. Une autre ligne du stock seulement si aucune variante n'est libre ou si le renommage est refusé.
+        try:
+            dans_le_log = {onboarding.normaliser_handle(c.get("handle")).lower() for c in await onboarding.lire_comptes()}
+            variante = await arobase_libre.variante_libre(h, exclus=dans_le_log)
+        except Exception as erreur:                                     # noqa: BLE001 — classeur illisible : on réessaie
+            journal.warning("Variante de @%s pour %s : %s", h, uid, erreur)
+            _retenir(uid, n, f"@{h} pris sur Instagram, variante à chercher")
+            return False
+        if variante:
+            _, raison = await renommer(uid, n, variante)
+            if not raison:
+                await _dire_admin(f"🔁 @{h} existe déjà sur Instagram : jamais donné. Le compte {n} de "
+                                  f"{fiche_p.get('prenom') or uid} devient @{variante} (libre), même ligne du LOG.")
+                fiche_p = _lire().get(uid) or {}
+                continue                                                # la variante repasse la vérification (déjà vue libre)
+            journal.info("Variante @%s refusée pour %s : %s", variante, uid, raison)
         try:
             nouvelle = await onboarding.remplacer_arobase_pris(membre, creatrice, h, prive=n == n_prive(fiche_p), salon=salon)
         except Exception as erreur:                                     # noqa: BLE001 — classeur illisible : on réessaie
@@ -1482,6 +1516,12 @@ async def _arobase_libre_ou_remplace(salon, membre, uid: str, n: int) -> bool:
             return False
     _retenir(uid, n, "trop de @ pris d'affilée")
     return False
+
+
+def arobase_donne(fiche_p: dict, n: int, handle: str) -> bool:
+    """Pur (30/10) : ce @ a déjà été donné au clipper pour son compte n par la remise de tous ses @ (fiche « donnes »)."""
+    e = ((fiche_p or {}).get("donnes") or {}).get(str(n)) or {}
+    return bool(handle) and onboarding.normaliser_handle(e.get("handle")).lower() == onboarding.normaliser_handle(handle).lower()
 
 
 def _retenir(uid: str, n: int, raison: str) -> None:
@@ -3937,6 +3977,21 @@ def etat_des_comptes(uid: str, maintenant=None) -> str:
                          f"compte créé avec son e-mail : le code arrive dans sa boîte ; compte à l'e-mail de l'agence : {code_appel})")
             continue
         if not _cree(fiche_p, i):
+            donne = ((fiche_p.get("donnes") or {}).get(str(i)) or {})
+            if donne.get("handle"):
+                # 30/10, 9 h 36 (Gaëtan : « je compte sur eux pour créer les comptes toutes les 48 heures… ils ont leur arobase dans
+                # leur salon privé ») : la remise lui a donné cet @ ; il le crée lui-même à partir de la date dite, sans attendre le bot
+                try:
+                    q = datetime.fromisoformat(str(donne.get("a_partir_de")))
+                    q = q if q.tzinfo else q.replace(tzinfo=timezone.utc)
+                except (TypeError, ValueError):
+                    q = None
+                quand = "dès maintenant" if q is None or q <= maintenant else f"à partir du {_date_fr(q)}"
+                parts.append(f"{nom} : son @ `{donne['handle']}` lui a été donné dans son salon perso ; il le crée lui-même {quand}, "
+                             "avec son e-mail et son mot de passe, un compte toutes les 48 h ; une fois créé, il appuie sur ✅ sous le "
+                             "message du compte quand il arrive, ou il écrit son @ ici"
+                             + (" — il est PRIVÉ, il portera le lien" if i == np_ else ""))
+                continue
             if i == 1 and _compte_1_retenu(fiche_p):                       # 11/10 (revue du lot W) : pas de ligne pour le compte 1
                 parts.append(f"{nom} : {TEXTE_ATTENTE_LIGNE_1}")
             elif a and a[0] == i and fiche_p.get("ligne_attendue") == i:
@@ -4505,7 +4560,9 @@ def contexte_llm(uid: str) -> str:
             "Jamais « un compte par jour », jamais « demain », jamais un autre nombre de Reels, jamais de période d'essai ; tu ne "
             "promets jamais de date pour le compte suivant et tu ne pousses jamais à créer un compte que le bot n'a pas encore "
             # 30/10 (audit) : depuis le 24/10, aucun Reel ne conditionne le compte suivant ; la phrase « puis CE compte » était orpheline
-            "ouvert. Aucun délai supplémentaire pour débloquer le compte suivant : la règle des comptes ci-dessus suffit, aucun Reel à compter. "
+            "ouvert, sauf un compte dont la ligne « État de chaque compte » dit que son @ lui a été donné (remise du 30/10) : celui-là, il "
+            "le crée lui-même à la date dite. Aucun délai supplémentaire pour débloquer le compte suivant : la règle des comptes "
+            "ci-dessus suffit, aucun Reel à compter. "
             "Après ses 24 h de warm-up, CE compte publie 2 Reels par jour, sans attendre les autres — ne dis jamais « une semaine de warm-up » "
             f"ni « dans 7 jours ». Les codes Instagram : compte créé avec son e-mail à lui (règle du 30/10), le code arrive dans sa "
             f"boîte e-mail ; compte à l'e-mail de l'agence, une seule phrase : « {texte_codes()} » Jamais de commande à taper pour un code, "

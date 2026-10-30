@@ -92,16 +92,68 @@ class RemiseTests(unittest.IsolatedAsyncioTestCase):
             patcher.start()
             self.addCleanup(patcher.stop)
 
-    async def test_un_arobase_pris_est_remplace_puis_le_nouveau_verifie(self):
+    INCONNU_INSTALLE = {"verdict": "pris", "profil_lu": True, "neuf": False, "a_nous": False, "abonnes": 141, "publications": 1}
+
+    def _sans_variante(self):
+        return (patch.object(a, "examen", AsyncMock(return_value=dict(self.INCONNU_INSTALLE))),
+                patch.object(a, "variante_libre", AsyncMock(return_value="")),
+                patch.object(onboarding, "lire_comptes", AsyncMock(return_value=[])))
+
+    async def test_un_arobase_pris_sans_variante_libre_prend_une_autre_ligne(self):
         ordres = iter([["pris.fictif", "deux", "prive"], ["neuf.fictif", "deux", "prive"]])
         remplacer = AsyncMock(return_value={"handle": "neuf.fictif"})
+        e, v, l = self._sans_variante()
         with patch.object(p, "_comptes_ordonnes", side_effect=lambda *x, **k: next(ordres)), \
-                patch.object(a, "verdict", AsyncMock(side_effect=[a.PRIS, a.LIBRE])), \
+                patch.object(a, "verdict", AsyncMock(side_effect=[a.PRIS, a.LIBRE])), e, v, l, \
                 patch.object(onboarding, "remplacer_arobase_pris", remplacer):
             self.assertTrue(await p._arobase_libre_ou_remplace(N(), self.membre, "42", 1))
         remplacer.assert_awaited_once()
         self.assertEqual("pris.fictif", remplacer.await_args.args[2])
         self.assertFalse(remplacer.await_args.kwargs["prive"])
+
+    async def test_un_arobase_pris_devient_une_variante_dans_la_meme_ligne(self):
+        """30/10, 9 h 36 (Gaëtan : « tu remplaces les points par des tirets du bas… ou tu rajoutes XO à la fin »)."""
+        ordres = iter([["pris.fictif", "deux", "prive"], ["pris_fictif", "deux", "prive"]])
+        renommer = AsyncMock(return_value=("pris.fictif", ""))
+        with patch.object(p, "_comptes_ordonnes", side_effect=lambda *x, **k: next(ordres)), \
+                patch.object(a, "verdict", AsyncMock(side_effect=[a.PRIS, a.LIBRE])), \
+                patch.object(a, "examen", AsyncMock(return_value=dict(self.INCONNU_INSTALLE))), \
+                patch.object(a, "variante_libre", AsyncMock(return_value="pris_fictif")) as variante, \
+                patch.object(onboarding, "lire_comptes", AsyncMock(return_value=[{"handle": "deux"}])), \
+                patch.object(p, "renommer", renommer), \
+                patch.object(onboarding, "remplacer_arobase_pris", AsyncMock()) as remplacer:
+            self.assertTrue(await p._arobase_libre_ou_remplace(N(), self.membre, "42", 1))
+        renommer.assert_awaited_once_with("42", 1, "pris_fictif")
+        self.assertIn("deux", variante.await_args.kwargs["exclus"])     # jamais une variante déjà dans le LOG
+        remplacer.assert_not_awaited()
+
+    async def test_un_compte_neuf_ou_a_nous_n_est_jamais_remplace(self):
+        for examen in ({"verdict": "pris", "profil_lu": True, "neuf": True, "a_nous": False},
+                       {"verdict": "pris", "profil_lu": True, "neuf": False, "a_nous": True}):
+            with patch.object(p, "_comptes_ordonnes", return_value=["sien.fictif", "deux", "prive"]), \
+                    patch.object(a, "verdict", AsyncMock(return_value=a.PRIS)), \
+                    patch.object(a, "examen", AsyncMock(return_value=examen)), \
+                    patch.object(p, "renommer", AsyncMock()) as renommer, \
+                    patch.object(onboarding, "remplacer_arobase_pris", AsyncMock()) as remplacer:
+                self.assertTrue(await p._arobase_libre_ou_remplace(N(), self.membre, "42", 1))
+            renommer.assert_not_awaited()
+            remplacer.assert_not_awaited()
+
+    async def test_un_profil_illisible_retient_sans_rien_remplacer(self):
+        with patch.object(p, "_comptes_ordonnes", return_value=["pris.fictif"]), \
+                patch.object(a, "verdict", AsyncMock(return_value=a.PRIS)), \
+                patch.object(a, "examen", AsyncMock(return_value={"verdict": "pris", "profil_lu": False})), \
+                patch.object(onboarding, "remplacer_arobase_pris", AsyncMock()) as remplacer:
+            self.assertFalse(await p._arobase_libre_ou_remplace(N(), self.membre, "42", 1))
+        remplacer.assert_not_awaited()
+        self.assertIn("profil à relire", self.etat["42"]["retenue"]["raison"])
+
+    async def test_un_arobase_deja_donne_n_est_plus_verifie(self):
+        self.etat["42"]["donnes"] = {"2": {"handle": "Deux.Fictif"}}
+        with patch.object(p, "_comptes_ordonnes", return_value=["un", "deux.fictif", "prive"]), \
+                patch.object(a, "verdict", AsyncMock()) as verdict:
+            self.assertTrue(await p._arobase_libre_ou_remplace(N(), self.membre, "42", 2))
+        verdict.assert_not_awaited()
 
     async def test_un_doute_retient_le_compte(self):
         with patch.object(p, "_comptes_ordonnes", return_value=["doute.fictif"]), \
@@ -112,8 +164,9 @@ class RemiseTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(1, self.etat["42"]["retenue"]["n"])
 
     async def test_plus_de_ligne_libre_retient_le_compte(self):
+        e, v, l = self._sans_variante()
         with patch.object(p, "_comptes_ordonnes", return_value=["pris.fictif", "deux", "prive"]), \
-                patch.object(a, "verdict", AsyncMock(return_value=a.PRIS)), \
+                patch.object(a, "verdict", AsyncMock(return_value=a.PRIS)), e, v, l, \
                 patch.object(onboarding, "remplacer_arobase_pris", AsyncMock(return_value=None)):
             self.assertFalse(await p._arobase_libre_ou_remplace(N(), self.membre, "42", 2))
         self.assertIn("plus de ligne libre", self.etat["42"]["retenue"]["raison"])
@@ -124,6 +177,20 @@ class RemiseTests(unittest.IsolatedAsyncioTestCase):
                 patch.object(a, "verdict", AsyncMock()) as verdict:
             self.assertTrue(await p._arobase_libre_ou_remplace(N(), self.membre, "42", 1))
         verdict.assert_not_awaited()
+
+
+class VariantesTests(unittest.TestCase):
+    def test_les_variantes_de_gaetan_d_abord(self):
+        v = a.variantes("@Sarah.Secret")
+        self.assertEqual(["sarah_secret", "sarah.secretxo", "sarah.secret_xo", "sarah.secret.xo"], v[:4])
+        self.assertEqual(["jade_prv_x", "jade.prv.x"], a.variantes("jade.prv_x")[:2])
+        self.assertIn("journaldesarahxo", a.variantes("journaldesarah"))
+
+    def test_jamais_un_at_refuse_par_instagram(self):
+        for h in ("sarah.secret", "roomsarah_", "a.b_c", "x" * 30, "chloe..vip", "_x_"):
+            for v in a.variantes(h):
+                self.assertRegex(v, r"^(?!\.)(?!.*\.\.)(?!.*\.$)[a-z0-9._]{1,30}$", (h, v))
+                self.assertNotEqual(a.norm(h), v)
 
 
 class StockTests(unittest.IsolatedAsyncioTestCase):
