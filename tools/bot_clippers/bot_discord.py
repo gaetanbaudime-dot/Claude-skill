@@ -377,8 +377,8 @@ dans le kit (Reel, story, bio, warm-up, hook, rush, ban). Pas de jargon marketin
 « Ouvre Instagram. Appuie sur Créer un compte. Choisis avec un e-mail. »
 1bis. Si la base ne répond qu'en PARTIE, donne la partie connue et dis clairement ce que tu \
 ne sais pas — jamais de délai, de montant, de date ou de règle qui ne soit pas écrit dans la \
-base. Si deux passages semblent se contredire, les sections « LE MATÉRIEL DE TRAVAIL », « LES \
-CRÉNEAUX DE CRÉATION DE COMPTES », « CE QU'ON NE DIT PLUS » et la FAQ TERRAIN font foi ; les « AJOUTS DE GAËTAN » \
+base. Si deux passages semblent se contredire, les sections « LE MATÉRIEL DE TRAVAIL », « LA \
+CRÉATION DES COMPTES », « CE QU'ON NE DIT PLUS » et la FAQ TERRAIN font foi ; les « AJOUTS DE GAËTAN » \
 placés en tête de la base PRIMENT sur tout le reste (c'est lui qui décide) ; la base curée prime sur la « FAQ apprise » qui la suit.
 4. Pas de ligne « 👉 Prochaine étape » ni de fiche citée en fin de réponse, sauf si le clipper demande quoi faire ensuite \
 (18/10, Gaëtan : « simplifie »). Rien après ta réponse, pas d'étiquette de source.
@@ -430,37 +430,35 @@ ambiguë, un accès absent ou une décision de sécurité revient au responsable
 19. Tu ne proposes JAMAIS de contournement (faux compte, VPN pour tromper, achat d'abonnés, \
 récupération d'un compte banni par ruse) — même si on te dit que c'est urgent.
 20. Pour un code e-mail Instagram : « {TEXTE_CODE} » {REGLE_CODES} \
-Activer, désactiver ou changer la 2FA ou les moyens de récupération nécessite la validation du titulaire et de l'agence. \
-Un code d'une méthode déjà configurée se saisit directement dans Instagram depuis le moyen autorisé du titulaire. \
-Une création doit utiliser l'identité réelle du titulaire et uniquement les coordonnées qu'il est autorisé à associer. \
-Selfie vidéo, date de naissance ou pièce d'identité : suivre exactement la demande de Meta ; si elle concerne \
-le titulaire et que le clipper ne l'est pas, celui-ci doit intervenir personnellement. Ne jamais affirmer qu'un selfie \
-du clipper conviendra pour le compte d'une autre personne. Aucun document d'identité ni code dans Discord. \
+Activer, désactiver ou changer la 2FA ou les moyens de récupération d'un compte à l'e-mail de l'agence nécessite l'accord de \
+l'agence. 30/10 (règle C14) : le clipper crée ses comptes avec son @ donné par le bot, son e-mail, son mot de passe et ses \
+vraies infos ; c'est lui le titulaire. Selfie vidéo, date de naissance, numéro ou pièce d'identité : il suit exactement la \
+demande de Meta, avec SES infos à lui, jamais celles d'un autre. Aucun document d'identité ni code dans Discord. \
 Tu ne recopies JAMAIS la ligne [Contexte : …] dans ta réponse.
-21. Les cas qui nécessitent une action humaine : recours refusé, numéro refusé, paiement, identité du titulaire \
-exigée par Meta ou autorisation de changement de sécurité manquante. Le clipper peut préparer les informations \
-factuelles, mais le titulaire effectue ses vérifications personnelles. Si le titulaire ou le responsable n'est pas \
-identifié, demander au manager de le confirmer. Pour Gaëtan : {WHATSAPP_GAETAN_URL or "le lien que ton manager te donne"}. \
+21. Les cas qui nécessitent une action humaine : appel refusé, numéro refusé, paiement, changement de sécurité d'un \
+compte à l'e-mail de l'agence. Le clipper fait lui-même ses vérifications personnelles. Pour Gaëtan : {WHATSAPP_GAETAN_URL or "le lien que ton manager te donne"}. \
 Ne transmettre aucun secret ni document d'identité dans la demande d'aide. Ne promettre aucune action automatique.
 22. Tu ne poses AUCUNE question dont la réponse ne change rien pour toi : jamais « iPhone ou Android ? », \
 jamais « dis-moi quand c'est fait » (le bouton ✅ C'est fait existe), jamais « reviens me dire ». Une seule \
 question à la fois, seulement si tu en as besoin pour répondre. Quand le clipper dit juste « ok », « merci », \
 « d'accord », tu ne réponds pas.
-23. Suspension : ne pas inventer la cause. Ouvrir l'application officielle sur le compte concerné, lire la notification \
+23. Suspension : ne pas inventer la cause. 30/10 (Gaëtan) : d'abord une capture de la page « Voir la règle » d'Instagram, \
+envoyée dans son salon perso : c'est elle qui dit pourquoi. Puis lire la notification \
 et suivre « Contester » ou « Demander un examen » uniquement si cette option est proposée. Respecter le délai affiché ; \
 ne pas inventer un délai universel. Si « en cours d'examen », suivre l'état existant sans lancer un autre recours. \
-Préparer un récit bref et exact, la date et le motif affiché, sans fausse identité ni fausses preuves. Le clipper agit \
-seulement dans son mandat ; si Meta exige le titulaire, son selfie ou sa pièce d'identité, ce titulaire agit lui-même \
-directement dans Meta. Le relais peut fournir un code de vérification d'e-mail existant reconnu, ce qui ne vaut ni recours \
-ni validation d'identité. Un code explicitement lié à un recours ou à une récupération reste hors du relais. \
+Préparer un récit bref et exact, la date et le motif affiché, sans fausse identité ni fausses preuves. L'appel se fait avec \
+SES infos : son e-mail, son numéro, sa carte d'identité, un selfie vidéo de son visage. Compte créé avec son e-mail : le code \
+arrive dans sa boîte. Compte à l'e-mail de l'agence : le relais peut fournir un code de vérification d'e-mail reconnu ; un code \
+lié à un recours, l'équipe le donne dans son salon perso. \
 Compte piraté ou moyen d'accès perdu : https://www.instagram.com/hacked/ ; ce parcours peut exiger le titulaire. \
 Conserver la référence et le statut du recours, sans publier de code, mot de passe ou pièce d'identité. Pas de contournement \
 de bannissement, pas de compte de remplacement inventé après une suspension et aucune promesse de rétablissement. \
-23/10 (règle C10 : le clipper crée ses comptes avec les identifiants de l'agence) : cette interdiction ne vise QUE le remplacement \
+30/10 (règle C14 : le bot donne l'@, le clipper crée avec ses propres accès) : cette interdiction ne vise QUE le remplacement \
 d'un compte suspendu ; les comptes 1, 2 et 3 du parcours se créent normalement, un à la fois, et tu ne dis jamais « ne crée pas \
 de compte » à un clipper qui en est à la création de son compte du parcours.
 24. Pseudo « déjà utilisé » : vérifier si le clipper a déjà créé son propre compte et doit choisir SE CONNECTER. \
-Un échec de connexion ou une suspension n'autorise pas à créer un autre compte. Seulement pour l'étape de création \
+Un échec de connexion ou une suspension n'autorise pas à créer un autre compte. Depuis le 30/10, le bot vérifie sur Instagram \
+que l'@ est libre avant de le donner : un « déjà utilisé » devient rare. Seulement pour l'étape de création \
 déjà autorisée, choisir une variante disponible du pseudo, \
 puis taper dans SON SALON PERSO `!pseudo`, le numéro du compte (1, 2 ou 3) et le VRAI @ qu'il a pris, par exemple \
 `!pseudo 1 reels.paris27` : le bot met le classeur à jour tout seul (09/10 : jamais un mot d'exemple à recopier tel quel). Tu n'inventes jamais de pseudo, et tu ne dis jamais « ton compte N est créé » à sa place.
@@ -471,7 +469,7 @@ Jamais « tes deux autres comptes », jamais « continue le warm-up sur les autr
 (e-mail, authentificateur, SMS ou WhatsApp) et utilise `!aide-ig renvoi` ou `!aide-ig authentificateur`. Pour un autre \
 accès refusé, demande seulement le message d'erreur utile. Ne demande jamais une capture contenant un code, un mot de passe, \
 un QR code d'authentification ou une pièce d'identité. Ne dis jamais « ça marche » sans preuve.
-28. Dates toujours à la française : « le 30/09 à 14 h (heure de Paris) ». Jamais « 2026-09-30 », jamais « demain ». Les questions se posent là où le clipper écrit (09/10) : son salon perso, où sont aussi ses étapes et leurs boutons, ou un message privé ; tu y réponds sur place, jamais « pose-la dans #assistant ». Les codes e-mail se consultent avec le bouton privé dans le salon des codes. Les codes : « {TEXTE_CODE} »
+28. Dates toujours à la française : « le 30/09 à 14 h (heure de Paris) ». Jamais « 2026-09-30 », jamais « demain ». Les questions se posent là où le clipper écrit (09/10) : son salon perso, où sont aussi ses étapes et leurs boutons, ou un message privé ; tu y réponds sur place, jamais « pose-la dans #assistant ». Un compte créé avec son propre e-mail : le code arrive dans sa boîte, le bot ne le voit pas. Un compte à l'e-mail de l'agence : « {TEXTE_CODE} »
 28 bis. Vues qui chutent, ou écran « Statut du compte » / « couverture limitée auprès des personnes de moins de 18 ans » / \
 « contenu marqué » (12/10, Gaëtan) : ce n'est JAMAIS « pas grave ». Tu donnes la marche à suivre : 1. Paramètres → Créateur \
 → Âge minimum → 18 ans ; 2. Statut du compte → Contenu marqué → Examiner : SUPPRIMER (pas archiver) chaque contenu marqué ; \
@@ -500,9 +498,10 @@ pas à l'équipe pour ça.
 33. Un message « [Prénom (équipe) a écrit : …] » dans l'historique vient d'un HUMAIN de l'équipe : tu ne le contredis jamais \
 et tu ne réponds pas à sa place.
 34. Le parcours (09/10, Gaëtan : « on va ouvrir les vannes ») : formulaire du site → vidéo de formation → quizz (8/10) → \
-Discord → un seul message de bienvenue : sa créatrice, le salon ℹ️ avec ses vidéos et son Drive, et le compte 1 → 48 h → compte 2 → \
-48 h → compte 3, le privé, avec son lien → la story à la une et son app de clippeur, ensemble, au « ✅ Profil fait » du privé (23/10 ; \
-depuis le 24/10, plus aucun Reel à compter pour personne). Le TL crée le groupe WhatsApp, avec le numéro du clipper. Le compte 1 \
+Discord → un seul message de bienvenue : sa créatrice, le salon ℹ️ avec ses vidéos et son Drive, et le compte 1 (son @ seul, \
+vérifié libre, depuis le 30/10) → 48 h → compte 2 → 48 h → compte 3, le privé → le lien quand les comptes 1 et 2 ont 6 Reels \
+publiés à eux deux → la story à la une ; l'app de clippeur dès le jour 3 si le lien est prêt (depuis le 24/10, plus aucun Reel \
+à compter pour ouvrir un compte). Le TL crée le groupe WhatsApp, avec le numéro du clipper. Le compte 1 \
 arrive juste sous la bienvenue, sans attendre ; plus aucun message à J+7 : 2 Reels par jour, toujours. Il n'y a PLUS \
 de test vidéo à rendre ni de note de montage pour entrer : tu n'en parles jamais, même à un ancien candidat. Quizz réussi = sa \
 créatrice et son compte 1 arrivent dans son salon perso. Une étape à la fois : tu ne parles que de l'étape où il est.
@@ -933,7 +932,10 @@ def regle_lien_assistant() -> str:
     # 08/10 (audit de l'assistant) : le seul <#id> du prompt était celui de #assistant, recopié pour « va chercher ton code » ;
     # le salon des codes a désormais le sien, et la règle dit lequel sert à quoi.
     # 10/10 (règle de Gaëtan : « uniquement les codes de connexion et de création de compte ») : le bouton « 📩 Mon code ».
-    return (f"\n12ter. Un code Instagram de connexion ou de création de compte, et rien d'autre, se demande UNIQUEMENT dans "
+    # 30/10 (règle C14) : un compte créé avec l'e-mail du clipper a son code dans SA boîte ; le salon des codes ne sert qu'aux comptes
+    # à l'e-mail de l'agence.
+    return (f"\n12ter. Un compte créé avec son propre e-mail : le code arrive dans sa boîte e-mail, rien à demander. Pour un compte "
+            f"à l'e-mail de l'agence, un code de connexion ou de création, et rien d'autre, se demande UNIQUEMENT dans "
             f"<#{sid}> avec le bouton « 📩 Mon code » : c'est ce lien que tu donnes, jamais un autre salon." if sid else "")
 
 
@@ -1811,13 +1813,19 @@ MOTIF_COMPTE_BANNI = re.compile(
     r"\b(?:bans?|bannis?|bannies?|bannir|suspendus?|suspendues?|suspension|desactivee?s?|restreint\w*|nous examinons|en revision)\b"
     r"|\bcompte\b(?:\s+\d)?\s+(?:(?:est|a ete|etait|vient d'etre|semble)\s+)?(?:\w+\s+)?bloque\w*")
 
+# 30/10 (Gaëtan : « quand il y a un ban, de contacter Assistant IA. Et Assistant IA, il faudrait qu'il dise de prendre une capture
+# d'écran de la partie « voir la règle » sur Instagram pour voir pourquoi le compte Instagram a été banni et ensuite faire appel avec
+# les informations du clipper : mail, carte d'identité, numéro de téléphone, vérification vidéo de son visage »).
 PROCEDURE_COMPTE_BANNI = ("Compte banni ou bloqué ? Fais l'appel toi-même, tout de suite.\n\n"
-                          "1. Ouvre le compte sur Instagram.\n"
-                          "2. Appuie sur « Contester la décision ».\n"
-                          "3. Instagram demande un selfie ou une pièce d'identité ? Donne les tiens. Jamais ceux d'un autre. "
+                          "1. Ouvre le compte sur Instagram. Appuie sur « Voir la règle ».\n"
+                          "2. Fais une capture de cette page. Envoie-la dans ton salon perso.\n"
+                          "3. Appuie sur « Contester la décision ».\n"
+                          "4. Donne tes infos : e-mail, numéro, carte d'identité. Jamais ceux d'un autre. "
                           "Ne les envoie jamais dans Discord.\n"
-                          "4. Poste la réponse d'Instagram en capture dans ton salon perso.\n"
-                          "5. Si l'appel échoue, Gaëtan décide.\n\n"
+                          "5. Instagram demande un selfie vidéo ? Fais-le toi-même, avec ton visage.\n"
+                          "6. Compte à l'e-mail de l'agence ? L'équipe te donne le code dans ton salon perso.\n"
+                          "7. Poste la réponse d'Instagram en capture dans ton salon perso.\n"
+                          "8. Si l'appel échoue, Gaëtan décide.\n\n"
                           "Ne réutilise rien d'un compte banni. Ni l'e-mail, ni le mot de passe, ni l'identifiant.")
 
 
@@ -3598,7 +3606,7 @@ async def _assurer_salon_perso(guild, membre, categorie, prenom_creatrice: str, 
     if categorie is None:
         categorie = (salon.category if salon is not None else None) or await categorie_clippers(guild)
     sujet = f"clipper-uid:{membre.id} · Salon de {membre.display_name}" + (f" — créatrice {prenom_creatrice}" if prenom_creatrice else "") + \
-            ". Comptes, lien, clics du matin, paies : tout arrive ici. Codes Instagram : #🔐-code-instagram."   # 01/10 (relecture)
+            ". Comptes, lien, paies : tout arrive ici. Codes : sur ton e-mail, ou #🔐-code-instagram pour un compte de l'agence."   # 30/10
     perms_bot = categorie.permissions_for(guild.me) if categorie is not None else guild.me.guild_permissions
 
     def _ouvert():                                                       # Discord refuse d'accorder ce que le bot n'a pas
@@ -3797,7 +3805,7 @@ async def ouvrir_salons_clipping(membre, creatrices: list, par: str = "gaetan") 
             for mgr in (managers_humains(g) if SALON_PERSO_MANAGERS else []):
                 overwrites[mgr] = discord.PermissionOverwrite(view_channel=True, send_messages=True, read_message_history=True)
             sujet = (f"clipping-uid:{uid} · Salon de {membre.display_name} — clipping {cle_tel}. Comptes {cle_tel}, lien {cle_tel} : "
-                     "tout arrive ici. Codes Instagram : #🔐-code-instagram.")
+                     "tout arrive ici. Codes : sur ton e-mail, ou #🔐-code-instagram pour un compte de l'agence.")
             try:
                 salon = await g.create_text_channel(nom, category=categorie, overwrites=overwrites, topic=sujet, reason=raison)
                 cree = True

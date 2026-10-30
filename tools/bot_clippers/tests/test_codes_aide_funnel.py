@@ -71,13 +71,16 @@ class AideFunnelTests(unittest.IsolatedAsyncioTestCase):
             texte = message.reply.call_args.args[0]
             self.assertIn(self.c.URL_AIDE_META, texte)
             self.assertIn("Si « Contester »", texte)
-            self.assertIn("Le titulaire réalise lui-même", texte)
+            self.assertIn("« Voir la règle »", texte)               # 30/10 (Gaëtan) : la capture dit pourquoi
+            self.assertIn("avec tes infos à toi", texte)
+            self.assertIn("selfie vidéo de ton visage", texte)
             self.assertIn("ne soumet pas de recours", texte)
             self.assertNotIn("l'équipe le reçoit et te répond", texte)
         self.c._commande_salon_commun.assert_not_awaited()
 
     async def test_blocage_liaison_ne_promet_pas_une_alerte_non_envoyee(self):
         self.c._est_staff = lambda _: False
+        self.c._comptes_a_son_mail = lambda _: False                  # un compte à l'e-mail de l'agence sans adresse rattachée
         self.c._alerter_sans_adresse = AsyncMock(return_value=False)
         dire = AsyncMock()
         await self.c._sans_adresse(self.message("").author, dire)
@@ -87,6 +90,29 @@ class AideFunnelTests(unittest.IsolatedAsyncioTestCase):
         await self.c._sans_adresse(self.message("").author, dire)
         self.assertIn("est signalé", dire.call_args.args[0])
         self.assertNotIn("te répond", dire.call_args.args[0])
+
+    async def test_comptes_a_son_mail_pas_de_blocage_ni_d_alerte(self):
+        """30/10 (règle C14) : ses comptes ont son e-mail à lui, ses codes arrivent dans sa boîte : rien à signaler."""
+        self.c._est_staff = lambda _: False
+        self.c._comptes_a_son_mail = lambda _: True
+        self.c._alerter_sans_adresse = AsyncMock(return_value=True)
+        dire = AsyncMock()
+        await self.c._sans_adresse(self.message("").author, dire)
+        self.assertEqual(self.c.TEXTE_CODE_SA_BOITE, dire.call_args.args[0])
+        self.assertIn("arrivent dans ta boîte", dire.call_args.args[0])
+        self.c._alerter_sans_adresse.assert_not_awaited()
+
+    def test_comptes_a_son_mail_lit_la_fiche(self):
+        import onboarding
+        from unittest.mock import patch
+        membre = types.SimpleNamespace(id=42)
+        for acces, attendu in (([{"handle": "a.fictif"}], True), ([], True),
+                               ([{"handle": "a.fictif", "mail": "x@agence.fictif"}], False)):
+            etat = {"clippers": {"42": {"acces": acces}}}
+            with patch.object(onboarding, "_lire_etat", return_value=etat):
+                self.assertEqual(attendu, self.c._comptes_a_son_mail(membre), acces)
+        with patch.object(onboarding, "_lire_etat", side_effect=OSError):
+            self.assertFalse(self.c._comptes_a_son_mail(membre))
 
     def test_aide_renvoi_garde_le_compte_usage_et_delai(self):
         texte = self.c.aide_instagram("renvoi")

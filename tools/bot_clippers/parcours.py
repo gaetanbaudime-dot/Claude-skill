@@ -3931,8 +3931,10 @@ def etat_des_comptes(uid: str, maintenant=None) -> str:
             # 11/10 (lot W, règle des codes du 10/10) : le code de l'appel est gardé par défaut (CODES_APPEL=0) ; plus de « !code »
             code_appel = (f"code dans #{codes_2fa.SALON_CODES_NOM} avec le bouton « 📩 Mon code »" if codes_2fa.CODES_APPEL else
                           "le code de l'appel ne passe pas par le bot : il arrive chez l'équipe, qui lui répond dans son salon perso")
-            parts.append(f"{nom} : BAN, il fait appel lui-même (Contester la décision ; {code_appel} ; "
-                         "selfie, son numéro ou sa pièce d'identité si demandés)")
+            # 30/10 (Gaëtan) : d'abord la capture de « Voir la règle », puis l'appel avec SES infos.
+            parts.append(f"{nom} : BAN, il fait appel lui-même (capture de « Voir la règle » dans son salon perso ; "
+                         "Contester la décision ; son e-mail, son numéro, sa carte d'identité, un selfie vidéo de son visage ; "
+                         f"compte créé avec son e-mail : le code arrive dans sa boîte ; compte à l'e-mail de l'agence : {code_appel})")
             continue
         if not _cree(fiche_p, i):
             if i == 1 and _compte_1_retenu(fiche_p):                       # 11/10 (revue du lot W) : pas de ligne pour le compte 1
@@ -4502,9 +4504,11 @@ def contexte_llm(uid: str) -> str:
             f"Règle des comptes (01/10), à redire mot pour mot : « {regle_comptes(_lire().get(str(uid)))} » "
             "Jamais « un compte par jour », jamais « demain », jamais un autre nombre de Reels, jamais de période d'essai ; tu ne "
             "promets jamais de date pour le compte suivant et tu ne pousses jamais à créer un compte que le bot n'a pas encore "
-            "ouvert. Aucun délai supplémentaire pour débloquer le compte suivant : seules les quatre publications vérifiées du compte précédent comptent. "
-            "puis CE compte publie 2 Reels et 1 story par jour, sans attendre les autres — ne dis jamais « une semaine de warm-up » "
-            f"ni « dans 7 jours ». Les codes Instagram, une seule phrase : « {texte_codes()} » Jamais de commande à taper pour un code, "
+            # 30/10 (audit) : depuis le 24/10, aucun Reel ne conditionne le compte suivant ; la phrase « puis CE compte » était orpheline
+            "ouvert. Aucun délai supplémentaire pour débloquer le compte suivant : la règle des comptes ci-dessus suffit, aucun Reel à compter. "
+            "Après ses 24 h de warm-up, CE compte publie 2 Reels par jour, sans attendre les autres — ne dis jamais « une semaine de warm-up » "
+            f"ni « dans 7 jours ». Les codes Instagram : compte créé avec son e-mail à lui (règle du 30/10), le code arrive dans sa "
+            f"boîte e-mail ; compte à l'e-mail de l'agence, une seule phrase : « {texte_codes()} » Jamais de commande à taper pour un code, "
             "jamais « le code arrive ici tout seul ». La ligne « État de chaque "
             "compte » de la mémoire FAIT FOI : tu ne la contredis jamais, ni le message d'étape posté dans le salon. "
             # 09/10 (Gaëtan : « Enlève le truc qui envoie un dossier Drive au clippeur ») : plus de Drive perso ni de TOP 20 à lui
@@ -4515,9 +4519,11 @@ def contexte_llm(uid: str) -> str:
             "la story : tu réponds au où, pas au widget. Un compte BAN ne change rien pour les autres : ils continuent. "
             "On ne réutilise jamais une info d'un compte BAN (identifiant, e-mail, mot de passe) pour un autre compte. "
             # 11/10 (revue du lot W, règle des codes du 10/10) : même formule que la règle 23 et etat_des_comptes ; plus de « !code »
-            f"Un compte banni (30/09) : il fait appel lui-même, tout de suite (« Contester la décision », {_code_appel_llm()}, "
-            "selfie vidéo, son "
-            "numéro ou sa pièce d'identité si Instagram les demande, jamais ceux d'un autre, jamais sa pièce d'identité dans Discord) ; "
+            # 30/10 (Gaëtan : « une capture d'écran de la partie « voir la règle »… puis faire appel avec les informations du clipper »)
+            "Un compte banni (30/09) : il ouvre « Voir la règle » sur Instagram et envoie la capture dans son salon perso, puis il fait "
+            "appel lui-même, tout de suite (« Contester la décision », avec SES infos : son e-mail, son numéro, sa carte d'identité, "
+            "un selfie vidéo de son visage ; jamais ceux d'un autre, jamais sa pièce d'identité dans Discord ; compte créé avec son "
+            f"e-mail : le code arrive dans sa boîte ; compte à l'e-mail de l'agence : {_code_appel_llm()}) ; "
             "tu ne promets jamais un compte neuf "
             "ni une date (« demain ») : si l'appel échoue, Gaëtan décide. "   # 01/10 (relecture) : une seule version du ban
             f"Le lien (05/10) : il n'existe qu'avec le compte PRIVÉ — pour CE clipper le compte {n_prive(_lire().get(str(uid)) or {})} "
@@ -4531,13 +4537,13 @@ def contexte_llm(uid: str) -> str:
             "Trois lignes maximum. Pas de ligne « 👉 Prochaine étape » sauf s'il demande quoi faire ensuite. Aucune question inutile (modèle de téléphone, « dis-moi quand c'est "
             "fait »). Tu ne parles que des comptes CRÉÉS d'après la mémoire : jamais « tes deux autres comptes » s'ils "
             "n'existent pas encore. Tu ne donnes jamais la cause d'un blocage, seulement la marche à suivre ; « déconnecté, "
-            f"mot de passe modifié » = se reconnecter avec le mot de passe de son étape, puis le code de connexion avec le "
-            f"bouton « 📩 Mon code » dans #{codes_2fa.SALON_CODES_NOM} ; s'il ne marche plus, "
+            f"mot de passe modifié » = se reconnecter avec son mot de passe, puis le code de connexion : dans sa boîte e-mail si le "
+            f"compte a son e-mail à lui, sinon avec le bouton « 📩 Mon code » dans #{codes_2fa.SALON_CODES_NOM} ; s'il ne marche plus, "
             "signale le problème à son équipe dans ce salon personnel, sans recopier de secret. "
-            + (f"Le bouton « 📩 Mon code » ne donne QUE les codes reçus par e-mail "
+            + (f"Pour un compte à l'e-mail de l'agence, le bouton « 📩 Mon code » ne donne QUE les codes reçus par e-mail "
                f"({'création, connexion, appel' if codes_2fa.CODES_APPEL else 'création et connexion'}), jamais ceux qui changent "
                "l'e-mail, le mot de passe ou le numéro. " if codes_2fa.SECURITES else
-               "Le bouton « 📩 Mon code » donne le dernier code Instagram reçu par e-mail, quel qu'il soit (12/10). ")
+               "Pour un compte à l'e-mail de l'agence, le bouton « 📩 Mon code » donne le dernier code Instagram reçu par e-mail (12/10). ")
             + "Instagram demande un NUMÉRO de téléphone : il met LE SIEN et reçoit le SMS (décision du 26/09), ce numéro ne "
             "sert qu'à ses 3 comptes. Instagram demande un SELFIE VIDÉO : il le fait lui-même, avec son visage, c'est normal. "
             "Jamais de « compte prêt à l'emploi », jamais « ton manager a une autre solution » : si tu ne sais pas, renvoie vers "
