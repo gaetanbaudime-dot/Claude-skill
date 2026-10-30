@@ -105,6 +105,8 @@ def calcul(comptes: list, objectif: int, index: int = 0) -> list:
                   and _n(c.get("etat")) in onboarding.ETATS_DISPONIBLES and c.get("handle") and onboarding._pour_creatrice(c, cr)]
         bloquees = [c for c in libres if onboarding.infos_d_un_ban(c, brulees)]
         sans_mail = [c for c in libres if c not in bloquees and _n(c.get("etat")) in onboarding.A_CREER and not c.get("mail")]
+        if not onboarding._mail_requis():                               # 30/10 : l'@ seul suffit, ces lignes sont déjà prêtes
+            sans_mail = []
         prets = len(onboarding.disponibles(comptes, cr, 999))
         poids = next((p for k, p in attribution.POIDS.items() if _cle(k) == _cle(cr)), 0)
         nouveaux = objectif_par.get(_cle(cr), 0)
@@ -127,7 +129,7 @@ def lignes(chiffres: list, objectif: int, index: int = 0, jour: str = "") -> lis
     out = [[f"Build capacity — mis à jour le {jour or datetime.now(timezone.utc).strftime('%d/%m %H:%M')} UTC · coefficients : "
             + (attribution.ordre_texte() or "aucun")],
            ["Objectif : nouveaux clippers à onboarder ✏️", objectif, "← tape ton chiffre, le bot le garde et recalcule"],
-           ["👉 E-mails iCloud à créer d'abord pour : " + (" → ".join(f"{c['creatrice']} (à sec après {c['a_sec']})" for c in chiffres if c["a_sec"] is not None) or "—")
+           [("👉 Lignes avec un @ à ajouter d'abord pour : " if not onboarding._mail_requis() else "👉 E-mails iCloud à créer d'abord pour : ") + (" → ".join(f"{c['creatrice']} (à sec après {c['a_sec']})" for c in chiffres if c["a_sec"] is not None) or "—")
             + f" · en suivant tes coefficients, {panne} clipper(s) avant la première panne" + (f" (chez {qui})" if qui else "")
             + f" · pour ton objectif, il manque {total('manque')} compte(s) : {total('mails')} e-mail(s) à ajouter sur des lignes existantes, "
             f"{total('entiers')} compte(s) entier(s) à créer"],

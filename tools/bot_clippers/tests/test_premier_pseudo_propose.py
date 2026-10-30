@@ -22,7 +22,7 @@ class PremierPseudo(unittest.IsolatedAsyncioTestCase):
         self.salon = N(id=99, guild=None, send=AsyncMock(return_value=N(id=123)))
         def ecrire(d): self.etat = deepcopy(d)
         patches = [patch.object(process_adapters, 'store', return_value=self.store),
-            patch.multiple(p, _lire=lambda:deepcopy(self.etat), _ecrire=ecrire, _deps={},
+            patch.multiple(p, _lire=lambda:deepcopy(self.etat), _ecrire=ecrire, _deps={}, PSEUDO_SEUL_DEPUIS='',   # l'ancienne remise
                 _ligne_du_compte=AsyncMock(return_value=True),
                 _comptes_ordonnes=lambda *a, **kw:['pseudo_fictif', 'autre_fictif'],
                 _contexte=AsyncMock(return_value={'compte1':'incorrect_fictif', 'mdp1':'SECRET_FICTIF'}),

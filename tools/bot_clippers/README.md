@@ -1,5 +1,14 @@
 # Bot FAQ Clippers (Discord + Claude)
 
+**30/10 : l'@ seul pour les nouveaux clippers (Gaëtan : « On va juste donner les arobas dans le bot pour tous les nouveaux clippers… on va vraiment ouvrir les vannes »)**
+
+- **Ce qui change** : une fiche de parcours créée à partir de `REMISE_PSEUDO_SEUL_DEPUIS` (défaut `2026-10-30T00:00:00+00:00`) est marquée `pseudo_seul`. Ses comptes 1, 2 et 3 partent avec l'@ seul (`remise_compte1.modele_pseudo`, `parcours.CREATION_PSEUDO`, `parcours.ACCES_PSEUDO`) : le clipper les crée avec son e-mail et son mot de passe, le code d'Instagram arrive chez lui. Pas de lecture e-mail / mot de passe au classeur, pas d'alerte « compte 1 sans accès ».
+- **Le stock** : pour ce clipper, une ligne « à créer » sans e-mail est livrable (`onboarding._mail_requis`, `disponibles`, `reserver_compte`). `!comptes-libres` et la feuille Build capacity comptent ces lignes.
+- **Ce qui ne change pas** : un clipper dont le compte 1 est parti avant garde les accès de l'agence (`_marque_pseudo_pour`). Un compte qui existe déjà (connexion) garde ses accès.
+- **Éteindre** : `REMISE_PSEUDO_SEUL_DEPUIS=` (vide) dans Railway. Les fiches déjà marquées gardent l'@ seul.
+- **Formation** : nouveau Loom du 30/10 (22 minutes, `LIEN_VIDEO_FORMATION` par défaut), quiz réécrit (`quiz.json` : mêmes 5 mots-clés, 5 QCM sur l'@, la modification des vidéos, le contenu trop sexy, les comptes séparés, le tunnel). Base de l'assistant v26.
+- **Tests** : `tests/test_pseudo_seul_3010.py`.
+
 > **Verdict (09/10/2026)** : le test de montage et le Drive perso sont retirés. Quizz réussi = entrée dans l'agence.
 >
 > Le nouveau goulot, c'est le stock de comptes livrables. Lis d'abord les deux sections du 09/10 ci-dessous : ce qui change, ce qu'il faut retirer de Railway, ce qu'il faut fermer côté Google.

@@ -51,12 +51,12 @@
    ]
   },
   {
-   "id": "declarer",
-   "q": "Tu viens de créer un compte Instagram. Tu fais quoi tout de suite ?",
+   "id": "arobase",
+   "q": "Le bot te donne un @ Instagram. Tu fais quoi ?",
    "choix": [
-    "Je donne son @ dans mon salon perso sur Discord",
-    "Rien : l'agence le trouvera toute seule",
-    "J'attends d'avoir publié 10 Reels pour le dire"
+    "Je crée le compte avec cet @, mon e-mail, mon mot de passe et mes vraies infos",
+    "J'attends que l'agence m'envoie un e-mail et un mot de passe",
+    "Je choisis un autre @ qui me plaît plus"
    ],
    "bonne": 0
   },
@@ -84,9 +84,9 @@
    "id": "comptes_separes",
    "q": "Tes comptes Instagram : quelle est la règle ?",
    "choix": [
-    "Je les relie à mon compte perso pour passer de l'un à l'autre",
-    "Une appli like et s'abonne à ma place pour gagner du temps",
-    "Aucun n'est relié : ni entre eux, ni à mon perso, ni au Meta Business Center. Et aucune appli n'agit à ma place."
+    "Je les relie dans le Meta Center pour passer de l'un à l'autre",
+    "Le même e-mail et le même mot de passe partout, c'est plus simple",
+    "Chaque compte a son e-mail, son mot de passe et sa photo. Aucun n'est relié dans le Meta Center."
    ],
    "bonne": 2
   },

@@ -533,14 +533,26 @@ def infos_d_un_ban(c: dict, brulees: dict) -> list:
     return [k for k, v in _cles_infos(c).items() if v and v in brulees.get(k, ())]
 
 
+def _mail_requis(uid: str = "") -> bool:
+    """30/10 (Gaëtan : « On va juste donner les arobas dans le bot pour tous les nouveaux clippers… on va vraiment ouvrir les
+    vannes ») : un clipper « pseudo_seul » crée ses comptes avec SON e-mail, une ligne « à créer » sans e-mail lui suffit (l'@ seul).
+    Sans uid (compteurs du stock), la règle du moment : les places vont aux nouveaux. Faux seulement quand la règle est allumée."""
+    try:
+        import parcours                                                 # import tardif : parcours importe onboarding
+        return not (parcours.pseudo_seul_uid(uid) if uid else parcours.pseudo_seul_actif())
+    except Exception:                                                   # noqa: BLE001 — dans le doute, l'ancienne règle
+        return True
+
+
 def disponibles(comptes: list, creatrice: str, n: int, uid: str = "") -> list:
     """Lignes libres pour cette créatrice : Utilisation = Clipper, Gérant libre, état utilisable, handle présent.
     Les comptes déjà créés (GOOD, WARMUP, PRIVÉ, ACTIF) passent avant ceux « à créer ». Le trio livré fait
     n-1 comptes de croissance + 1 compte privé quand le classeur en a un (24/09 : avant, le « privé » annoncé
     était juste le dernier de la liste)."""
+    mail_requis = _mail_requis(uid)
     libres = [c for c in comptes if _norm(c["utilisation"]) == "clipper" and _norm(c["gerant"]) in GERANTS_LIBRES
               and _norm(c["etat"]) in ETATS_DISPONIBLES and c["handle"] and _pour_creatrice(c, creatrice)
-              and (c.get("mail") or _norm(c["etat"]) not in A_CREER)]        # 25/09 : un compte à créer sans e-mail est inutilisable
+              and (c.get("mail") or not mail_requis or _norm(c["etat"]) not in A_CREER)]   # 25/09 ; 30/10 : l'@ seul suffit
     proprietaires = _proprietaires()
     registre = process_adapters.store()
     libres = [c for c in libres
@@ -552,7 +564,7 @@ def disponibles(comptes: list, creatrice: str, n: int, uid: str = "") -> list:
         # 12/10 (Gaëtan : « ne donne que des comptes neufs aux nouveaux clippeurs, ça sera plus simple pour nous ») : seulement
         # des lignes « à créer » avec e-mail ; un compte rendu par un sortant (déjà créé, publications d'avant, codes de
         # connexion) ne repart plus. COMPTES_RENDUS=1 rallume la règle du 28/09 ci-dessous.
-        libres = [c for c in libres if _norm(c["etat"]) in A_CREER and c.get("mail")]
+        libres = [c for c in libres if _norm(c["etat"]) in A_CREER and (c.get("mail") or not mail_requis)]
     # 28/09 (Gaëtan, sortie automatique) : « réattribue comptes et liens au suivant » — les comptes déjà créés et rendus
     # (chauffés, Gérant vidé) partent en premier ; le clipper s'y CONNECTE, le code de connexion arrive dans son salon.
     rendus = sorted([c for c in libres if _norm(c["etat"]) not in A_CREER], key=lambda c: c["ligne"])
@@ -563,7 +575,7 @@ def disponibles(comptes: list, creatrice: str, n: int, uid: str = "") -> list:
         return choix
     # 26/09 (Gaëtan) : « un nouveau = 3 nouveaux comptes et mails, dans les nouveaux PODs ». Le POD le plus bas où la
     # créatrice a n lignes « à créer » libres avec e-mail gagne.
-    neufs = [c for c in libres if _norm(c["etat"]) in A_CREER and c.get("mail")]
+    neufs = [c for c in libres if _norm(c["etat"]) in A_CREER and (c.get("mail") or not mail_requis)]
     pods = {}
     for c in neufs:
         if str(c.get("pod") or "").strip():
@@ -1583,7 +1595,8 @@ async def reserver_compte(membre, creatrice: str, n: int, salon=None, prive: boo
                   or (membre.display_name.split()[0] if membre.display_name.split() else membre.display_name))
         proprietaires = _proprietaires()
         brulees = infos_brulees(tous)
-        a_lui = [c for c in tous if c.get("handle") and c.get("mail") and _norm(c["gerant"]) == _norm(gerant)
+        mail_requis = _mail_requis(uid)                                 # 30/10 : l'@ seul suffit à un clipper « pseudo_seul »
+        a_lui = [c for c in tous if c.get("handle") and (c.get("mail") or not mail_requis) and _norm(c["gerant"]) == _norm(gerant)
                  and _norm(c["utilisation"]) == "clipper" and _norm(c["etat"]) in A_CREER and _pour_creatrice(c, creatrice)
                  and _cle_handle(c["handle"]) not in cles_siennes and not infos_d_un_ban(c, brulees)
                  and not ((proprietaires.get(_cle_handle(c["handle"])) or set()) - {uid})]
@@ -3070,12 +3083,16 @@ async def commande_staff(message, texte: str) -> bool:
             crees = sum(1 for c in lst if _norm(c["etat"]) not in A_CREER)
             a_creer = [c for c in lst if _norm(c["etat"]) in A_CREER]
             avec_mail = sum(1 for c in a_creer if c.get("mail"))
-            livrables = crees + avec_mail
+            par_pseudo = not _mail_requis()                             # 30/10 : les nouveaux reçoivent l'@ seul
+            livrables = crees + (len(a_creer) if par_pseudo else avec_mail)
             lignes.append(f"· {cr} — {len(lst)} libre(s) : {crees} créé(s), {len(a_creer)} à créer dont **{avec_mail} avec e-mail** "
                           f"→ {livrables} livrable(s) = {livrables // 3} clipper(s)"
-                          + (" ⚠️ ajoute des e-mails (iCloud « Masquer mon adresse ») avant le prochain clipper" if livrables < 3 else ""))
+                          + (" ⚠️ ajoute des lignes avec un @ avant le prochain clipper" if livrables < 3 and par_pseudo
+                             else " ⚠️ ajoute des e-mails (iCloud « Masquer mon adresse ») avant le prochain clipper" if livrables < 3 else ""))
         lignes.append("-# Un compte est « libre » quand Utilisation = Clipper, Gérant vide ou x/y/z, état à créer / GOOD / WARMUP / PRIVÉ / ACTIF. "
-                      "Un compte à créer sans e-mail n'est pas livré (25/09) : impossible à créer sur Instagram ni à relayer en 2FA.")
+                      + ("Depuis le 30/10, un compte à créer n'a besoin que de son @ : le nouveau clipper le crée avec son e-mail."
+                         if par_pseudo else
+                         "Un compte à créer sans e-mail n'est pas livré (25/09) : impossible à créer sur Instagram ni à relayer en 2FA."))
         lignes.append(f"-# Onglets lus : {', '.join(await onglets_logins()) or 'aucun'}.")
         await message.reply("\n".join(lignes)[:1990])
         return True

@@ -55,6 +55,19 @@ def modele(mention, handle, mail, mdp, codes="", suite=""):
     return texte + (f"\n\n{suite}" if suite else "")
 
 
+def modele_pseudo(mention, handle, suite=""):
+    """30/10 (Gaëtan : « On va juste donner les arobas dans le bot pour tous les nouveaux clippers » ; Loom du 30/10 : « tu mets ton
+    mail, tu mets mot de passe, tes informations à toi personnelles ») : le compte 1 d'un clipper « pseudo_seul ». L'@ seul, dans son
+    bloc à copier ; ni e-mail ni mot de passe de l'agence, ni salon des codes : le code d'Instagram arrive sur SON e-mail."""
+    texte = (f"{mention}\n\n📱 **Ton compte 1**\n\n"
+             f"{champ('Identifiant', handle)}\n"
+             "1️⃣ Instagram → Créer un compte → prends cet identifiant.\n\n"
+             "2️⃣ Mets ton e-mail et ton mot de passe à toi. Le code d'Instagram arrive sur ton e-mail.\n\n"
+             "3️⃣ Instagram demande ta date de naissance ou ton numéro ? Mets les vrais.\n\n"
+             f"{PSEUDO_CHANGE}")
+    return texte + (f"\n\n{suite}" if suite else "")
+
+
 def diagnostic_lecteurs(guild, salon, uid, creatrice, admin_ids, est_staff):
     """Même décision que la remise ; projection Discord sans contenu de message ni accès Instagram."""
     uid = str(uid)
