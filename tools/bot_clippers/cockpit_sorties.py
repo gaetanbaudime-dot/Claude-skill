@@ -18,6 +18,9 @@ Garde-fous :
 - plus de COCKPIT_SORTIES_MAX sortants dans un même passage (une colonne écrasée par erreur, un tri raté) : rien n'est fait,
   une alerte au salon admin, une seule fois pour cette liste ;
 - une sortie annulée par le bot (GAML illisible…) est retentée aux passages suivants, COCKPIT_SORTIES_ESSAIS fois au plus.
+
+30/10 : à chaque passage, les lignes « à créer » encore au nom d'un « Sorti » du LOG repartent au stock (rendre_lignes_des_sortis),
+même pour un sorti parti avant ce module. Jamais un compte créé, jamais un @ pas vu libre, jamais si un signé porte ce prénom.
 """
 from __future__ import annotations
 
@@ -203,6 +206,7 @@ async def passe(client) -> list:
         bilan.append(ligne)
         journal.info("Cockpit, sorties : %s", ligne)
     _deps["ecrire_json"](fichier, trace)
+    bilan += await rendre_lignes_des_sortis(lignes)
     if bilan and _deps.get("notifier"):
         try:
             await _deps["notifier"]("**Sorties du Cockpit appliquées**\n" + "\n".join(bilan),
@@ -210,6 +214,51 @@ async def passe(client) -> list:
         except Exception:                                               # noqa: BLE001
             pass
     return bilan
+
+
+def prenoms_signes(registre: dict) -> set:
+    """Pur : le premier mot (normalisé) du prénom de chaque clipper encore signé au registre."""
+    out = set()
+    for f in (registre or {}).values():
+        if isinstance(f, dict):
+            p = _n(str(f.get("prenom") or f.get("prenom_distinct") or "").split(" - ")[0])
+            if p:
+                out.add(p.split()[0])
+    return out
+
+
+async def rendre_lignes_des_sortis(lignes: list) -> list:
+    """30/10 (Gaëtan : « Si je les vire dans mon cockpit, tu les libères automatiquement. Je ne veux pas avoir à le faire ») :
+    pour chaque ligne « Sorti » du Cockpit, les lignes « à créer » encore au nom du sorti dans le LOG repartent au stock
+    (onboarding.rendre_lignes : jamais un compte créé, jamais sans @ vu libre). Garde-fou : si un clipper encore signé porte ce
+    prénom (le sorti pas encore sorti, ou un homonyme), rien n'est touché. Le LOG est lu une fois par passage."""
+    rendre = _deps.get("rendre_lignes")
+    sortis = [l for l in lignes or [] if _n(l.get("role")) == "sorti"]
+    if not rendre or not sortis:
+        return []
+    registre = _deps["lire_json"](_deps["FICHIER_EQUIPES"], {}) if _deps.get("FICHIER_EQUIPES") and _deps.get("lire_json") else {}
+    signes = prenoms_signes(registre)
+    try:
+        import onboarding
+        comptes = await onboarding.lire_comptes()
+    except Exception as erreur:                                         # noqa: BLE001 — revu au passage suivant
+        journal.info("Cockpit : LOG illisible pour rendre les lignes des sortis (%s)", type(erreur).__name__)
+        return []
+    gerants = {_n(c.get("gerant")) for c in comptes if "creer" in _n(c.get("etat"))}
+    out = []
+    for l in sortis:
+        p = _n(l["prenom"])
+        if not p or p.split()[0] in signes or p not in gerants:
+            continue
+        try:
+            rendus = await rendre(l["prenom"], l.get("creatrice", ""), comptes=comptes, actifs=set(registre))
+        except Exception as erreur:                                     # noqa: BLE001
+            journal.warning("Cockpit : lignes de %s pas rendues (%s)", l["prenom"], type(erreur).__name__)
+            continue
+        if rendus:
+            out.append(f"♻️ {l['prenom']} (Cockpit : Sorti) : {len([x for x in rendus if x.startswith('·')])} ligne(s) « à créer » "
+                       "rendue(s) au stock")
+    return out
 
 
 async def boucle(client):

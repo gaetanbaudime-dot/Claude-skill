@@ -3109,6 +3109,54 @@ async def liberer(prenom: str, handles=(), pool: bool = False) -> list:
     return bilan
 
 
+async def rendre_lignes(prenom: str, creatrice: str = "", handles=(), comptes=None, actifs=None,
+                        actifs_permis: bool = False) -> list:
+    """30/10 (Gaëtan : « Tu libères Ben, Oumar et Alvaro… Si je les vire dans mon cockpit, tu les libères automatiquement. Je ne
+    veux pas avoir à le faire ») : les lignes « à créer » dont le Gérant est `prenom` (de `creatrice` si donnée ; seulement
+    `handles` si donnés) repartent au stock. Pour chacune, preuve de non-création exigée : la ligne est « à créer » ET l'@ est
+    libre sur Instagram (arobase_libre.verdict, contrôle GitHub compris). Alors : Gérant vidé et fiches nettoyées (liberer),
+    réservation annulée et alias détaché dans le registre (rendre_au_stock), pour qu'un autre clipper puisse la recevoir.
+    Un compte créé n'est jamais touché. La réservation d'un clipper encore signé (`actifs` : uids du registre ; sans eux, une
+    fiche d'onboarding non sortie) n'est rendue qu'avec `actifs_permis` (décision explicite). Renvoie le bilan (une ligne par
+    compte rendu)."""
+    import arobase_libre
+    from process_store import Bloque
+    comptes = comptes if comptes is not None else await lire_comptes()
+    cibles = {_norm(h).lstrip("@") for h in handles if _norm(h)}
+    lignes = [c for c in comptes if c.get("handle") and _norm(c["gerant"]) == _norm(prenom) and _norm(c["etat"]) in A_CREER
+              and (not creatrice or _pour_creatrice(c, creatrice)) and (not cibles or _norm(c["handle"]) in cibles)]
+    if not lignes:
+        return []
+    registre = process_adapters.store()
+    fiches = _lire_etat().get("clippers") or {}
+    sures, proprietaires = [], {}
+    for c in lignes:
+        h = normaliser_handle(c["handle"]).lower()
+        owner = registre.owner_for_handle(h)
+        fiche = (fiches.get(str(owner)) or {}) if owner else {}
+        actif = (str(owner) in actifs) if actifs is not None else bool(fiche) and not fiche.get("sorti")
+        if owner and actif and not actifs_permis:
+            journal.info("Ligne %s gardée : réservée par un clipper encore actif (%s)", h, owner)
+            continue
+        if await arobase_libre.verdict(h) != arobase_libre.LIBRE:
+            journal.info("Ligne %s gardée : pas de preuve qu'elle n'a jamais été créée (@ pas vu libre)", h)
+            continue
+        sures.append(c["handle"])
+        proprietaires[h] = owner
+    if not sures:
+        return []
+    bilan = await liberer(prenom, handles=sures, pool=True)
+    for h, owner in proprietaires.items():
+        if not owner:
+            continue
+        try:
+            registre.rendre_au_stock(owner, h, f"ligne à créer du LOG, @ libre sur Instagram, rendue par la sortie de {prenom}")
+        except Bloque as erreur:
+            journal.warning("Registre : %s pas rendu au stock (%s)", h, erreur)
+    journal.info("Lignes rendues au stock (%s) : %s", prenom, ", ".join(sures))
+    return bilan
+
+
 async def _commande_arobase(message, mots: list) -> bool:
     """30/10 : `!arobase @x` vérifie un @ sur Instagram (libre, pris, sans réponse) ; `!arobase-ok @x` le déclare libre après un
     contrôle humain sur Instagram (l'API se trompe ou reste muette), pour que le compte parte."""
