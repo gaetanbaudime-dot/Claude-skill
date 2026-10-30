@@ -22,6 +22,17 @@ tags: [contexte/coaching]
 
 ## Décisions prises
 
+### 2026-10-30 (suite, 9 h 36) — Tous les @ manquants donnés d'un coup, vérifiés ; un @ pris devient une variante
+
+> [!tip] Verdict
+> Les 10 clippers en route qui n'avaient pas leurs 3 comptes ont reçu ce matin, dans leur salon perso, tous leurs @ manquants (21 @), chacun vérifié libre sur Instagram et daté : un compte 48 h après la création du précédent, créé par eux sans attendre le bot. Un @ pris par un inconnu devient une variante proche dans la même ligne du LOG (point ↔ tiret bas, « xo » à la fin).
+
+- **Décision de Gaëtan (30/10, 9 h 36)** : « vérifie à la main s'ils ont bien créé leur compte… ceux qui ne l'ont pas créé, envoie-leur leur arobase dans leur salon privé » ; « tu remplaces les points par des tirets du bas… ou tu rajoutes XO à la fin ». Il envoie lui-même le message WhatsApp aux anciens (formation, 5 mots-clés, comptes manquants).
+- **Vérification (6 h 21 UTC)** : 66 @ « à créer » contrôlés sur Instagram, 63 libres, 3 existants. Les cas douteux n'ont rien reçu : une fiche du bot qui ne colle pas au LOG (deux clippers), un @ attribué qui existe déjà avec 7 abonnés, un compte 3 bloqué par le registre des 3 comptes à vie.
+- **Trouvé en route** : la clé RapidAPI de Railway répond 403 (pas d'abonnement FlashAPI). Depuis 4 h 17, la vérification des @ retenait donc chaque remise d'étape. Correctif : un contrôle GitHub toutes les 4 h, avec la clé du dépôt qui marche, que le bot lit quand sa clé est refusée. Neuf lignes « à créer » sont encore attribuées à trois clippers partis.
+- **Avocat du diable** : (1) donner les 3 @ d'un coup invite à créer les 3 le même jour, et un même appareil qui crée trois comptes en une heure est un signal de ban : la date de chaque compte est écrite, mais rien ne l'impose ; (2) les clippers qui ne publient pas reçoivent quand même leurs @ (les lignes sont bon marché depuis l'@ seul, le garde-fou reste la sortie L7) ; (3) le contrôle GitHub a jusqu'à 12 h de retard : un @ pris entre-temps passe pour libre.
+- **Prédiction (30/10, revue le 06/11)** : sur les 21 @ donnés, au moins 12 sont créés sur Instagram d'ici le 06/11 (vus par le contrôle GitHub ou le LOG), et aucun clipper ne signale un @ refusé par Instagram. Sous 8, le blocage n'était pas l'@ mais l'envie : relancer en direct, pas par le bot.
+
 ### 2026-10-30 (suite, 7 h 54) — L'@ seul pour tous, vérifié libre sur Instagram ; un ban se dit d'abord à l'assistant
 
 > [!tip] Verdict
