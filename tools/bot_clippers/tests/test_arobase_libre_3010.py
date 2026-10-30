@@ -247,6 +247,10 @@ class ControleGithubTests(unittest.IsolatedAsyncioTestCase):
         illisible = a.ligne_ci(c, {"verdict": a.PRIS, "profil_lu": False}, self.MAINTENANT)
         self.assertFalse(a.lire_ligne_ci(illisible, self.MAINTENANT)["profil_lu"])
 
+    def test_la_lecture_couvre_la_colonne_variante(self):
+        self.assertEqual("'IG · Contrôle des @'!A2:N", a.plage_ci())          # 30/10 : A2:M perdait « Variante libre »
+        self.assertEqual(len(a.ENTETE_CI), ord(a.plage_ci()[-1]) - ord("A") + 1)
+
     async def test_variante_du_controle_quand_la_cle_est_refusee(self):
         with patch.object(a, "actif", return_value=True), patch.object(a, "cle_refusee", return_value=True):
             with patch.object(a, "depuis_ci", AsyncMock(return_value={"verdict": a.PRIS, "variante": "pris_fictif"})):
