@@ -22,6 +22,17 @@ tags: [contexte/coaching]
 
 ## Décisions prises
 
+### 2026-10-30 (suite, 7 h 54) — L'@ seul pour tous, vérifié libre sur Instagram ; un ban se dit d'abord à l'assistant
+
+> [!tip] Verdict
+> Les comptes pas encore donnés des clippers déjà en route arrivent eux aussi avec l'@ seul. Avant chaque remise, le bot vérifie sur Instagram que l'@ est libre : un @ pris n'est jamais donné, un doute retient le compte. Un ban se dit d'abord à l'assistant, qui fait capturer « Voir la règle » puis faire appel avec les infos du clipper.
+
+- **Décisions de Gaëtan (30/10)** : « ceux qui ne sont pas encore à trois comptes sur trois, ils peuvent créer les comptes eux-mêmes » ; « il ne faut jamais donner un arobas qui n'est pas disponible » ; « quand il y a un ban, de contacter Assistant IA… capture d'écran de la partie « voir la règle »… faire appel avec les informations du clipper ». Il poste l'annonce lui-même.
+- **Fait** : vérification par la route RapidAPI qui sert déjà au suivi (pris = ligne marquée « @ pris sur Instagram » et autre ligne réservée ; `!arobase` et `!arobase-ok` pour le staff) ; audit du parcours (aide `!aide-ig`, procédure de ban envoyée par le bot, règles de l'assistant, « 📩 Mon code » qui dit « le code arrive dans ta boîte » au lieu d'une fausse alerte) ; base v27 ; règle C14 étendue dans la page Notion des règles gelées.
+- **Trouvé pendant l'audit** : la sortie de Meiji (virée dans le Cockpit le 29/10) échouait à chaque démarrage, faute de paie prête ; corrigé, elle est retentée.
+- **Avocat du diable** : (1) la vérification lit Instagram par une API tierce, même dette CGU Meta que le suivi ; (2) un @ d'un compte supprimé ou banni peut rester bloqué par Instagram tout en répondant « introuvable » : le filet reste `!pseudo` ; (3) si le quota RapidAPI tombe, plus aucun compte ne part (doute = retenu) : c'est voulu, mais à surveiller.
+- **Prédiction (30/10, revue le 14/11)** : du 30/10 au 13/11, zéro clipper ne reçoit un @ déjà pris (mesure : onglet « IG · À trancher » et `!pseudo` déposés pour « déjà utilisé ») ; au moins 3 des clippers déjà en route à moins de 3 comptes créent leur compte suivant avec leur propre e-mail.
+
 ### 2026-10-30 (parcours, formation) — L'@ seul pour les nouveaux clippers ; nouveau Loom et nouveau quiz
 
 > [!tip] Verdict
