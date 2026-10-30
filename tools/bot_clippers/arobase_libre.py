@@ -317,6 +317,11 @@ def lire_ligne_ci(ligne: list, maintenant: datetime = None, valide_h: int = None
     return None
 
 
+def plage_ci() -> str:
+    """Pur : toutes les colonnes de l'onglet du contrôle (A jusqu'à la dernière de ENTETE_CI), sans l'en-tête."""
+    return f"'{ONGLET_CI}'!A2:{chr(ord('A') + len(ENTETE_CI) - 1)}"
+
+
 async def depuis_ci(handle):
     """Le dernier contrôle GitHub de ce @ (onglet ONGLET_CI, relu au plus toutes les 5 minutes), ou None. Jamais d'exception."""
     import time
@@ -331,7 +336,7 @@ async def depuis_ci(handle):
                 return None
             import paie_clics
             classeur = await paie_clics._classeur_usage()
-            lignes = await google_api.sheets_lire(classeur, f"'{ONGLET_CI}'!A2:M") if classeur else []
+            lignes = await google_api.sheets_lire(classeur, plage_ci()) if classeur else []
             _cache_ci.update({"le": time.time(), "par_handle": {norm(l[0]): l for l in lignes if l and norm(l[0])}})
         except Exception as erreur:                                     # noqa: BLE001 — sans l'onglet : doute
             journal.info("Contrôle GitHub des @ illisible : %s", type(erreur).__name__)
