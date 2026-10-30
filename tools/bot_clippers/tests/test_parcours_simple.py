@@ -95,7 +95,7 @@ class AccueilTests(unittest.IsolatedAsyncioTestCase):
         ns={'_lire':lambda:deepcopy(etat),'_ecrire':ecrire,'_prenom':lambda m:'Fictif',
             '_cle_creatrice':str.lower,'_reprendre_trace':lambda *a:None,'PRIVE_EN_2':False,
             'datetime':datetime,'timezone':timezone,'timedelta':timedelta,'BIENVENUE_H':1,
-            'ouvrir_compte_1':ouvrir,'_marque_simple':lambda:{'simple':'2026-10-24T00:00:00+00:00'}}
+            'ouvrir_compte_1':ouvrir,'_marque_simple':lambda:{'simple':'2026-10-24T00:00:00+00:00'},'_marque_pseudo_pour':lambda f:{}}
         f=extraire('parcours.py',['demarrer_parcours'],ns)['demarrer_parcours']
         salon=N(id=200,send=AsyncMock());membre=N(id=100)
         await f(salon,membre,'Fictive')
@@ -112,7 +112,7 @@ class AccueilTests(unittest.IsolatedAsyncioTestCase):
         def ecrire(d):etat.update(deepcopy(d))
         ns={'_lire':lambda:deepcopy(etat),'_ecrire':ecrire,'_prenom':lambda m:'Fictif',
             '_cle_creatrice':str.lower,'_reprendre_trace':lambda *a:{'message':'300','whatsapp':'ancienne preuve'},
-            'PRIVE_EN_2':False,'_maintenant':lambda:'date fictive','ouvrir_compte_1':AsyncMock(),'_marque_simple':lambda:{}}
+            'PRIVE_EN_2':False,'_maintenant':lambda:'date fictive','ouvrir_compte_1':AsyncMock(),'_marque_simple':lambda:{},'_marque_pseudo_pour':lambda f:{}}
         f=extraire('parcours.py',['demarrer_parcours'],ns)['demarrer_parcours']
         await f(N(id=200),N(id=100),'Fictive')
         self.assertEqual('300',etat['100']['messages']['bienvenue'])

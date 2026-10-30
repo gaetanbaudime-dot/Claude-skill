@@ -113,6 +113,56 @@ def _marque_simple() -> dict:
         return {}
     depuis = depuis if depuis.tzinfo else depuis.replace(tzinfo=timezone.utc)
     return {"simple": datetime.now(timezone.utc).isoformat(timespec="seconds")} if datetime.now(timezone.utc) >= depuis else {}
+
+
+# 30/10 (Gaëtan : « On va juste donner les arobas dans le bot pour tous les nouveaux clippers, comme ça, ça va leur faciliter
+# vachement le truc… On va vraiment ouvrir les vannes » ; Loom du 30/10 : « Le bot va te donner un arobase Instagram… tu mets ton
+# mail, tu mets mot de passe, tes informations à toi personnelles ») : une fiche créée à partir de PSEUDO_SEUL_DEPUIS est marquée
+# « pseudo_seul ». Ses comptes 1, 2 et 3 partent avec l'@ seul : le clipper les crée avec SON e-mail et SON mot de passe, aucun
+# code ne passe par l'agence. Une ligne « à créer » sans e-mail devient livrable pour lui (onboarding.disponibles). Les clippers
+# déjà en route gardent les accès de l'agence : leurs comptes ne changent pas de règle en route. Vide = éteint.
+PSEUDO_SEUL_DEPUIS = os.environ.get("REMISE_PSEUDO_SEUL_DEPUIS", "2026-10-30T00:00:00+00:00").strip()
+
+
+def pseudo_seul_actif() -> bool:
+    """Une fiche créée maintenant serait-elle marquée « pseudo_seul » ? Faux si la variable est vide ou illisible."""
+    if not PSEUDO_SEUL_DEPUIS:
+        return False
+    try:
+        depuis = datetime.fromisoformat(PSEUDO_SEUL_DEPUIS)
+    except (TypeError, ValueError):
+        return False
+    depuis = depuis if depuis.tzinfo else depuis.replace(tzinfo=timezone.utc)
+    return datetime.now(timezone.utc) >= depuis
+
+
+def _marque_pseudo() -> dict:
+    """La marque « pseudo_seul » posée sur une fiche créée maintenant (vide avant PSEUDO_SEUL_DEPUIS)."""
+    return {"pseudo_seul": datetime.now(timezone.utc).isoformat(timespec="seconds")} if pseudo_seul_actif() else {}
+
+
+def _marque_pseudo_pour(fiche_avant) -> dict:
+    """La marque d'une fiche (re)créée par demarrer_parcours : celle de la fiche d'avant si elle existe (un clipper déjà en route qui
+    change de créatrice ou reprend garde sa règle), sinon la règle du moment."""
+    if isinstance(fiche_avant, dict) and fiche_avant.get("pseudo_seul"):
+        return {"pseudo_seul": fiche_avant["pseudo_seul"]}
+    if isinstance(fiche_avant, dict) and (fiche_avant.get("messages") or {}).get("1"):
+        return {}                                                       # son compte 1 est parti avec les accès de l'agence
+    return _marque_pseudo()
+
+
+def pseudo_seul(fiche_p) -> bool:
+    """30/10 : ce clipper reçoit ses comptes avec l'@ seul et les crée avec ses propres accès."""
+    return isinstance(fiche_p, dict) and bool(fiche_p.get("pseudo_seul"))
+
+
+def pseudo_seul_uid(uid) -> bool:
+    """Pour la réservation des lignes : la marque de sa fiche ; sans fiche (le quiz réserve avant l'arrivée), la règle du moment."""
+    try:
+        fiche = _lire().get(str(uid))
+    except Exception:                                                   # noqa: BLE001 — sans fiche lisible, la règle du moment
+        fiche = None
+    return bool(_marque_pseudo_pour(fiche if isinstance(fiche, dict) else None))
 # 08/10 (Gaëtan, GO n° 1 du checkup : « le compte privé en 2e position ») : compte 1 croissance, compte 2 PRIVÉ (le lien dans sa
 # bio), compte 3 croissance. Le lien existe à J+2 au lieu de J+5-6 : les Reels du compte 1 ont une destination dès leurs
 # premières vues. Le compte privé ne publie pas : le compte 3 s'ouvre 48 h après lui, quand 4 Reels de plus sont publiés sur le
@@ -428,6 +478,26 @@ CREATION = ("1. Instagram → Créer un compte → avec cet e-mail.\n"
             "{codes}\n\n" + PSEUDO_PRIS.format(n=2),
             "Crée-le comme les autres, sur le même téléphone.\n\n"
             "{codes}\n\n" + PSEUDO_PRIS.format(n=3))
+# 30/10 (Gaëtan, Loom du 30/10 : « Le bot va te donner un arobase Instagram… tu mets ton mail, tu mets mot de passe, tes informations
+# à toi personnelles ») : la création d'un clipper « pseudo_seul ». Pas d'e-mail de l'agence, pas de salon des codes : le code
+# d'Instagram arrive sur SON e-mail. Un e-mail et un mot de passe différents par compte (la vidéo : « sinon tu peux te faire bannir »).
+CREATION_PSEUDO = ("1. Instagram → Créer un compte → prends cet identifiant.\n"
+                   "2. Ton e-mail et ton mot de passe à toi. Le code d'Instagram arrive sur ton e-mail.\n"
+                   "3. Ta vraie date de naissance. Ton numéro si Instagram le demande.\n"
+                   "4. " + PSEUDO_PRIS,
+                   "Même chose que le compte 1, sur le même téléphone : tu ajoutes un compte.\n\n"
+                   "Un autre e-mail et un autre mot de passe que ton compte 1.\n\n"
+                   "⚠️ Instagram ne te demande ni e-mail ni mot de passe ? Arrête et écris-le ici : il a relié tes comptes.\n\n"
+                   + PSEUDO_PRIS,
+                   "Crée-le comme les autres, avec un autre e-mail et un autre mot de passe.\n\n" + PSEUDO_PRIS)
+ACCES_PSEUDO = "Crée-le avec ton e-mail et ton mot de passe à toi, différents de tes autres comptes."
+
+
+def _remise_par_pseudo(fiche_p, ctx, n) -> bool:
+    """30/10 : ce compte part avec l'@ seul (fiche « pseudo_seul »), sauf un compte qui existe déjà : on s'y connecte avec ses accès."""
+    return pseudo_seul(fiche_p) and not str((ctx or {}).get(f"creation{int(n)}", "")).startswith("Ce compte existe déjà")
+
+
 CONNEXION = ("Ce compte existe déjà.\n\n"
              "1. Instagram → Se connecter → cet identifiant et ce mot de passe.\n"
              "2. {codes}\n"
@@ -970,7 +1040,8 @@ async def _contexte(guild, uid: str, fiche_p: dict, drive: bool = False) -> dict
     ctx["ressources"] = f"<#{res.id}>" if res is not None else "#ressources"
     for i in range(3):                                                  # 28/09 : création, ou connexion à un compte rendu par un sortant
         a = acces.get(ctx[f"compte{i + 1}"], {})
-        ctx[f"creation{i + 1}"] = (CONNEXION[i] if a.get("cree") else CREATION[i]).format(info=ctx["info"], codes=ctx["codes"])
+        gabarits = CREATION_PSEUDO if pseudo_seul(fiche_p) else CREATION    # 30/10 : l'@ seul, ses propres accès
+        ctx[f"creation{i + 1}"] = (CONNEXION[i] if a.get("cree") else gabarits[i]).format(info=ctx["info"], codes=ctx["codes"])
     rep = _salon_nom(guild, "reporting") if guild is not None else None
     ctx["reporting"] = f"<#{rep.id}>" if rep is not None else "#reporting"
     ctx["lien_reporting"] = LIEN_REPORTING
@@ -1543,6 +1614,13 @@ async def envoyer_etape(salon, membre, n: int, pointer: bool = True) -> bool:
     # 01/10 (relecture : deux programme_du_jour à 50 ms d'écart, le clipper 2 a reçu deux fois « Étape 2 ») : la fiche était
     # lue, puis réécrite après l'appel au classeur (_contexte) et l'envoi — elle écrasait ce qui avait été écrit entre-temps.
     # Le contexte d'abord ; la fiche relue après l'attente, posée et écrite sans attente ; relue encore pour l'id du message.
+    if n == 1 and "pseudo_seul" not in fiche_avant and not (fiche_avant.get("messages") or {}).get("1"):
+        # 30/10 : une fiche posée avant demarrer_parcours (attente d'une créatrice) prend la règle du moment avant son compte 1
+        marque = _marque_pseudo_pour(fiche_avant)
+        d0 = _lire()
+        if marque and uid in d0:
+            d0[uid].update(marque)
+            _ecrire(d0)
     ctx = await _contexte(getattr(salon, "guild", None), uid, _lire().get(uid) or {"prenom": _prenom(membre)}, drive=n in (1, 4, 5))
     d = _lire()
     fiche_p = d.setdefault(uid, {"prenom": _prenom(membre),
@@ -1565,7 +1643,10 @@ async def envoyer_etape(salon, membre, n: int, pointer: bool = True) -> bool:
         return True
     e = etape_def(fiche_p, n)
     identifiants = None
-    if pseudo_propose:
+    par_pseudo = _remise_par_pseudo(fiche_p, ctx, n)                    # 30/10 : l'@ seul, il crée avec ses propres accès
+    if pseudo_propose and par_pseudo:
+        ctx["compte1"] = pseudo_propose
+    elif pseudo_propose:
         # 18/10 (règles gelées E7, C10) : e-mail, mot de passe et @ dans le salon perso dès l'envoi, quand les contrôles de
         # `!remettre-compte1` passent (salon lu par les seules personnes autorisées, ligne du classeur bien la sienne).
         import remise_compte1
@@ -1597,7 +1678,10 @@ async def envoyer_etape(salon, membre, n: int, pointer: bool = True) -> bool:
             _ecrire(d)
     if pseudo_propose:
         texte = f"{membre.mention}\n\n**{_rendre(e['titre'], ctx)}**\n\n{_rendre(e['texte'], ctx)}"
-        if identifiants:
+        if par_pseudo:
+            import remise_compte1
+            texte = remise_compte1.modele_pseudo(membre.mention, pseudo_propose, suite=LIGNE_48H if simple(fiche_p) else "")
+        elif identifiants:
             import remise_compte1
             texte = remise_compte1.modele(membre.mention, pseudo_propose, *identifiants, codes=mention_salon_codes(),
                                           suite=LIGNE_48H if simple(fiche_p) else "")
@@ -1617,7 +1701,10 @@ async def envoyer_etape(salon, membre, n: int, pointer: bool = True) -> bool:
                 journal.info("Compte %s ouvert pour %s : compte %s sous les %s Reels (objectif rappelé)", n, uid, n - 1, REELS_OUVERTURE)
         except Exception as erreur:                                     # noqa: BLE001 — le compte part quand même
             journal.info("Publication du compte %s de %s : %s", n - 1, uid, type(erreur).__name__)
-    if n in (2, 3) and ACCES_A_CONFIRMER in texte:
+    if n in (1, 2, 3) and ACCES_A_CONFIRMER in texte and par_pseudo:   # 30/10 : pas d'accès de l'agence à remettre
+        texte = texte.replace(ACCES_A_CONFIRMER, ACCES_PSEUDO)
+        ACCES_ETAPE[(uid, int(n))] = "inclus"
+    elif n in (2, 3) and ACCES_A_CONFIRMER in texte:
         texte = await _avec_acces(salon, uid, n, fiche_p, texte)
     try:
         vue = _vue(getattr(salon, "guild", None), uid, n, ctx, fiche_p)
@@ -1643,7 +1730,7 @@ async def envoyer_etape(salon, membre, n: int, pointer: bool = True) -> bool:
         if n == 1 and d[uid].get("accueil_unique"):
             d[uid]["messages"].setdefault("bienvenue", str(msg.id))
         if pseudo_propose:
-            if identifiants:
+            if identifiants or par_pseudo:
                 d[uid].pop("acces_en_attente", None)
             else:
                 d[uid]["acces_en_attente"] = _maintenant()
@@ -1653,7 +1740,7 @@ async def envoyer_etape(salon, membre, n: int, pointer: bool = True) -> bool:
     if uid in d_r and int((d_r[uid].get("retenue") or {}).get("n") or 0) == int(n):
         d_r[uid].pop("retenue", None)
         _ecrire(d_r)
-    if pseudo_propose and not identifiants:
+    if pseudo_propose and not identifiants and not par_pseudo:
         await alerter_acces_en_attente(membre, uid)
     if n == 1 and pointer and not (fiche_avant.get("messages") or {}).get("1"):
         try:                                                            # 23/10 (Gaëtan) : cohorte du lien en story, éteinte par défaut
@@ -1840,7 +1927,7 @@ async def demarrer_parcours(salon, membre, creatrice: str, bienvenue: bool = Tru
     trace = _reprendre_trace(uid, salon, creatrice)
     if not bienvenue or trace:
         reprise = {**nouveau, "salon_id": str(salon.id), "etape": 1, "dates": {}, "notes": (fiche_p or {}).get("notes", []),
-                   "ordre": "prive2" if PRIVE_EN_2 else "prive3", **_marque_simple(),
+                   "ordre": "prive2" if PRIVE_EN_2 else "prive3", **_marque_simple(), **_marque_pseudo_pour(fiche_p),
                    "programme": [{"quand": _maintenant(), "type": "etape", "n": 1}]}   # filet : membre introuvable à l'instant
         for cle in ("bienvenue", "whatsapp", "whatsapp_par"):         # la bienvenue reste au-dessus, le WhatsApp déjà déclaré aussi
             if (trace or {}).get(cle):
@@ -1855,7 +1942,7 @@ async def demarrer_parcours(salon, membre, creatrice: str, bienvenue: bool = Tru
     # 09/10 : étape 1 « en attente » (pas de dates["1"]) le temps de la bienvenue. 10/10 : le compte 1 part juste après elle ; le
     # programme à BIENVENUE_H h n'est qu'un filet (membre introuvable à l'instant). « pret_retire » : pas de « ✅ C'est fait » à retirer.
     d[uid] = {**nouveau, "salon_id": str(salon.id), "etape": 1, "dates": {}, "notes": (fiche_p or {}).get("notes", []),
-              "ordre": "prive2" if PRIVE_EN_2 else "prive3", **_marque_simple(),   # 08/10 : le privé en 2 ; 23/10 : 48 h, sans Reels
+              "ordre": "prive2" if PRIVE_EN_2 else "prive3", **_marque_simple(), **_marque_pseudo_pour(fiche_p),   # 08/10 : le privé en 2 ; 23/10 : 48 h, sans Reels
               "bienvenue": maintenant.isoformat(timespec="seconds"), "pret_retire": True, "accueil_unique": True,
               "programme": [{"quand": (maintenant + timedelta(hours=BIENVENUE_H)).isoformat(timespec="seconds"), "type": "etape", "n": 1}]}
     _ecrire(d)

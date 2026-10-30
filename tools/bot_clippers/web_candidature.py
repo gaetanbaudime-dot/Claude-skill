@@ -999,8 +999,8 @@ async def get_formation(request):
     deja_essaye = int(q.get("essais", 0) or 0) > 0
     _prechauffer_places()                     # 11/10 (lot W) : celui qui revoit la vidéo trouve des places fraîches au quizz
     corps = (("<h1>Revois la vidéo.</h1>" if deja_essaye else "<h1>✅ Candidature reçue.</h1>")
-             + "<p>Regarde la vidéo jusqu'au bout.</p>"
-             "<p>Note les 5 mots-clés : le quizz te les demande.</p>"
+             + "<p>Regarde la vidéo jusqu'au bout. Elle dure 22 minutes, 18 en vitesse 1,2.</p>"
+             "<p>Note les 5 mots-clés dans l'ordre : le quizz te les demande.</p>"
              + _video(_deps.get("LIEN_VIDEO_FORMATION", ""))
              + f"<a class='b' style='background:#2e7d4f' href='/quiz?c={html.escape(jeton(cand_id))}'>"
              + ("2️⃣ Repasser le quizz" if deja_essaye else "2️⃣ Passer le quizz") + "</a>")

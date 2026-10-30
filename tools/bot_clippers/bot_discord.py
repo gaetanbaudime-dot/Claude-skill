@@ -335,7 +335,11 @@ REGLE_CODES = (
     "Pour les étapes création, connexion, renvoi, authentificateur ou suspension, l'aide fiable est `!aide-ig` "
     "suivi de l'étape. Un code d'authentificateur n'est pas généré par ce bot. "
     "Ne jamais recopier un code dans un salon. Aucune graine TOTP ni code de récupération n'est distribué. "
-    "Un TOTP d'application, un SMS ou WhatsApp n'est pas reçu par e-mail. Aucun déblocage de compte n'est garanti.")
+    "Un TOTP d'application, un SMS ou WhatsApp n'est pas reçu par e-mail. Aucun déblocage de compte n'est garanti. "
+    # 30/10 (Gaëtan : « On va juste donner les arobas dans le bot pour tous les nouveaux clippers ») : les arrivés depuis le 30/10
+    # créent leurs comptes avec LEUR e-mail ; le relais ne voit pas leurs codes.
+    "Depuis le 30 octobre 2026, un nouvel arrivant reçoit le @ seul et crée le compte avec son propre e-mail : son code "
+    "arrive dans sa boîte e-mail, le bouton 📩 Mon code ne le voit pas. Le salon des codes sert aux comptes à l'e-mail de l'agence.")
 
 # 01/10 (Gaëtan : « la même règle pour tous, nouveaux et anciens ») : une seule règle des comptes, plus de « un compte par
 # jour » ni de « 5 Reels en 72 h ». 01/10 (fusion des lots) : le texte vient de parcours.regle_comptes(), pour suivre
@@ -1161,7 +1165,7 @@ def en_prive(message) -> bool:
 PARCOURS_ARRIVANT = ("Formation", "Quiz", "Créatrice et compte 1", "Publication")
 
 
-LIEN_VIDEO_FORMATION = os.environ.get("LIEN_VIDEO_FORMATION", "https://www.loom.com/share/e7ffb70f9bd44d99b437ed8844e0e409").strip()
+LIEN_VIDEO_FORMATION = os.environ.get("LIEN_VIDEO_FORMATION", "https://www.loom.com/share/aa9f7dc3a707467799483f75403bb2ea").strip()
 
 
 def lien_formation() -> str:

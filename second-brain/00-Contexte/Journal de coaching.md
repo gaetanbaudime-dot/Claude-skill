@@ -22,6 +22,17 @@ tags: [contexte/coaching]
 
 ## Décisions prises
 
+### 2026-10-30 (parcours, formation) — L'@ seul pour les nouveaux clippers ; nouveau Loom et nouveau quiz
+
+> [!tip] Verdict
+> Depuis le 30/10, un nouveau clipper reçoit seulement l'@ de chacun de ses 3 comptes. Il les crée avec son e-mail et son mot de passe, et le code d'Instagram arrive chez lui. Les lignes « à créer » sans e-mail deviennent livrables : le stock fabriqué à la main, goulot de l'audit du 24/10, saute pour les nouveaux. Les clippers déjà en route gardent les accès de l'agence.
+
+- **Décision de Gaëtan (30/10)** : « On va juste donner les arobas dans le bot pour tous les nouveaux clippers… On va vraiment ouvrir les vannes. » Le Loom du 30/10 (22 minutes, mêmes 5 mots-clés, intro et outro ajoutées, exemple d'un compte de clipper qui marche) le dit tel quel.
+- **Fait** : variable `REMISE_PSEUDO_SEUL_DEPUIS` (fiches marquées « pseudo_seul »), messages des comptes 1 à 3 sans e-mail ni mot de passe, `disponibles` qui accepte une ligne sans e-mail pour ces clippers, quiz réécrit (l'@ du bot, vidéo modifiée, contenu trop sexy, comptes séparés, tunnel), base de l'assistant v26, nouveau lien de formation sur le site.
+- **Point de départ (audit du 24/10, 30 jours)** : 110 candidats, 20 quiz réussis, 7 comptes 1 créés ; **12 jours** en médiane entre le quiz et le compte 1 ; 159 lignes « à créer » sans e-mail, donc inutilisables.
+- **Avocat du diable** : (1) l'agence ne contrôle plus ces comptes : un clipper qui part garde des comptes qui publient la créatrice (frein accepté par Gaëtan le 29/10) ; (2) le ban ne se lit plus par l'e-mail d'Instagram pour ces comptes, seulement par le scan, qui ne distingue pas un ban d'un profil illisible ; (3) un clipper qui met le même e-mail partout, ou celui de son compte perso, relie ses comptes : un ban les emporte tous. La vidéo et le quiz l'enseignent, le bot ne peut pas le vérifier ; (4) un @ changé sans le dire casse le suivi : `!pseudo` et la lecture du salon restent le filet.
+- **Prédiction (30/10, revue le 14/11)** : parmi les clippers arrivés du 30/10 au 13/11, au moins 60 % créent leur compte 1 dans les 48 h (contre environ 25 % des qualifiés du 12 au 23/10), et la médiane quiz → compte 1 tombe sous 2 jours. Si c'est sous 40 %, le goulot n'était pas le stock mais la sélection : durcir l'annonce et la promesse de la vidéo avant de recruter plus. Garde-fou : si le taux de ban des comptes 1 à J+14 dépasse de 10 points celui des arrivés avant, revoir la consigne e-mail avant le 17/11.
+
 ### 2026-10-29 (Cockpit, bot) — « Sorti » dans le Cockpit = sortie automatique par le bot
 
 > [!tip] Verdict
