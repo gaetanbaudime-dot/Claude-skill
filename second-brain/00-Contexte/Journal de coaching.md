@@ -22,6 +22,16 @@ tags: [contexte/coaching]
 
 ## Décisions prises
 
+### 2026-10-30 (suite, 10 h 59) — Un « Sorti » du Cockpit rend tout seul ses lignes au stock
+
+> [!tip] Verdict
+> Passer quelqu'un en « Sorti » dans le Cockpit suffit : ses lignes « à créer » repartent au stock dans le quart d'heure, sans commande. Neuf lignes de trois sortis sont revenues ce matin.
+
+- **Décision de Gaëtan (30/10, 10 h 59)** : « Si je les vire dans mon cockpit, tu les libères automatiquement. Je ne veux pas avoir à le faire. » Recommandations appliquées pour trois clippers (comptes alignés sur le LOG, compte privé attribué, @ pris remplacé par une variante libre).
+- **Constat** : depuis le 15/10, une sortie ne rendait plus aucune ligne, et le registre bloquait à vie un @ réservé par un sorti.
+- **Avocat du diable** : un « Sorti » posé par erreur rend les lignes jamais créées du clipper. Garde-fous : jamais un compte créé, jamais sans @ vérifié libre, jamais si un clipper signé porte ce prénom. Une ligne rendue se réattribue au clipper si besoin.
+- **Prédiction (30/10, revue le 06/11)** : aucune ligne « à créer » n'est encore au nom d'un « Sorti » du Cockpit plus d'une heure après sa sortie.
+
 ### 2026-10-30 (suite, 9 h 36) — Tous les @ manquants donnés d'un coup, vérifiés ; un @ pris devient une variante
 
 > [!tip] Verdict
