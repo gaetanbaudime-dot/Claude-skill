@@ -2817,6 +2817,76 @@ async def demander_groupe_gaetan(salon, membre, uid: str, prenom: str, creatrice
         return False
 
 
+# 31/10 (Gaëtan : « dès que le clippeur est arrivé dans son salon perso, au lieu qu'on crée un groupe avec le team leader, direct tu
+# demandes au clippeur de rejoindre ce groupe à la fin… on enlève une étape pour les team leaders. Demande au clippeur de se présenter
+# à son arrivée ») : pour une créatrice dont le groupe de clipping a un lien d'invitation, le DERNIER message de l'arrivée donne ce
+# lien au clipper (bouton) et lui demande de se présenter au groupe en arrivant. Plus de message au TL, plus de bouton « écris à
+# Gaëtan » pour elle. Les liens vivent dans la variable Railway WHATSAPP_GROUPES (« Chloé=https://chat.whatsapp.com/…;Sophie=… »),
+# jamais dans le code : le dépôt est public, et un lien d'invitation fait entrer n'importe qui dans le groupe. Lue à chaque appel :
+# une nouvelle créatrice s'ajoute dans Railway sans toucher au code. Une créatrice sans lien garde le chemin d'avant (TL, sinon Gaëtan).
+TEXTE_GROUPE_LIEN = (ESPACE_AVANT + "📲 {mention} Dernière étape : rejoins le groupe WhatsApp Team {creatrice}.\n\n"
+                     "En arrivant, présente-toi au groupe en un message.\n\n"
+                     "Dis ton prénom, ta ville et ton expérience en clipping.")
+_LIEN_GROUPE_VALIDE = re.compile(r"https://chat\.whatsapp\.com/[A-Za-z0-9]+/?")
+
+
+def liens_groupes_whatsapp() -> dict:
+    """{créatrice (premier mot, sans accent ni casse) : lien d'invitation} lus dans WHATSAPP_GROUPES. Séparateurs « ; », « , » ou
+    retour à la ligne entre les créatrices, « = » entre le nom et le lien. Un lien qui n'est pas un chat.whatsapp.com est ignoré."""
+    liens = {}
+    for morceau in re.split(r"[;,\n]+", os.environ.get("WHATSAPP_GROUPES", "")):
+        nom, _, url = morceau.partition("=")
+        cle, url = _cle_creatrice(nom), url.strip()
+        if cle and _LIEN_GROUPE_VALIDE.fullmatch(url):
+            liens[cle] = url
+    return liens
+
+
+def lien_groupe_creatrice(creatrice) -> str:
+    """Le lien d'invitation du groupe WhatsApp de clipping de la créatrice, '' si elle n'en a pas."""
+    return liens_groupes_whatsapp().get(_cle_creatrice(creatrice), "") if creatrice else ""
+
+
+async def inviter_groupe_creatrice(salon, membre, uid: str, creatrice: str) -> str:
+    """31/10 : le message final de l'arrivée, une seule fois par clipper (`groupe_lien_envoye` dans la fiche, écrit avant l'envoi,
+    retiré si l'envoi échoue pour qu'une reprise le renvoie). Renvoie « envoyé », « échec », ou '' (pas de lien, pas de fiche, déjà
+    envoyé). Le clipper est noté « dans le groupe » à l'envoi (`whatsapp_par` = « lien-groupe ») : ni relance ni « pas de WhatsApp »
+    dans les bloqués, comme la demande au TL d'avant. Jamais d'exception : l'arrivée ne dépend pas de ce message."""
+    lien = lien_groupe_creatrice(creatrice)
+    if not lien:
+        return ""
+    try:
+        d = _lire()
+        fiche_p = d.get(str(uid))
+        if fiche_p is None or fiche_p.get("groupe_lien_envoye"):
+            return ""
+        fiche_p["groupe_lien_envoye"] = _maintenant()
+        _ecrire(d)
+    except Exception as erreur:                                         # noqa: BLE001
+        journal.warning("Lien du groupe WhatsApp pour %s : %s", uid, type(erreur).__name__)
+        return "échec"
+    nom = str(creatrice or "").strip()
+    try:
+        vue = discord.ui.View(timeout=None)
+        vue.add_item(discord.ui.Button(label=f"📲 Rejoindre le groupe Team {nom}"[:80], style=discord.ButtonStyle.link, url=lien))
+        await salon.send(TEXTE_GROUPE_LIEN.format(mention=membre.mention, creatrice=nom), view=vue)
+    except Exception as erreur:                                         # noqa: BLE001
+        journal.warning("Lien du groupe WhatsApp pour %s : %s", uid, type(erreur).__name__)
+        try:
+            d = _lire()
+            (d.get(str(uid)) or {}).pop("groupe_lien_envoye", None)
+            _ecrire(d)
+        except Exception:                                               # noqa: BLE001
+            pass
+        return "échec"
+    try:
+        if not (_lire().get(str(uid)) or {}).get("whatsapp"):
+            marquer_whatsapp(str(uid), par="lien-groupe")
+    except Exception as erreur:                                         # noqa: BLE001
+        journal.warning("Groupe WhatsApp noté pour %s : %s", uid, type(erreur).__name__)
+    return "envoyé"
+
+
 # ------------------------------------------------------------------ app clippers
 # 08/10 (Gaëtan : « envoie automatiquement l'app dans le salon Discord privé du clippeur, une fois seulement qu'il a créé les
 # 3 IG : l'app + son lien de tracking GAML ») : dès que l'étape du compte 3 est fermée (étape 6 ou plus : compte 3 créé, ou
