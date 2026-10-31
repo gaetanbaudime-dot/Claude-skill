@@ -193,21 +193,25 @@ class Store:
                 e[2].append(h)
         return list(out.values())
 
-    def retirer_doublon(self, uid, handle, evidence):
+    def retirer_doublon(self, uid, handle, evidence, cree_par_erreur=False):
         """31/10 (Esperance : « Trois places à vie » retenait son compte 3 depuis deux jours, alors que le LOG porte ses trois
         comptes créés ; sa fiche gardait un @ mal tapé et deux essais de privé jamais faits) : une place RÉSERVÉE ou INCERTAINE de
         ce clipper, sous un @ que le LOG ne lui donne pas et qu'Instagram prouve jamais créé par lui, est annulée avec sa preuve.
-        L'alias reste attaché au compte annulé : il n'est jamais réattribué. Un compte noté créé, ou d'un autre clipper : refusé."""
+        L'alias reste attaché au compte annulé : il n'est jamais réattribué. Un compte noté créé, ou d'un autre clipper : refusé.
+        `cree_par_erreur` (décision écrite dans un dépôt de corrections) : un compte noté « créé » parce qu'il existe sur Instagram,
+        alors que c'est celui d'un inconnu, sort aussi, avec sa preuve."""
         handle = str(handle or '').lower().lstrip('@')
         if not handle or not evidence:
             raise Bloque('Preuve de non-création requise')
         with self.transaction() as db:
             found = db.execute('SELECT a.id,a.uid,a.status FROM accounts a JOIN aliases h ON h.account_id=a.id WHERE h.handle=?',
                                (handle,)).fetchone()
-            if not found or found[1] != str(uid) or found[2] not in ('reserved', 'unknown'):
+            permis = ('reserved', 'unknown', 'created') if cree_par_erreur else ('reserved', 'unknown')
+            if not found or found[1] != str(uid) or found[2] not in permis:
                 raise Bloque('Seule une place réservée ou incertaine de ce clipper peut être retirée')
+            prefixe = 'faux-cree-retire' if found[2] == 'created' else 'doublon-retire'
             db.execute("UPDATE accounts SET status='cancelled',evidence=? WHERE id=?",
-                       (f'doublon-retire:{handle}:{evidence}', found[0]))
+                       (f'{prefixe}:{handle}:{evidence}', found[0]))
 
     def observe_alias(self, uid, handle, evidence):
         """Observation d'un compte existant, pas un historique complet ni une autorisation de créer."""

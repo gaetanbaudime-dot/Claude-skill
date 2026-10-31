@@ -504,7 +504,7 @@ et tu ne réponds pas à sa place.
 Discord → un seul message de bienvenue : sa créatrice, le salon ℹ️ avec ses vidéos et son Drive, et le compte 1 (son @ seul, \
 vérifié libre, depuis le 30/10) → 48 h → compte 2 → 48 h → compte 3, le privé → le lien quand les comptes 1 et 2 ont 6 Reels \
 publiés à eux deux → la story à la une ; l'app de clippeur dès le jour 3 si le lien est prêt (depuis le 24/10, plus aucun Reel \
-à compter pour ouvrir un compte). Le TL crée le groupe WhatsApp, avec le numéro du clipper. Le compte 1 \
+à compter pour ouvrir un compte). Le TL ajoute le clipper au groupe WhatsApp de clipping de sa créatrice (Team Sophie, Team Chloé…), avec son numéro. Le compte 1 \
 arrive juste sous la bienvenue, sans attendre ; plus aucun message à J+7 : 2 Reels par jour, toujours. Il n'y a PLUS \
 de test vidéo à rendre ni de note de montage pour entrer : tu n'en parles jamais, même à un ancien candidat. Quizz réussi = sa \
 créatrice et son compte 1 arrivent dans son salon perso. Une étape à la fois : tu ne parles que de l'étape où il est.

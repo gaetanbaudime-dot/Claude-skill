@@ -119,7 +119,8 @@ def message(mention: str, items: list, maintenant: datetime) -> str:
     lignes += ["", "Pour chaque compte : ton e-mail et ton mot de passe. Un e-mail différent à chaque fois.",
                "", "Le code d'Instagram arrive sur ton e-mail.",
                "", "Un compte toutes les 48 h, dans l'ordre. Pas plus vite : c'est comme ça qu'on évite les bans.",
-               "", "Instagram change l'@, même d'un point ? Garde-le et écris ici ton @ exact."]
+               "", "Un @ pas disponible sur Instagram ? Change le point en tiret du bas ou ajoute xo à la fin. "
+               "Puis écris ici ton @ exact."]
     if any(p for _, _, _, p in items):
         lignes += ["", "Le compte privé : passe-le en privé dès sa création. Il ne publie jamais."]
     return "\n".join(lignes)

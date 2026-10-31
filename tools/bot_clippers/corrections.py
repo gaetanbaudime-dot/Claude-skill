@@ -17,6 +17,8 @@ Actions (un clipper est désigné par son prénom ET sa créatrice : une seule f
 - « remise » {clippers: [[prenom, creatrice], …]} : la remise de leurs @ restants (remise_arobases, envoi).
 - « aligner » {prenom, creatrice, comptes: [@1, @2, @3], renommer?} (31/10, Esperance) : fiche, registre et parcours suivent ses
   trois comptes créés du LOG ; les @ en trop sortent seulement si Instagram prouve qu'il ne les a jamais créés (voir _aligner).
+- « registre » {prenom, creatrice} (31/10) : lecture seule, fiche, ordre des comptes, parcours et places du registre du clipper.
+Le bilan part au salon admin ET au journal (« Correction <id> : … »).
 """
 import asyncio
 import json
@@ -229,7 +231,10 @@ async def _aligner(a: dict, uid: str, client) -> list:
         if statut == "cancelled" or not alias or set(alias) & (set(cibles) | siens):
             continue
         nom = "/".join("@" + x for x in alias)
-        if statut not in ("reserved", "unknown") or set(alias) & set(gardes):
+        # 31/10 : un compte noté « créé » parce qu'il EXISTE sur Instagram (le compte d'un inconnu, vu par le scan) ne sort que
+        # tranché dans le dépôt (`retirer`) ; jamais un « créé » sur la seule lecture d'Instagram
+        faux_cree = statut == "created" and bool(set(alias) & decides)
+        if (statut not in ("reserved", "unknown") and not faux_cree) or set(alias) & set(gardes):
             bilan.append(f"⚠️ registre : {nom} ({statut}) gardé, à trancher")
             continue
         prouve = bool(set(alias) & (set(retires) | decides))
@@ -239,8 +244,8 @@ async def _aligner(a: dict, uid: str, client) -> list:
             bilan.append(f"⚠️ registre : {nom} ({statut}) gardé, à trancher")
             continue
         try:
-            registre.retirer_doublon(uid, alias[0], preuve)
-            annules.append(nom)
+            registre.retirer_doublon(uid, alias[0], preuve, cree_par_erreur=faux_cree)
+            annules.append(nom + (" (noté créé à tort)" if faux_cree else ""))
         except Exception as erreur:                                     # noqa: BLE001
             bilan.append(f"⚠️ registre : {nom} pas retiré ({erreur})")
     if annules:
@@ -274,6 +279,31 @@ async def _aligner(a: dict, uid: str, client) -> list:
                 await parcours._retirer_bouton(salon, (f.get("messages") or {}).get(str(n)))
         bilan.append("✅ parcours : " + ", ".join(f"compte {n}" for n in fermes) + " noté(s) créé(s), sans message")
     return [f"🧩 {prenom} ({creatrice}) aligné sur le LOG : " + ", ".join(f"{i} @{h}" for i, h in enumerate(cibles, 1))] + bilan
+
+
+def etat_registre(uid: str) -> str:
+    """31/10 (Esperance : « Trois places à vie » sans voir quelles places) : les places de ce clipper au registre, en une ligne."""
+    import onboarding
+    try:
+        comptes = onboarding.process_adapters.store().comptes_de(uid)
+    except Exception as erreur:                                         # noqa: BLE001
+        return f"registre illisible ({type(erreur).__name__})"
+    vivants = [c for c in comptes if c[1] != "cancelled"]
+    return (f"registre : {len(vivants)} place(s) prise(s) sur 3 · "
+            + " · ".join(f"{'/'.join('@' + a for a in al) or '(sans @)'} {st}" for _, st, al in comptes))
+
+
+async def _registre(a: dict, uid: str) -> str:
+    """31/10 : lecture seule — la fiche, l'ordre des comptes, le parcours et le registre d'un clipper (diagnostic d'une retenue)."""
+    import onboarding
+    import parcours
+    fiche = (onboarding._lire_etat().get("clippers") or {}).get(uid) or {}
+    f = parcours._lire().get(uid) or {}
+    dates = f.get("dates") or {}
+    return (f"🔎 {a['prenom']} ({a.get('creatrice', '')}) : fiche {', '.join('@' + str(h) for h in fiche.get('comptes') or []) or 'vide'}"
+            f" · ordre {', '.join('@' + h for h in parcours._comptes_ordonnes(uid)[:3])}"
+            f" · étape {f.get('etape')} · dates {', '.join(sorted(dates))}"
+            f" · retenue {(f.get('retenue') or {}).get('raison', 'aucune')} · {etat_registre(uid)}")
 
 
 async def _attendre_ci(attentes: list) -> list:
@@ -337,6 +367,9 @@ async def appliquer(client, depot: dict) -> list:
                 bilan.append(await _variante(a, uid))
             elif quoi == "aligner":
                 bilan.extend(await _aligner(a, uid, client))
+                bilan.append(f"   {etat_registre(uid)}")
+            elif quoi == "registre":
+                bilan.append(await _registre(a, uid))
             else:
                 bilan.append(f"⚠️ action inconnue : {quoi}")
         except Exception as erreur:                                     # noqa: BLE001 — l'action suivante passe quand même
@@ -361,6 +394,8 @@ async def demarrage(client) -> None:
         return
     await asyncio.sleep(DELAI_S)
     bilan = await appliquer(client, depot)
+    for ligne in bilan:                                                 # 31/10 : le bilan aussi au journal (vérifiable sans Discord)
+        journal.info("Correction %s : %s", ident, str(ligne).replace("\n", " | ")[:900])
     faits[ident] = {"le": datetime.now(timezone.utc).isoformat(timespec="seconds"), "bilan": bilan}
     _deps["ecrire_json"](trace, faits)
     if _deps.get("notifier"):

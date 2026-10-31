@@ -72,14 +72,26 @@ class GroupeTLTests(unittest.TestCase):
     def test_demande_une_seule_fois(self):
         fiches = {"7": {"prenom": "Mavie"}}
         salon = N(send=AsyncMock())
-        tl = N(mention="<@9>")
+        tl = N(mention="<@9>", id=9)
         with patch.object(parcours, "_lire", lambda: fiches), patch.object(parcours, "_ecrire", lambda d: None):
             premier = asyncio.run(parcours.demander_groupe_tl(salon, "7", tl, "Mavie", "Sophie"))
             second = asyncio.run(parcours.demander_groupe_tl(salon, "7", tl, "Mavie", "Sophie"))
         self.assertTrue(premier)
         self.assertFalse(second)
         self.assertEqual(salon.send.await_count, 1)
-        self.assertIn("Gaëtan", salon.send.await_args.args[0])
+        # 31/10 (Gaëtan) : le TL ajoute le nouveau au groupe de clipping de la créatrice ; plus de bouton « Groupe WhatsApp créé »
+        texte = salon.send.await_args.args[0]
+        self.assertIn("Hello <@9> ! Peux-tu ajouter Mavie au groupe général de clipping Team Sophie sur WhatsApp ?", texte)
+        self.assertNotIn("Appuie sur le bouton", texte)
+        self.assertNotIn("view", salon.send.await_args.kwargs)
+        self.assertEqual("demande-tl:9", fiches["7"]["whatsapp_par"])     # ni relance ni « pas de WhatsApp » aux bloqués
+
+    def test_sans_creatrice_connue(self):
+        fiches = {"7": {"prenom": "Mavie"}}
+        salon = N(send=AsyncMock())
+        with patch.object(parcours, "_lire", lambda: fiches), patch.object(parcours, "_ecrire", lambda d: None):
+            asyncio.run(parcours.demander_groupe_tl(salon, "7", N(mention="<@9>", id=9), "Mavie", ""))
+        self.assertIn("groupe général de clipping de sa créatrice sur WhatsApp", salon.send.await_args.args[0])
 
 
 class TLParPrenomTests(unittest.TestCase):

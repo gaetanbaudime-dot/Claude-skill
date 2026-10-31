@@ -1,5 +1,11 @@
 # Bot FAQ Clippers (Discord + Claude)
 
+**31/10, 7 h 50 : arrivée encore simplifiée, le TL ajoute le nouveau au groupe de sa créatrice (Gaëtan : « on active les clippers le plus vite possible… ils arrivent dans le groupe avec tous les autres clippers de leur créatrice »)**
+
+- **Compte 1** : le point 4 dit « Identifiant pas disponible sur Instagram ? Change le point en tiret du bas ou ajoute xo à la fin. Puis écris ici ton @ exact. » (même consigne aux comptes 2 et 3, et dans la remise des @). La ligne des délais : « Ton compte 2 de croissance arrive 48 h après la création du compte 1. Le compte 3, privé avec le lien en bio, 48 h après la création du compte 2. »
+- **Le TL** (`parcours.demander_groupe_tl`) : « Hello @TL ! Peux-tu ajouter X au groupe général de clipping Team <créatrice> sur WhatsApp ? », puis le numéro du clipper et « Ouvre-le dans WhatsApp ». Plus de groupe par clipper, plus de bouton « Groupe WhatsApp créé » (la classe reste branchée pour les anciens messages) : la demande note `whatsapp_par = demande-tl:<id>`, donc ni relance WhatsApp ni « pas de WhatsApp » dans les bloqués. Sans TL, le chemin de Gaëtan ne change pas.
+- **Base de l'assistant v29** ; règle E8 du gel mise à jour dans la page Notion.
+
 **31/10, 7 h 04 : Esperance alignée sur le LOG (Gaëtan : « Résous le problème d'Espérance »)**
 
 - **Le problème** : son compte 3 était retenu toutes les 30 minutes depuis au moins le 29/10 (« Trois places à vie déjà créées, réservées ou incertaines ») et son compte 1 n'était jamais confirmé. Sa fiche portait `@lasoir_` (absent du LOG, libre sur Instagram) alors qu'elle a créé `@lasoir_c`, plus deux essais de privé jamais faits par elle, qui gardaient des places au registre. Le LOG porte ses trois comptes créés.

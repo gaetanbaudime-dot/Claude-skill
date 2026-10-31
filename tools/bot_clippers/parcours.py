@@ -351,7 +351,10 @@ TEXTE_PUBLIER = {1: ("✅ **Ton compte 1 peut publier : 2 Reels par jour.**\n\n"
 # retirée) : une action par message, et la relecture des Reels publiés reste (review_reels).
 # 23/10 : la règle des délais, dite une fois, au compte 1, pour que tout le monde soit sur la même longueur d'onde.
 # 26/10 (Gaëtan) : à la ligne entre les deux délais ; les boutons suivent sans ligne vide.
-LIGNE_48H = "⏳ Ton compte 2 arrive 48 h après la création du compte 1.\nLe compte 3, 48 h après le compte 2."
+# 31/10 (Gaëtan : « Ton compte 2 de croissance arrive 48 heures après la création du compte 1… Le compte 3 privé avec le lien en
+# bio, 48 heures après la création du compte 2 ») : le rôle de chaque compte dit en passant, sur les deux mêmes lignes.
+LIGNE_48H = ("⏳ Ton compte 2 de croissance arrive 48 h après la création du compte 1.\n"
+             "Le compte 3, privé avec le lien en bio, 48 h après la création du compte 2.")
 LIEN_REPORTING = os.environ.get("LIEN_REPORTING", "https://forms.gle/uhPewryox7R4jifv5").strip()   # formulaire du dimanche
 
 
@@ -477,7 +480,10 @@ def titre_etape(fiche_p: dict, n: int) -> str:
 # 09/10 : le bouton « Compte n créé » demande le @ exact (fenêtre ModalPseudo) ; `!pseudo` reste pour corriger après coup
 # 27/10 (Mouhsinou) : plus « ajoute un chiffre ou un point » (le clipper changeait le @ de lui-même) : il garde ce qu'Instagram lui
 # donne et l'écrit ; la fenêtre du bouton n'est plus préremplie (prérempli, on confirme sans voir le point ou le tiret bas)
-PSEUDO_PRIS = "Instagram change ton identifiant, même d'un point ? Garde-le. Quand tu appuies sur ✅, colle ton @ exact."
+# 31/10 (Gaëtan : « Si l'identifiant n'est pas disponible sur Instagram, change le point en tiret du bas ou rajoute XO à la fin et
+# écris ici ton arobase exact ») : la même consigne que les variantes du 30/10, aux comptes 2 et 3 comme au compte 1.
+PSEUDO_PRIS = ("Identifiant pas disponible sur Instagram ? Change le point en tiret du bas ou ajoute xo à la fin. "
+               "Quand tu appuies sur ✅, colle ton @ exact.")
 # 09/10 (Gaëtan : « Saute des lignes, aère ») : une ligne vide entre chaque paragraphe ; la liste du compte 1 reste d'un bloc.
 CREATION = ("1. Instagram → Créer un compte → avec cet e-mail.\n"
             "2. {codes}\n"
@@ -2700,10 +2706,12 @@ class BoutonGroupeTL(discord.ui.DynamicItem[discord.ui.Button], template=r"watl:
 # 23/10 (Gaëtan : « on mentionne le team leader, on lui demande de créer le groupe WhatsApp, on affiche le numéro du clipper qu'il a
 # rentré : le TL crée le groupe avec moi dedans et le clipper ») : le numéro donné par le clipper à sa liaison, tel quel. Pas de
 # parenthèses ni de tirets : une phrase, une action.
-TEXTE_GROUPE_TL = ("\u200b\n\u200b\n👥 {tl} : crée le groupe WhatsApp de {prenom} pour {creatrice}.\n\n"
-                   "Mets-y {prenom}, Gaëtan et toi.\n\n"
-                   "{ligne_tel}\n\n"
-                   "Groupe créé ? Appuie sur le bouton.")
+# 31/10 (Gaëtan : « Hello Mathieu… est-ce que tu peux ajouter le clipper dans le groupe général de clipping dans Team Sophie sur
+# WhatsApp ? Mets le numéro du clipper… Enlève le bouton Groupe WhatsApp créé et garde le Ouvre-le dans WhatsApp ») : plus de groupe
+# par clipper, le nouveau rejoint le groupe de clipping de sa créatrice (un pod : le TL et ses clippers, Gaëtan dedans). Plus de bouton :
+# la demande au TL suffit (`whatsapp_par` = « demande-tl:<id du TL> », ni relance ni « pas de WhatsApp » dans les bloqués).
+TEXTE_GROUPE_TL = ("\u200b\n\u200b\n👥 Hello {tl} ! Peux-tu ajouter {prenom} au groupe général de clipping Team {creatrice} sur WhatsApp ?\n\n"
+                   "{ligne_tel}")
 
 
 def tel_du_clipper(uid) -> str:
@@ -2737,12 +2745,11 @@ async def demander_groupe_tl(salon, uid: str, tl, prenom: str, creatrice: str) -
             return False
         fiche_p["groupe_tl_demande"] = _maintenant()
         _ecrire(d)
-        vue = discord.ui.View(timeout=None)
-        vue.add_item(BoutonGroupeTL(str(uid)))
         nom = prenom or "ce clipper"
-        await salon.send(TEXTE_GROUPE_TL.format(tl=tl.mention, prenom=nom, creatrice=creatrice or "sa créatrice",
-                                                ligne_tel=ligne_tel_tl(nom, tel_du_clipper(uid))),
-                         view=vue)
+        await salon.send(TEXTE_GROUPE_TL.format(tl=tl.mention, prenom=nom, creatrice=creatrice or "",
+                                                ligne_tel=ligne_tel_tl(nom, tel_du_clipper(uid))).replace("Team  sur", "de sa créatrice sur"))
+        if not (_lire().get(str(uid)) or {}).get("whatsapp"):            # 31/10 : plus de bouton, la demande au TL vaut groupe
+            marquer_whatsapp(str(uid), par=f"demande-tl:{getattr(tl, 'id', '')}")
         return True
     except Exception as erreur:                                         # noqa: BLE001
         journal.warning("Demande de groupe au TL pour %s : %s", uid, type(erreur).__name__)
