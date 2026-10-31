@@ -22,6 +22,18 @@ tags: [contexte/coaching]
 
 ## Décisions prises
 
+### 2026-10-31 — Pas de ×10 sur le recrutement : ×2 jusqu'au 17/11, quatre portes avant d'ouvrir
+
+> [!tip] Verdict
+> Le recrutement n'est pas le goulot : sur 21 qualifiés d'octobre, 15 créent leur compte 1, 4 ont leurs 3 comptes et 2 tiennent une journée. Le ×10 remplirait les ~10 places encadrées en un jour et demi et fabriquerait ~190 inactifs par mois. ×2 (10 qualifiés par semaine) jusqu'au 17/11, effort sur les comptes 2-3 et la cadence.
+
+- **Question de Gaëtan (31/10)** : « refais un audit complet… si je peux vraiment faire 10 x sur le recrutement », plus un rapport de vitesse (leads, qualifiés, quiz).
+- **Constat chiffré (30 jours)** : leads uniques plats à 3 par jour (45 puis 47 par quinzaine) ; qualifiés ×6 (3 puis 18 par quinzaine) ; quiz réussi à 69 % (80 % sur 14 jours) ; compte 1 en 2 jours médians (12 au 24/10) ; 3 comptes en ~10 jours au lieu de ~5 ; 6 clippers tiennent une journée.
+- **Portes du ×10** : activation ≥ 30 % des qualifiés d'une semaine sous 14 jours (~10 % aujourd'hui) ; un TL nommé par tranche de 10 entrants ; 7 jours sans étape bloquée plus de 12 h ; 3 semaines de stock d'avance par créatrice ouverte.
+- **Avocat du diable** : plus de leads = plus de très bons clippers (1 pour 18 candidatures Discord). Jouable seulement avec un filtre dur au milieu (« 0 Reel en 7 jours = sortie », pas encore en service).
+- **Esperance** : compte 3 retenu deux jours par le registre (« Trois places à vie ») à cause d'un @ mal tapé et de deux essais de privé dans sa fiche ; alignée sur le LOG, et toute étape retenue plus de 12 h s'affiche désormais au salon admin.
+- **Prédiction (31/10, revue le 27/11)** : sans changement sur les comptes 2 et 3, moins de 15 % des qualifiés arrivés du 31/10 au 13/11 auront tenu une journée au 27/11 (confiance 65 %). Au-dessus de 30 %, le ×3 à ×5 s'ouvre dès le 27/11.
+
 ### 2026-10-30 (suite, 10 h 59) — Un « Sorti » du Cockpit rend tout seul ses lignes au stock
 
 > [!tip] Verdict
