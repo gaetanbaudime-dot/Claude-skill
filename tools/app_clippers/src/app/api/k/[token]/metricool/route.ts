@@ -17,7 +17,8 @@ export async function GET(req: NextRequest, { params }: Contexte) {
         NextResponse.json({ erreur: "Connexion indisponible : recharge tes comptes ou demande à l’agence de renouveler le lien." }, { status: 403, headers });
     }
     return NextResponse.json({ comptes: await etatsMetricool(c.cle) }, { headers });
-  } catch {
+  } catch (e) {
+    console.warn("metricool :", (e as Error).message);                // 31/10 : la cause d'un 503 se lit dans les journaux Vercel
     return NextResponse.json({ erreur: "Metricool est momentanément indisponible." }, { status: 503, headers });
   }
 }
