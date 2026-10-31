@@ -50,7 +50,7 @@
       "label": "Où as-tu vu notre annonce ?",
       "type": "text",
       "requis": true,
-      "aide": "Le nom du groupe Telegram ou du serveur Discord, Indeed, Instagram, TikTok, ou le prénom de l'ami qui t'en a parlé."
+      "aide": "Le nom du groupe Telegram ou du serveur Discord, ou le prénom de l'ami qui t'en a parlé."
     },
     {
       "id": "whatsapp",
