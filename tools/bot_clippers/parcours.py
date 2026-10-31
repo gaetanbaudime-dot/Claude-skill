@@ -1396,6 +1396,16 @@ class ModalPseudo(discord.ui.Modal):
                 await interaction.followup.send(f"✅ Noté : ton compte {self.n} est `{saisi}`. Je le suis sous ce nom.", ephemeral=True)
             except (discord.Forbidden, discord.HTTPException):
                 pass
+        # 31/10 (Gaëtan : « ne juge que la création du compte Instagram par le scrapping RapidAPI ») : l'appui ne ferme l'étape que si
+        # Instagram montre le compte ; sinon le clipper le sait, et le suivi des créations le revérifie dans l'heure
+        import suivi_creation
+        ok, refus = await suivi_creation.confirmer(self.uid, self.n, saisi)
+        if not ok:
+            try:
+                await interaction.followup.send(refus, ephemeral=True)
+            except (discord.Forbidden, discord.HTTPException):
+                pass
+            return
         if not await valider_etape(interaction.channel, self.uid, self.n, par=self.uid, creation=True):
             try:
                 await interaction.followup.send("Ce bouton n'est plus valable. Suis le dernier message de ton salon 🙂", ephemeral=True)
@@ -3871,6 +3881,14 @@ async def boucle(client) -> None:
                 await programme_du_jour(client)                         # 30/09 : « il peut publier », compte suivant à 48 h
             except Exception as erreur:                                 # noqa: BLE001
                 journal.warning("Programme du parcours : %s", erreur)
+            try:                                                        # 31/10 : les @ remis, regardés sur Instagram (RapidAPI)
+                import suivi_creation
+                await suivi_creation.passage(client)
+                if horaire:
+                    await suivi_creation.relances(client)
+                    await suivi_creation.surveiller_cle()
+            except Exception as erreur:                                 # noqa: BLE001
+                journal.warning("Suivi des créations : %s", erreur)
             if not horaire:                                             # 10/10 : tour léger, rien d'autre
                 await asyncio.sleep(TICK_MIN * 60)
                 continue
@@ -4814,6 +4832,19 @@ def correspondances(ecrits: list, comptes: list) -> list:
     return out
 
 
+async def _vu_sur_instagram(uid, n: int, handle: str) -> bool:
+    """31/10 (Gaëtan : « ne juge que la création du compte Instagram par le scrapping RapidAPI ») : un @ écrit par le clipper ne
+    ferme son étape que si Instagram montre le compte (suivi_creation.confirmer) ; sinon le suivi des créations le revérifie et
+    ferme l'étape dès qu'il le voit."""
+    try:
+        import suivi_creation
+        ok, _ = await suivi_creation.confirmer(str(uid), int(n), handle)
+        return bool(ok)
+    except Exception as erreur:                                         # noqa: BLE001 — dans le doute, le suivi s'en charge
+        journal.warning("Compte %s de %s : vérification Instagram impossible (%s)", n, uid, type(erreur).__name__)
+        return False
+
+
 async def _appliquer_pseudo(salon, uid: str, n: int, prevu: str, reel: str, preuve: str) -> str:
     """Le compte n passe à `reel` (renommer, comme `!pseudo`), puis, preuve à l'appui, l'étape est notée créée : un lien vers le
     profil prouve qu'il existe ; une étape déjà dépassée (compte 2 parti à 48 h sans « ✅ Compte 1 créé ») est notée créée dès que
@@ -4823,7 +4854,8 @@ async def _appliquer_pseudo(salon, uid: str, n: int, prevu: str, reel: str, preu
         return raison
     fiche_p = _lire().get(str(uid)) or {}
     etape = int(fiche_p.get("etape", 0) or 0)
-    if salon is not None and not _cree(fiche_p, n) and (n < etape or (n == etape and preuve == "lien")):
+    if salon is not None and not _cree(fiche_p, n) and (n < etape or (n == etape and preuve == "lien")) \
+            and await _vu_sur_instagram(uid, n, reel):
         try:
             await valider_etape(salon, str(uid), int(n), par=str(uid), creation=True)
         except Exception as erreur:                                     # noqa: BLE001 — le @ est déjà corrigé
@@ -4893,7 +4925,7 @@ async def _repondre_demande(salon, uid: str, n: int, demande: dict, h: str, preu
         _ecrire(d)
     fiche_p = _lire().get(uid) or {}
     etape = int(fiche_p.get("etape", 0) or 0)
-    if salon is not None and not _cree(fiche_p, n) and (n < etape or preuve == "lien"):
+    if salon is not None and not _cree(fiche_p, n) and (n < etape or preuve == "lien") and await _vu_sur_instagram(uid, n, h):
         try:
             await valider_etape(salon, uid, n, par=uid, creation=True)
         except Exception as erreur:                                     # noqa: BLE001
