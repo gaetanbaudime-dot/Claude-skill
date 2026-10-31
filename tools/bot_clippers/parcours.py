@@ -1627,15 +1627,22 @@ async def _ligne_du_compte(salon, membre, uid: str, n: int) -> bool:
     manque = False
     if tient < n:
         creatrice = fiche_p.get("creatrice") or _onb(uid).get("creatrice") or ""
-        try:
-            for i in range(tient + 1, n + 1):                           # le compte n (et un compte d'avant resté sans ligne)
-                if await onboarding.reserver_compte(membre, creatrice, i, salon=salon, prive=i == n_prive(fiche_p)) is None:
-                    manque = True
-                    break
-        except Exception as erreur:                                     # noqa: BLE001 — classeur illisible : on réessaie
-            journal.warning("Ligne du compte %s de %s : %s, nouvel essai au tour suivant", n, uid, erreur)
-            _garder_au_programme(uid, n)
-            return False
+        for essai in (1, 2):
+            try:
+                tient = len([h for h in _onb(uid).get("comptes") or [] if h])
+                for i in range(tient + 1, n + 1):                       # le compte n (et un compte d'avant resté sans ligne)
+                    if await onboarding.reserver_compte(membre, creatrice, i, salon=salon, prive=i == n_prive(fiche_p)) is None:
+                        manque = True
+                        break
+                break
+            except Exception as erreur:                                 # noqa: BLE001 — classeur illisible : on réessaie
+                # 31/10 : historique jamais rapproché → repris d'après ce que le bot connaît, puis un second essai tout de suite
+                if essai == 1 and await reprise_si_historique(uid, fiche_p.get("prenom") or _prenom(membre), erreur,
+                                                              f"le compte {n}"):
+                    continue
+                journal.warning("Ligne du compte %s de %s : %s, nouvel essai au tour suivant", n, uid, erreur)
+                _garder_au_programme(uid, n)
+                return False
     if not manque:
         d = _lire()
         if uid in d and d[uid].pop("ligne_attendue", None) is not None:
@@ -1792,7 +1799,13 @@ async def envoyer_etape(salon, membre, n: int, pointer: bool = True) -> bool:
         # (ou repris) à l'ouverture de son étape, pour être dans sa bio dès son profil, puis donné à l'étape 6. 08/10 : le compte
         # privé est le 2 pour les nouveaux parcours.
         try:
-            await _deps["attribuer_lien"](membre)
+            try:
+                await _deps["attribuer_lien"](membre)
+            except Exception as erreur_l:                               # noqa: BLE001
+                # 31/10 (« ils n'ont pas le lien ») : historique jamais rapproché → repris, puis un second essai tout de suite
+                if not await reprise_si_historique(uid, fiche_lien.get("prenom") or _prenom(membre), erreur_l, "le lien"):
+                    raise
+                await _deps["attribuer_lien"](membre)
         except Exception as erreur:                                     # noqa: BLE001 — sans lien, l'étape part quand même
             journal.warning("Lien GAML pour %s à l'étape %s : %s", uid, n, erreur)
             return False
@@ -3523,7 +3536,8 @@ VETERAN_H = 7 * 24
 HISTO_NON_RAPPROCHE = "Historique à vie non rapproché"
 
 
-def _reprendre_historique(uid: str, prenom: str, classeur: dict) -> bool:
+def _reprendre_historique(uid: str, prenom: str, classeur: dict, source: str = "regle-gaetan-24/10-compte2-48h",
+                          par: str = "bot (décision de Gaëtan, 24/10)", pour: str = "le compte 2") -> bool:
     """24/10 : `!reprise` sans relance du parcours (reprise_ancien.reprendre) : les @ connus du bot pour ce clipper, ceux encore
     « à créer » à son nom comptés réservés. Faux si refusé (départ enregistré, provenance) : revue humaine."""
     import reprise_ancien
@@ -3532,13 +3546,48 @@ def _reprendre_historique(uid: str, prenom: str, classeur: dict) -> bool:
         a_creer = {h for h in handles if onboarding._norm((classeur.get(onboarding._cle_handle(h)) or {}).get("etat", "")).strip()
                    in onboarding.A_CREER}
         bilan_r = reprise_ancien.reprendre(onboarding.process_adapters.store(), uid, handles,
-                                           {"source": "regle-gaetan-24/10-compte2-48h", "par": "bot (décision de Gaëtan, 24/10)",
-                                            "date": _maintenant()}, a_creer)
+                                           {"source": source, "par": par, "date": _maintenant()}, a_creer)
     except Exception as erreur:                                         # noqa: BLE001 — Bloque compris : un humain tranche
         journal.warning("Historique de %s (%s) non repris : %s", prenom, uid, erreur)
         return False
-    journal.info("Historique de %s (%s) repris pour le compte 2 : %s compte(s) connu(s) sur 3", prenom, uid, bilan_r.get("comptes"))
+    journal.info("Historique de %s (%s) repris pour %s : %s compte(s) connu(s) sur 3", prenom, uid, pour, bilan_r.get("comptes"))
     return True
+
+
+REPRISE_AUTO_H = 6
+REGISTRE_REPRISE = ("Historique à vie non rapproché", "Création sans réservation valide")
+
+
+async def reprise_si_historique(uid: str, prenom: str, erreur, pour: str) -> bool:
+    """31/10 (Gaëtan : « Gère le problème entre le compte un et les comptes deux et trois… ils n'ont pas le lien » ; au passage de
+    8 h, comptes 3, liens et créations retenus en boucle par « Historique à vie non rapproché ») : la décision de Gaëtan du 24/10
+    (« tous ceux qui sont bloqués… tu leur donnes ») vaut aussi pour le compte 3, le lien et la création notée : l'historique est
+    écrit d'après ce que le bot connaît (additif, ses comptes comptent dans ses trois places), puis l'appelant retente une fois.
+    Au plus une reprise toutes les REPRISE_AUTO_H heures par clipper (jamais en boucle). Vrai si l'historique vient d'être repris."""
+    if not any(m in str(erreur) for m in REGISTRE_REPRISE):
+        return False
+    uid = str(uid)
+    d = _lire()
+    f = d.get(uid)
+    if not isinstance(f, dict):
+        return False
+    try:
+        dernier = datetime.fromisoformat(str(f.get("reprise_auto") or ""))
+        dernier = dernier if dernier.tzinfo else dernier.replace(tzinfo=timezone.utc)
+        if datetime.now(timezone.utc) - dernier < timedelta(hours=REPRISE_AUTO_H):
+            return False
+    except ValueError:
+        pass
+    f["reprise_auto"] = _maintenant()
+    _ecrire(d)
+    try:
+        classeur = {onboarding._cle_handle(c.get("handle")): c for c in await onboarding.lire_comptes() if c.get("handle")}
+    except Exception as e_c:                                            # noqa: BLE001 — classeur illisible : tour suivant
+        journal.info("Reprise de l'historique de %s : classeur illisible (%s)", uid, type(e_c).__name__)
+        return False
+    return _reprendre_historique(uid, prenom or uid, classeur, source="regle-gaetan-31/10-comptes-2-3-lien",
+                                 par="bot (Gaëtan, 31/10 : « gère le problème entre le compte un et les comptes deux et trois »)",
+                                 pour=pour)
 
 
 async def forcer_comptes2(client, maintenant=None) -> list:
@@ -3853,12 +3902,31 @@ async def _classeur_etat(uid: str, n: int) -> None:
     comptes = _comptes_ordonnes(uid)                                    # 01/10 : le même ordre que l'étape envoyée
     prive_n = n == n_prive(_lire().get(str(uid)) or {})
     for h in comptes[n - 1:n]:
+        # 31/10 : le registre et le LOG chacun de son côté — un registre qui refuse (« Création sans réservation valide ») ne laisse
+        # plus le LOG « à créer » sur un compte créé ; historique jamais rapproché → repris, puis la création notée à nouveau
         try:
             # 05/10 : le compte privé ne chauffe pas (08/10 : le 2) ; 12/10 : plus de WARMUP au classeur (ETAT_WARMUP=1 : l'ancien)
             onboarding.process_adapters.store().created(uid, h, "confirmation-parcours:" + _maintenant())
-            await marquer(h, "GOOD")  # privé est le type du compte, pas sa santé
         except Exception as erreur:
-            journal.warning("Classeur étape %s de %s : %s", n, uid, erreur)
+            repris = await reprise_si_historique(uid, (_lire().get(str(uid)) or {}).get("prenom") or "", erreur,
+                                                 f"la création du compte {n}")
+            try:
+                if not repris:
+                    raise erreur
+                onboarding.process_adapters.store().created(uid, h, "confirmation-parcours:" + _maintenant())
+            except Exception as erreur2:                                # noqa: BLE001
+                journal.warning("Classeur étape %s de %s : %s", n, uid, erreur2)
+        try:
+            proprietaire = onboarding.process_adapters.store().owner_for_handle(h)
+        except Exception:                                               # noqa: BLE001 — registre illisible : le LOG suit
+            proprietaire = None
+        if proprietaire not in (None, str(uid)):
+            journal.warning("Classeur étape %s de %s : @%s est à un autre clipper au registre, LOG pas touché", n, uid, h)
+            continue
+        try:
+            await marquer(h, "GOOD")  # privé est le type du compte, pas sa santé
+        except Exception as erreur:                                     # noqa: BLE001
+            journal.warning("Classeur étape %s de %s (LOG) : %s", n, uid, erreur)
 
 
 TICK_MIN = max(1, int(os.environ.get("PARCOURS_TICK_MIN", "10") or 10))

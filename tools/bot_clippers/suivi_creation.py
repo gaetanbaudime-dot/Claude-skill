@@ -268,11 +268,21 @@ async def _marquer_log(uid: str, h: str) -> None:
     import parcours
     registre = onboarding.process_adapters.store()
     try:
-        if registre.owner_for_handle(h) is None:
+        proprietaire = registre.owner_for_handle(h)
+        if proprietaire not in (None, str(uid)):
+            journal.warning("Registre : @%s est à un autre clipper, ni registre ni LOG touchés", h)
+            return
+        if proprietaire is None:
             registre.reserve(uid, [h])
         registre.created(uid, h, "vu-sur-instagram-rapidapi:" + parcours._maintenant())
     except Exception as erreur:                                         # noqa: BLE001 — le LOG suit quand même
-        journal.info("Registre, création de %s : %s", h, erreur)
+        if await parcours.reprise_si_historique(uid, "", erreur, f"@{h} vu sur Instagram"):
+            try:
+                registre.created(uid, h, "vu-sur-instagram-rapidapi:" + parcours._maintenant())
+            except Exception as erreur2:                                # noqa: BLE001
+                journal.info("Registre, création de %s : %s", h, erreur2)
+        else:
+            journal.info("Registre, création de %s : %s", h, erreur)
     marquer = parcours._deps.get("marquer_etat")
     if marquer is not None:
         try:
