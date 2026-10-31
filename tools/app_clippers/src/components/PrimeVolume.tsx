@@ -10,6 +10,7 @@ import { couleurCompte } from "./MaSemaine";
 const fmt = (n: number) => new Intl.NumberFormat("fr-FR").format(n);
 const dec = (n: number) => n.toLocaleString("fr-FR", { maximumFractionDigits: 1 });
 const MAX_JAUGE = 10;
+const MAX_PAR_JOUR = 20;                                               // au-delà, un palier n'est plus atteignable sur la période
 const jourFin = (j: string) => { const d = new Date(j + "T12:00:00Z"); return `${d.getUTCDate()} ${MOIS_COURTS[d.getUTCMonth()]}`; };
 const reelsTxt = (n: number) => `${dec(n)} Reel${n >= 2 ? "s" : ""}`;
 
@@ -20,8 +21,8 @@ function planCompte(c: CadenceCompte, r: ReelsPrime, cible: number): { texte: st
   const besoin = rythmeNecessaire(c.reels, r.totalJours, r.joursRestants, cible);
   if (besoin === null) return null;
   if (besoin === 0) return { texte: `${cible} / jour assurés sur cette période`, ton: "ok" };
-  if (besoin > 20) return { texte: `${cible} / jour n'est plus atteignable d'ici le ${jourFin(r.fin)}`, ton: "perdu" };
-  if (besoin <= c.moyenne) return { texte: `Garde ton rythme : ${reelsTxt(besoin)} par jour suffisent jusqu'au ${jourFin(r.fin)}`, ton: "ok" };
+  if (besoin > MAX_PAR_JOUR) return { texte: `${cible} / jour n'est plus atteignable d'ici le ${jourFin(r.fin)}`, ton: "perdu" };
+  if (besoin <= c.moyenne) return { texte: `Garde ton rythme : ${reelsTxt(besoin)} par jour ${besoin >= 2 ? "suffisent" : "suffit"} jusqu'au ${jourFin(r.fin)}`, ton: "ok" };
   return { texte: `Publie ${reelsTxt(besoin)} par jour jusqu'au ${jourFin(r.fin)} pour finir à ${cible} / jour`, ton: "effort" };
 }
 
@@ -88,7 +89,7 @@ export default function PrimeVolume({ jeton, clics, libelle }: { jeton: string; 
               {(() => {
                 const p = plans.find((x) => x.c.handle === c.handle)?.plan;
                 return p ? <div className={`text-[12px] mt-1.5 leading-snug ${p.ton === "ok" ? "text-emerald-300" : p.ton === "perdu" ? "text-argent2" : "text-white"}`}>
-                  {p.ton === "ok" ? "✅ " : p.ton === "effort" ? "🎯 " : ""}{p.texte}</div> : null;
+                  {p.ton === "ok" ? "💪 " : p.ton === "effort" ? "🎯 " : ""}{p.texte}</div> : null;
               })()}
             </div>
           ))}
@@ -105,7 +106,17 @@ export default function PrimeVolume({ jeton, clics, libelle }: { jeton: string; 
             </div>
             <div className={`text-[11.5px] mt-0.5 ${p.atteint ? "text-emerald-300" : "text-argent2"}`}>
               {p.atteint ? "Atteint à ce jour" : (() => {
-                const manque = [...manqueCompte(p.reels), clics !== null && !p.okClics ? `${fmt(p.manqueClics)} clics` : ""].filter(Boolean);
+                const clicsManque = clics !== null && !p.okClics ? `${fmt(p.manqueClics)} clics de plus` : "";
+                // 31/10 : le rythme à tenir sur chaque compte jusqu'à la fin de la période (l'écart de moyenne à ce jour s'il est fini)
+                if (r && r.joursRestants > 0 && deux.length) {
+                  const besoins = deux.filter((c) => c.moyenne !== null)                 // un compte suspendu compte aussi, à 0
+                    .map((c) => ({ c, b: rythmeNecessaire(c.reels, r.totalJours, r.joursRestants, p.reels) ?? 0 }));
+                  if (besoins.some((x) => x.b > MAX_PAR_JOUR)) return "Plus atteignable sur cette période";
+                  const parts = besoins.filter((x) => x.b > 0).map((x) => `compte ${x.c.rang} → ${reelsTxt(x.b)} par jour`);
+                  const tout = [...parts, clicsManque].filter(Boolean);
+                  return tout.length ? `D'ici le ${jourFin(r.fin)} : ${tout.join(", ")}` : "À suivre";
+                }
+                const manque = [...manqueCompte(p.reels), clicsManque].filter(Boolean);
                 return manque.length ? `Il manque ${manque.join(", ")}` : "À suivre";
               })()}
             </div>
@@ -116,16 +127,6 @@ export default function PrimeVolume({ jeton, clics, libelle }: { jeton: string; 
       <div className="mt-3 rounded-2xl p-3 text-[13px]" style={{ background: atteint ? "rgba(52,211,153,0.10)" : "rgba(122,167,255,0.09)" }}>
         <div className="font-semibold">{atteint ? `Si la période finissait hier : +${atteint.bonus} $ en plus de tes clics.`
           : prochain ? `Premier objectif : ${prochain.reels} Reels par jour sur chaque compte et ${fmt(prochain.clics)} clics.` : ""}</div>
-        {cible && plans.some((x) => x.plan && x.plan.ton === "effort") ? (
-          <div className="mt-1.5 text-argent2 leading-snug">
-            Pour {cible.emoji} +{cible.bonus} $ d'ici le {jourFin(r!.fin)} :{" "}
-            {plans.filter((x) => x.plan).map((x) => {
-              const b = rythmeNecessaire(x.c.reels, r!.totalJours, r!.joursRestants, cible.reels) || 0;
-              return b === 0 ? `compte ${x.c.rang} déjà assuré` : `compte ${x.c.rang} → ${reelsTxt(b)} par jour`;
-            }).join(", ")}
-            {clics !== null && clics < cible.clics ? `, et ${fmt(cible.clics - clics)} clics de plus` : ""}.
-          </div>
-        ) : null}
       </div>
       <p className="text-[11px] text-argent2/80 mt-2 leading-relaxed">Un clip différent sur chaque compte. Comptes en règle. Reels relevés 3 fois par jour sur Instagram. La prime est validée par l'agence à la fin de la période.</p>
     </div>

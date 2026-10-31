@@ -52,7 +52,11 @@ export default function ReelsVuesClics({ c, fixe = false }: { c: Correlation; fi
         <div><div className="text-[22px] font-bold tabular-nums leading-none" style={{ color: VERT_CLICS }}>{c.clics !== null ? fmt(c.clics) : "–"}</div><div className="text-[11px] text-argent2 mt-1">{fixe ? "clics" : "clics payés"}</div></div>
       </div>
 
-      {c.vuesParReel !== null || c.clicsParReel !== null ? (
+      {c.reels > 0 && c.clics === 0 ? (
+        <p className="text-[13px] mt-3 leading-snug rounded-xl px-3 py-2 bg-amber-400/10 text-amber-200">
+          Aucun clic sur 14 jours. Vérifie que ton lien est bien en place sur ton compte privé : sans lien, tes vues ne rapportent rien.
+        </p>
+      ) : (c.vuesParReel || c.clicsParReel) ? (
         <p className="text-[13.5px] mt-3 leading-snug">
           Un Reel t'apporte en moyenne{" "}
           {c.vuesParReel !== null ? <b style={{ color: AMBRE }}>{fmt(c.vuesParReel)} vues</b> : null}

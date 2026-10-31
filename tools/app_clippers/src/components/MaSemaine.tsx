@@ -50,7 +50,11 @@ export default function MaSemaine({ s, fixe = false }: { s: Semaine; fixe?: bool
         <Tuile titre="Clics" valeur={s.clics !== null ? fmt(s.clics) : "–"}
                sous={s.clics === null ? "Pas encore relevés" : fixe ? "Visites francophones, pour info" : `Payés, soit ${usd(s.clics)} $`} />
       </div>
-      {s.parJour ? (
+      {s.parJour && s.reels === 0 ? (
+        <div className="mt-4 rounded-2xl px-3 py-3 text-[13px] text-argent2 leading-snug" style={{ background: "rgba(255,255,255,0.04)" }}>
+          Aucun Reel publié ces 7 derniers jours {surComptes}. Ton prochain Reel relance ta cadence.
+        </div>
+      ) : s.parJour ? (
         <div className="mt-4" role="img" aria-label={`Reels publiés chaque jour ${surComptes}, et clics du jour`}>
           <div className="grid grid-cols-7 gap-1.5 items-end" style={{ height: 96 }}>
             {s.jours.map((j) => {
