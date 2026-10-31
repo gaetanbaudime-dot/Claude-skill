@@ -40,7 +40,8 @@ export async function GET(_req: Request, { params }: { params: { token: string }
       for (const k of personnel.clics) if (k.axe === "Horizontal" && k.source === "Clipper") clicsParJour[k.jour] = (clicsParJour[k.jour] || 0) + k.visites;
     }
     const sem = semaine(comptes, jour, clicsParJour);
-    const lien = correlation(comptes, jour, clicsParJour, 14);         // 31/10 : Reels → vues → clics sur 14 jours
+    // 31/10 : les vues jour par jour des mêmes 7 jours, pour la rangée « Vues » de Ma semaine (une seule carte depuis « simplifie à mort »)
+    const lien = correlation(comptes, jour, clicsParJour, 7);
     // 28/10 : au fixe, ses clics ne sont pas payés (« Ma semaine » ne dit plus « Payés, soit … $ »)
     return NextResponse.json({ comptes, tl: m.tl, demandes, pilotage: personnel, semaine: sem, correlation: lien, fixe: regime?.regime === "fixe" }, { headers: ENTETES });
   } catch (e) {

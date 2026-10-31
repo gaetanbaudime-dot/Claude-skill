@@ -1,8 +1,11 @@
 "use client";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { signaler } from "@/lib/signal";
 import PrimeVolume from "./PrimeVolume";
+
+/** 31/10 (Gaëtan : « simplifie à mort, il y a trop de texte ») : le montant, la jauge de la période avec la date du versement,
+ *  aujourd'hui et hier ; la prime ; le lien ; l'adresse. Le graphique des visites par jour est parti (les clics jour par jour sont
+ *  dans Ma semaine), comme la pastille « Payé le 5 et le 20 » et l'encart « Prochain versement », qui redisaient le montant. */
 
 type Jour = { jour: string; visites: number; complet: boolean };
 type Bloc = { debut: string; fin: string; paie: string; libelle: string; libellePaie: string; visites: number; montant: number; complet: boolean };
@@ -25,7 +28,6 @@ const fmtNb = (n: number) => new Intl.NumberFormat("fr-FR").format(n);
 /** « 130 $ » quand c'est rond, « 130,45 $ » sinon ; toujours deux décimales si `exact`. */
 const fmtUsd = (n: number, exact = false) => `${n.toLocaleString("fr-FR", { minimumFractionDigits: exact || !Number.isInteger(n) ? 2 : 0, maximumFractionDigits: 2 })} $`;
 const jourCourt = (j: string) => { const d = new Date(j + "T12:00:00Z"); return `${d.getUTCDate()}/${String(d.getUTCMonth() + 1).padStart(2, "0")}`; };
-const compact = (v: number) => (Math.abs(v) >= 1000 ? `${(v / 1000).toLocaleString("fr-FR", { maximumFractionDigits: 1 })} k` : `${Math.round(v)}`);
 
 function Compteur({ valeur, format }: { valeur: number; format: (n: number) => string }) {
   const [affiche, setAffiche] = useState(0);
@@ -38,18 +40,6 @@ function Compteur({ valeur, format }: { valeur: number; format: (n: number) => s
     return () => cancelAnimationFrame(id);
   }, [valeur]);
   return <>{format(affiche)}</>;
-}
-
-function Infobulle({ active, payload, label, taux }: { active?: boolean; payload?: { value: number }[]; label?: string; taux: number }) {
-  if (!active || !payload?.length) return null;
-  const v = payload[0].value ?? 0;
-  return (
-    <div className="carte px-3 py-2 text-[12px]" style={{ borderRadius: 12 }}>
-      <div className="text-argent2 mb-1">{label}</div>
-      <div className="font-semibold">{fmtNb(v)} visite{v > 1 ? "s" : ""}</div>
-      <div className="text-emerald-300 mt-0.5">{fmtUsd(Math.round(v * taux * 100) / 100, true)}</div>
-    </div>
-  );
 }
 
 /** L'adresse USDC (ERC-20) du clipper, sous son lien (08/10, Gaëtan) : c'est là que partent les virements du 5 et du 20.
@@ -75,9 +65,9 @@ function AdresseUsdc({ jeton }: { jeton: string }) {
     try {
       const r = await fetch(`/api/k/${jeton}/adresse`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ adresse: saisie.trim() }) });
       const d = (await r.json()) as { ok?: boolean; adresse?: string; majLe?: string; erreur?: string };
-      if (r.ok && d.ok && d.adresse) { setEnregistree({ adresse: d.adresse, majLe: d.majLe || "" }); setEdition(false); setSaisie(""); setMessage({ texte: "Adresse enregistrée. Tes prochains versements partent dessus.", ok: true }); signaler(jeton, "adresse:enregistree"); }
-      else setMessage({ texte: d.erreur || "Enregistrement impossible pour l'instant, réessaie dans une minute.", ok: false });
-    } catch { setMessage({ texte: "Enregistrement impossible pour l'instant, réessaie dans une minute.", ok: false }); }
+      if (r.ok && d.ok && d.adresse) { setEnregistree({ adresse: d.adresse, majLe: d.majLe || "" }); setEdition(false); setSaisie(""); setMessage({ texte: "Enregistrée ✓", ok: true }); signaler(jeton, "adresse:enregistree"); }
+      else setMessage({ texte: d.erreur || "Pas enregistrée, réessaie dans une minute.", ok: false });
+    } catch { setMessage({ texte: "Pas enregistrée, réessaie dans une minute.", ok: false }); }
     setEnvoi(false);
   };
   const formulaire = (
@@ -85,7 +75,7 @@ function AdresseUsdc({ jeton }: { jeton: string }) {
       <input value={saisie} onChange={(e) => setSaisie(e.target.value)} placeholder="0x…" inputMode="text" autoCapitalize="none" autoCorrect="off" spellCheck={false}
              className="w-full rounded-2xl px-3 py-3 text-[14px] font-semibold tabular-nums outline-none" style={{ background: "rgba(255,255,255,0.06)", border: `1px solid ${saisie && !valide ? "rgba(255,138,154,0.6)" : "rgba(255,255,255,0.08)"}` }} />
       <div className="flex items-center justify-between gap-3 mt-2">
-        <span className="text-[11px] text-argent2 leading-snug">{saisie && !valide ? "Elle doit commencer par 0x et faire 42 caractères." : "Réseau Ethereum (ERC-20) uniquement."}</span>
+        <span className="text-[11px] text-argent2 leading-snug">{saisie && !valide ? "0x suivi de 40 caractères" : ""}</span>
         <div className="flex gap-2 shrink-0">
           {enregistree && <button onClick={() => { setEdition(false); setSaisie(""); setMessage(null); }} className="text-[12px] font-bold text-argent2 px-3 py-2 rounded-xl" style={{ background: "rgba(255,255,255,0.05)" }}>Annuler</button>}
           <button onClick={enregistrer} disabled={!valide || envoi} className="text-[12px] font-bold text-accent px-3 py-2 rounded-xl disabled:opacity-40" style={{ background: "rgba(122,167,255,0.12)" }}>{envoi ? "…" : "Enregistrer"}</button>
@@ -95,8 +85,11 @@ function AdresseUsdc({ jeton }: { jeton: string }) {
   );
   return (
     <div className="carte apparait-4 p-4">
-      <div className="text-[14px] font-semibold">Ton adresse USDC</div>
-      <p className="text-[12px] text-argent2 mt-1 leading-relaxed">C'est là que tes versements arrivent, le 5 et le 20. Colle ton adresse USDC sur le réseau Ethereum (ERC-20). Vérifie-la deux fois : un virement vers une mauvaise adresse est perdu.</p>
+      <div className="flex items-baseline justify-between gap-2">
+        <div className="text-[14px] font-semibold">Ton adresse USDC</div>
+        <span className="text-[11px] text-argent2">Ethereum (ERC-20)</span>
+      </div>
+      {enregistree ? null : <p className="text-[12px] text-amber-200/90 mt-1">Vérifie-la deux fois : une erreur et le virement est perdu.</p>}
       {enregistree === undefined ? <div className="squelette h-10 w-full mt-3 rounded-2xl" /> : enregistree && !edition ? (
         <div className="mt-3 rounded-2xl px-3 py-2.5" style={{ background: "rgba(52,211,153,0.10)" }}>
           <div className="text-[11px] font-bold tracking-widest uppercase text-emerald-300">Enregistrée{enregistree.majLe ? ` · ${enregistree.majLe.slice(0, 10).split("-").reverse().join("/")}` : ""}</div>
@@ -124,7 +117,7 @@ function CarteEquipe({ e, libellePaie }: { e: MonEquipe; libellePaie: string }) 
       <div className="mt-3 rounded-2xl p-3" style={{ background: "rgba(122,167,255,0.09)" }}>
         <div className="text-[11px] font-bold tracking-widest uppercase text-accent">Prime d'équipe en cours</div>
         <div className="text-[22px] font-bold mt-1 tabular-nums">{e.primee ? fmtUsd(e.prime, true) : "—"}</div>
-        <div className="text-[12px] text-argent2 mt-1 leading-snug">{e.primee ? `En plus de tes clics, avec ta paie du ${libellePaie}. Gaëtan la vérifie avant le virement.` : "Pas de prime d'équipe sur cette période."}</div>
+        <div className="text-[12px] text-argent2 mt-1 leading-snug">{e.primee ? `Avec ta paie du ${libellePaie}, après vérification.` : "Pas de prime d'équipe sur cette période."}</div>
       </div>
       {e.equipes.map((eq) => (
         <div key={eq.creatrice} className="mt-3">
@@ -155,7 +148,7 @@ function CarteEquipe({ e, libellePaie }: { e: MonEquipe; libellePaie: string }) 
           </div>
         </div>
       )}
-      <p className="text-[11px] text-argent2/70 mt-3 leading-relaxed">Visites payées de la période (francophones, hors robots), comptées comme ta paie. Ton propre lien ne compte pas dans ton équipe. « j non relevés » : des jours pas encore lus dans GAML, la somme montera quand ils arriveront.</p>
+      <p className="text-[11px] text-argent2/70 mt-3 leading-relaxed">Visites payées de la période, hors ton propre lien. « j non relevés » : ça montera.</p>
     </div>
   );
 }
@@ -185,7 +178,6 @@ export default function VersementsTab({ jeton }: { jeton: string }) {
     return () => { clearInterval(id); document.removeEventListener("visibilitychange", visible); };
   }, [charger]);
 
-  const serie = useMemo(() => (v?.serie || []).map((j) => ({ ...j, label: jourCourt(j.jour) })), [v]);
   const copier = async (url: string) => {
     try { await navigator.clipboard.writeText(url); setCopie(true); signaler(jeton, "lien:copie"); setTimeout(() => setCopie(false), 1800); } catch { /* le clipper copiera à la main */ }
   };
@@ -198,20 +190,15 @@ export default function VersementsTab({ jeton }: { jeton: string }) {
 
       <div className={`carte apparait p-5 ${chargement && v ? "opacity-70" : ""}`} style={{ transition: "opacity 200ms" }}>
         <div className="flex items-baseline justify-between">
-          <div className="text-[13px] text-argent2 font-medium">{p ? `Période en cours · ${p.libelle}` : "Chargement…"}</div>
+          <div className="text-[13px] text-argent2 font-medium">{p ? p.libelle : "Chargement…"}</div>
           {v && !v.fixe && <span className="text-[11px] text-argent2/70">{fmtUsd(v.taux, true)} la visite</span>}
         </div>
-        {v?.fixe ? null : (
-          <div className="inline-flex items-center gap-1.5 mt-2 rounded-full px-2.5 py-1 text-[11px] font-bold tracking-wide" style={{ background: "rgba(52,211,153,0.12)", color: "#7ef0b2" }}>
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="5" width="18" height="16" rx="4" /><path d="M3 10h18M8 3v4M16 3v4" /></svg>
-            Payé le 5 et le 20 de chaque mois
-          </div>
-        )}
         {/* 28/10 (audit) : au fixe, ses clics ne sont pas payés ; le titre est le nombre de visites, jamais un montant en dollars */}
         <div className="titre-argent text-[40px] font-bold leading-none mt-2 tabular-nums">{p ? (v?.fixe
           ? <Compteur valeur={p.visites} format={(n) => fmtNb(Math.round(n))} />
           : <Compteur valeur={p.montant + prime} format={(n) => fmtUsd(Math.round(n * 100) / 100, true)} />) : <span className="squelette inline-block h-9 w-40" />}</div>
-        <div className="text-[12px] text-argent2 mt-1">{p ? `${v?.fixe ? "" : `${fmtNb(p.visites)} `}visite${p.visites > 1 ? "s" : ""} francophone${p.visites > 1 ? "s" : ""} depuis le ${jourCourt(v?.depuis || p.debut)}${v?.fixe ? ", pour info" : ""}` : "visites francophones"}</div>
+        <div className="text-[12.5px] text-argent2 mt-1.5">{p ? (v?.fixe ? `visite${p.visites > 1 ? "s" : ""} · tu es au fixe, pour info`
+          : `${fmtNb(p.visites)} visite${p.visites > 1 ? "s" : ""}${v?.depuis && v.depuis > p.debut ? ` depuis le ${jourCourt(v.depuis)}` : ""}`) : ""}</div>
         {p && v?.equipe ? (
           /* 12/10 (Gaëtan : « il fait les deux jobs, il faut séparer ses revenus ») : clipper d'un côté, Team Leader de l'autre */
           <div className="mt-3 rounded-2xl overflow-hidden text-[13px]" style={{ background: "rgba(255,255,255,0.04)" }}>
@@ -220,24 +207,17 @@ export default function VersementsTab({ jeton }: { jeton: string }) {
             <div className="flex justify-between px-3 py-2 border-t border-white/[0.06]"><span className="font-semibold">{v.fixe ? "Prime en plus de ton fixe" : "Total de la période"}</span><b className="tabular-nums text-emerald-300">{fmtUsd(v.fixe ? prime : p.montant + prime, true)}</b></div>
           </div>
         ) : null}
-        <div className="mt-4 rounded-2xl p-3 flex items-center gap-3" style={{ background: "rgba(52,211,153,0.10)" }}>
-          <svg className="text-emerald-300 shrink-0" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="5" width="18" height="16" rx="4" /><path d="M3 10h18M8 3v4M16 3v4" /><path d="m9.5 15.5 1.8 1.8 3.4-3.6" /></svg>
-          <div className="leading-tight">
-            <div className="text-[11px] font-bold tracking-widest uppercase text-emerald-300">{v?.fixe ? "Tu es au fixe" : "Prochain versement"}</div>
-            <div className="text-[17px] font-bold mt-0.5">{v?.fixe ? "Fixe + commission sur les subs : tes clics sont pour info" : p ? `${fmtUsd(p.montant + prime)} le ${p.libellePaie}` : "—"}</div>
-          </div>
-        </div>
         {p && v && !v.fixe && (() => {
           const nbJours = (a: string, b: string) => Math.round((Date.parse(b + "T12:00:00Z") - Date.parse(a + "T12:00:00Z")) / 86400000) + 1;
           const total = nbJours(p.debut, p.fin), fait = Math.min(total, Math.max(1, nbJours(p.debut, v.aujourdhui.jour)));
           return (
-            <div className="mt-3">
-              <div className="flex items-center justify-between text-[11px] text-argent2 mb-1">
-                <span>Jour {fait} sur {total} de la période</span>
-                <span>{total - fait === 0 ? "dernier jour" : `${total - fait} jour${total - fait > 1 ? "s" : ""} avant le ${p.libellePaie}`}</span>
-              </div>
+            <div className="mt-4">
               <div className="h-1.5 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.08)" }}>
                 <div className="h-full rounded-full" style={{ width: `${Math.round((fait / total) * 100)}%`, background: "linear-gradient(90deg,#2b6cff,#7ef0b2)", transition: "width 600ms ease" }} />
+              </div>
+              <div className="flex items-center justify-between text-[11.5px] text-argent2 mt-1.5">
+                <span>Jour {fait} sur {total}</span>
+                <span className="text-emerald-300 font-semibold">Versé le {p.libellePaie}</span>
               </div>
             </div>
           );
@@ -246,42 +226,19 @@ export default function VersementsTab({ jeton }: { jeton: string }) {
           <div className="rounded-2xl p-3" style={{ background: "rgba(122,167,255,0.09)" }}>
             <div className="text-[11px] font-bold tracking-widest text-accent">AUJOURD'HUI</div>
             <div className="text-[20px] font-bold mt-1 tabular-nums">{v ? <Compteur valeur={v.aujourdhui.visites} format={(n) => fmtNb(Math.round(n))} /> : "—"}</div>
-            <div className="text-[12px] text-argent2 mt-1">{v ? (v.fixe ? "visites" : `visites · ${fmtUsd(Math.round(v.aujourdhui.visites * v.taux * 100) / 100, true)}`) : ""}</div>
+            <div className="text-[12px] text-argent2 mt-1">{v ? (v.fixe ? "visites" : fmtUsd(Math.round(v.aujourdhui.visites * v.taux * 100) / 100, true)) : ""}</div>
           </div>
           <div className="rounded-2xl p-3" style={{ background: "rgba(255,255,255,0.05)" }}>
             <div className="text-[11px] font-bold tracking-widest text-argent2">HIER</div>
             <div className="text-[20px] font-bold mt-1 tabular-nums">{v ? <Compteur valeur={v.hier.visites} format={(n) => fmtNb(Math.round(n))} /> : "—"}</div>
-            <div className="text-[12px] text-argent2 mt-1">{v ? (v.fixe ? "visites" : `visites · ${fmtUsd(Math.round(v.hier.visites * v.taux * 100) / 100, true)}`) : ""}</div>
+            <div className="text-[12px] text-argent2 mt-1">{v ? (v.fixe ? "visites" : fmtUsd(Math.round(v.hier.visites * v.taux * 100) / 100, true)) : ""}</div>
           </div>
         </div>
-        {v?.partiel && <div className="text-[12px] text-amber-300/90 mt-3">Chiffres en cours de mise à jour : certains jours ne sont pas encore comptés.</div>}
+        {v?.partiel && <div className="text-[12px] text-amber-300/90 mt-3">Mise à jour en cours : des jours manquent encore.</div>}
       </div>
 
       {/* 24/10 : l'objectif de la prime volume (Reels + clics), pour ceux qui sont payés au clic */}
-      {v && !v.fixe ? <PrimeVolume jeton={jeton} clics={v.periode.complet || v.periode.visites ? v.periode.visites : null} libelle={v.periode.libelle} /> : null}
-
-      <div className="carte apparait-2 p-4">
-        <div className="flex items-baseline justify-between mb-1">
-          <div className="text-[14px] font-semibold">Visites francophones par jour</div>
-          <div className="text-[11px] text-argent2">{serie.length ? `${serie.length} jours` : ""}</div>
-        </div>
-        <div style={{ height: 180 }}>
-          {v ? (
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={serie} margin={{ top: 8, right: 4, left: -6, bottom: 0 }} barCategoryGap="28%">
-                <CartesianGrid vertical={false} stroke="rgba(255,255,255,0.06)" />
-                <XAxis dataKey="label" tick={{ fill: "#8b96a8", fontSize: 10 }} axisLine={false} tickLine={false} interval="preserveStartEnd" minTickGap={28} />
-                <YAxis tick={{ fill: "#8b96a8", fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={compact} width={40} allowDecimals={false} />
-                <Tooltip content={<Infobulle taux={v.taux} />} cursor={{ fill: "rgba(255,255,255,0.05)" }} />
-                <Bar dataKey="visites" radius={[6, 6, 0, 0]} animationDuration={700}>
-                  {serie.map((j) => <Cell key={j.jour} fill={j.jour === v.aujourdhui.jour ? "#ffffff" : j.jour >= v.periode.debut ? "#7aa7ff" : "rgba(122,167,255,0.38)"} />)}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          ) : <div className="squelette h-full w-full" />}
-        </div>
-        <div className="text-[11px] text-argent2/70 mt-2 flex gap-3"><span><span className="text-accent">●</span> période en cours</span><span><span className="text-white">●</span> aujourd'hui</span><span>mis à jour toutes les 5 min</span></div>
-      </div>
+      {v && !v.fixe ? <PrimeVolume jeton={jeton} clics={v.periode.complet || v.periode.visites ? v.periode.visites : null} /> : null}
 
       {v?.equipe && <CarteEquipe e={v.equipe} libellePaie={v.periode.libellePaie} />}
 
@@ -304,8 +261,10 @@ export default function VersementsTab({ jeton }: { jeton: string }) {
 
       {v && v.liens.length > 0 && (
         <div className="carte apparait-4 p-4">
-          <div className="text-[14px] font-semibold">Ton lien</div>
-          <p className="text-[12px] text-argent2 mt-1 leading-relaxed">À mettre dans la bio de ton compte privé, et nulle part ailleurs. C'est lui qui compte tes visites.</p>
+          <div className="flex items-baseline justify-between gap-2">
+            <div className="text-[14px] font-semibold">Ton lien</div>
+            <span className="text-[11px] text-argent2">bio du compte privé uniquement</span>
+          </div>
           {v.liens.map((l) => (
             <div key={l.url} className="mt-3 flex items-center gap-2 rounded-2xl px-3 py-2.5" style={{ background: "rgba(255,255,255,0.05)" }}>
               <span className="flex-1 text-[14px] font-semibold break-all tabular-nums">{l.url.replace(/^https?:\/\//, "")}</span>
@@ -319,8 +278,7 @@ export default function VersementsTab({ jeton }: { jeton: string }) {
 
       {v && (
         <p className="text-[11px] text-argent2/70 text-center px-4 leading-relaxed">
-          {fmtUsd(v.taux, true)} par visite francophone (France, Belgique, Suisse, Canada, Luxembourg, Monaco, DOM-TOM), robots exclus, heure de Paris.
-          {" "}Tu es payé deux fois par mois : du 5 au 19 inclus → versé le 20 ; du 20 au 4 inclus → versé le 5 du mois suivant.
+          Visites francophones, robots exclus.{v.fixe ? "" : " Du 5 au 19 → versé le 20. Du 20 au 4 → versé le 5."}
         </p>
       )}
     </section>

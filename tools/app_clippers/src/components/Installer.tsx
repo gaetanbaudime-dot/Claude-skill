@@ -82,23 +82,22 @@ export default function Installer({ jeton }: { jeton: string }) {
     <div className="carte apparait relative p-4 mb-4" style={{ border: "1px solid rgba(122,167,255,0.35)" }}>
       <div className="flex items-start gap-3">
         <img src="/icones/icone-192.png" alt="" width={44} height={44} className="rounded-xl shrink-0" style={{ boxShadow: "0 6px 18px rgba(0,0,0,0.4)" }} />
-        <div className="flex-1 min-w-0">
+        <div className="flex-1 min-w-0 self-center">
           <div className="text-[15px] font-bold leading-tight">Mets {"l'app"} sur ton écran {"d'accueil"}</div>
-          <div className="text-[12px] text-argent2 mt-0.5 leading-snug">Comme une vraie app, en 10 secondes. Tu {"l'ouvres"} {"d'un"} doigt, sans chercher le lien.</div>
         </div>
       </div>
 
       {cas === "inapp" && (
         <ol className="mt-3 space-y-2">
-          <Geste n={1}>Ce lien {"s'est"} ouvert dans {"l'application"} qui te {"l'a"} envoyé. Ouvre-le dans ton navigateur : touche <Points /> en haut à droite puis <b>« Ouvrir dans Chrome »</b>, ou sur iPhone {"l'icône"} <b>Safari</b> en bas à droite.</Geste>
-          <Geste n={2}>Là, suis les gestes qui {"s'affichent"} pour {"l'ajouter"} à ton écran {"d'accueil"}.</Geste>
+          <Geste n={1}>Ouvre ce lien dans ton navigateur : <Points /> puis <b>« Ouvrir dans Chrome »</b>, ou <b>Safari</b> sur iPhone.</Geste>
+          <Geste n={2}>Suis les gestes qui {"s'affichent"}.</Geste>
         </ol>
       )}
       {cas === "ios" && (
         <ol className="mt-3 space-y-2">
           <Geste n={1}>Touche <b>Partager</b> <Partager /> en bas de Safari.</Geste>
           <Geste n={2}>Descends et touche <b>« Sur {"l'écran d'accueil"} »</b> <Plus />.</Geste>
-          <Geste n={3}>Touche <b>Ajouter</b> en haut à droite. {"C'est"} tout.</Geste>
+          <Geste n={3}>Touche <b>Ajouter</b>.</Geste>
         </ol>
       )}
       {cas === "android" && !invite && (
