@@ -138,9 +138,12 @@ class TextesTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(texte.endswith(parcours.LIGNE_48H))
         self.assertLess(texte.index("3️⃣"), texte.index("4️⃣"))
 
-    def test_plus_d_invitation_a_changer_le_at_soi_meme(self):
-        self.assertNotIn("Ajoute un chiffre", parcours.PSEUDO_PRIS)
-        self.assertIn("Garde-le", parcours.PSEUDO_PRIS)
+    def test_variante_dite_comme_gaetan_le_veut(self):
+        # 31/10 (Gaëtan) : un identifiant pas disponible → le point en tiret du bas, ou « xo » à la fin, et le @ exact écrit au bot
+        for texte in (parcours.PSEUDO_PRIS, remise_compte1.PSEUDO_CHANGE):
+            self.assertNotIn("Ajoute un chiffre", texte)
+            self.assertIn("change le point en tiret du bas ou ajoute xo à la fin", texte.lower())
+            self.assertIn("ton @ exact", texte)
 
     async def test_fenetre_du_bouton_jamais_preremplie(self):
         with patch.object(parcours, "_prevu_pris", return_value=False):

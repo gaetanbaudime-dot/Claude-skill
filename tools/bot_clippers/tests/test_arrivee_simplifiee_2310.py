@@ -85,11 +85,12 @@ class MessageArriveeTests(unittest.TestCase):
         self.assertNotIn("\n\n\n", texte)
         # 26/10 (Gaëtan) : trois blocs à copier, les deux délais sur deux lignes, rien après (les boutons suivent)
         self.assertEqual(3, texte.count(" :\n```\n"), "un bloc Copier par accès")
-        self.assertTrue(texte.endswith("après la création du compte 1.\nLe compte 3, 48 h après le compte 2."))
+        # 31/10 (Gaëtan) : « Ton compte 2 de croissance… Le compte 3, privé avec le lien en bio… », toujours sur deux lignes, en dernier
+        self.assertTrue(texte.endswith("après la création du compte 1.\nLe compte 3, privé avec le lien en bio, 48 h après la création du compte 2."))
         self.assertEqual(1, texte.count("<@42>"), "une seule mention, en tête")
         self.assertLess(texte.index("<#777>"), texte.index("Identifiant"), "les vidéos et le Drive sont tout en haut, avant le compte 1")
         for phrase in phrases(texte):
-            self.assertLessEqual(len(phrase.split()), 14, phrase)
+            self.assertLessEqual(len(phrase.split()), 17, phrase)          # 31/10 : la phrase du compte 3 de Gaëtan, telle quelle
             self.assertNotIn("(", phrase)
 
     def test_le_complement_n_est_plus_envoye_quand_le_salon_est_deja_dans_le_message(self):
@@ -117,11 +118,11 @@ class GroupeTLNumeroTests(unittest.TestCase):
     def test_le_numero_du_clipper_est_affiche_tel_quel_avec_un_lien_whatsapp(self):
         texte, kw = self.envoyer({"7": {"tel": "+33612345678"}})
         self.assertIn("<@9>", texte)
-        self.assertIn("crée le groupe WhatsApp de Mavie pour Sophie", texte)
-        self.assertIn("Gaëtan", texte)
+        # 31/10 (Gaëtan) : le TL ajoute le nouveau au groupe général de clipping de la créatrice ; le numéro et wa.me restent
+        self.assertIn("Peux-tu ajouter Mavie au groupe général de clipping Team Sophie sur WhatsApp ?", texte)
         self.assertIn("`+33612345678`", texte)
         self.assertIn("<https://wa.me/33612345678>", texte)
-        self.assertIsNotNone(kw.get("view"), "le bouton « Groupe créé » reste")
+        self.assertIsNone(kw.get("view"), "plus de bouton « Groupe WhatsApp créé »")
 
     def test_numero_d_un_autre_clipper_jamais_montre(self):
         texte, _ = self.envoyer({"8": {"tel": "+33699999999"}, "7": {"tel": "+33611111111"}})
@@ -153,7 +154,7 @@ class GroupeTLNumeroTests(unittest.TestCase):
         texte, _ = self.envoyer({"7": {"tel": "+33612345678"}})
         self.assertNotIn("(", texte)
         for phrase in phrases(texte):
-            self.assertLessEqual(len(phrase.split()), 10, phrase)
+            self.assertLessEqual(len(phrase.split()), 14, phrase)          # 31/10 : la demande au TL dans les mots de Gaëtan
 
 
 # ------------------------------------------------------------------------------------------------ 3. 48 h puis 48 h

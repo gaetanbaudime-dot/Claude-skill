@@ -30,7 +30,10 @@ def champ(libelle: str, valeur) -> str:
     return f"{libelle} :\n```\n{v}\n```"
 
 
-PSEUDO_CHANGE = "4️⃣ Instagram change ton identifiant, même d'un point ? Garde-le et écris ici ton @ exact."
+# 31/10 (Gaëtan : « Si l'identifiant n'est pas disponible sur Instagram, change le point en tiret du bas ou rajoute XO à la fin et
+# écris ici ton arobase exact »)
+PSEUDO_CHANGE = ("4️⃣ Identifiant pas disponible sur Instagram ? Change le point en tiret du bas ou ajoute xo à la fin. "
+                 "Puis écris ici ton @ exact.")
 
 
 def acces_copiables(handle, mail, mdp) -> str:
