@@ -18,6 +18,7 @@ Actions (un clipper est désigné par son prénom ET sa créatrice : une seule f
 - « aligner » {prenom, creatrice, comptes: [@1, @2, @3], renommer?} (31/10, Esperance) : fiche, registre et parcours suivent ses
   trois comptes créés du LOG ; les @ en trop sortent seulement si Instagram prouve qu'il ne les a jamais créés (voir _aligner).
 - « registre » {prenom, creatrice} (31/10) : lecture seule, fiche, ordre des comptes, parcours et places du registre du clipper.
+- « cloturer » {prenom, creatrice} (31/10) : trois comptes créés à son nom au LOG, fiche encore à l'étape 3 → routine, sans message.
 Le bilan part au salon admin ET au journal (« Correction <id> : … »).
 """
 import asyncio
@@ -286,6 +287,48 @@ async def _aligner(a: dict, uid: str, client) -> list:
     return [f"🧩 {prenom} ({creatrice}) aligné sur le LOG : " + ", ".join(f"{i} @{h}" for i, h in enumerate(cibles, 1))] + bilan
 
 
+async def _cloturer(a: dict, uid: str) -> str:
+    """31/10 (Gaëtan : « OUI » pour Romaric et Mathieu, « marque-les comme terminés, sans leur envoyer de message ») : un clipper
+    dont les trois comptes tournent depuis longtemps, mais dont la fiche du bot attend encore l'étape 3 (retenue « Historique à vie
+    non rapproché »), passe en routine sans un message. Exigé : ses comptes 1 et 2 notés faits, et ses trois comptes, dans l'ordre
+    du parcours, créés à son nom dans le LOG (tout état sauf « à créer »). Posé : étape 7, dates 3, 3_fait et 7, l'app notée
+    (il l'a déjà : le rattrapage ne la renvoie pas), plus rien d'attendu au programme, plus de retenue."""
+    import onboarding
+    import parcours
+
+    def norm(h):
+        return onboarding.normaliser_handle(h).lower()
+    p1 = _n(a["prenom"]).split()[:1]
+    d = parcours._lire()
+    f = d.get(uid)
+    if not isinstance(f, dict):
+        return f"⚠️ {a['prenom']} : pas de parcours, rien changé"
+    dates = f.get("dates") or {}
+    if int(f.get("etape", 0) or 0) != 3 or not dates.get("1_fait") or not dates.get("2_fait"):
+        return f"⚠️ {a['prenom']} : étape {f.get('etape')}, dates {', '.join(sorted(dates))} : pas l'étape 3 attendue, rien changé"
+    comptes = [norm(h) for h in parcours._comptes_ordonnes(uid)[:3]]
+    log = await onboarding.lire_comptes()
+    for h in comptes:
+        lignes = [c for c in log if norm(c.get("handle")) == h]
+        if (len(comptes) != 3 or len(lignes) != 1 or _n(lignes[0].get("gerant")).split()[:1] != p1
+                or onboarding._norm(lignes[0].get("etat")) in onboarding.A_CREER):
+            return f"⚠️ {a['prenom']} : @{h} n'est pas UN compte créé à son nom dans le LOG, rien changé"
+    maintenant = parcours._maintenant()
+    for cle in ("3", "3_fait", "7"):
+        f.setdefault("dates", {}).setdefault(cle, maintenant)
+    f["etape"] = 7
+    f["programme"] = [x for x in f.get("programme") or [] if not (x.get("type") == "etape" and int(x.get("n") or 0) in (1, 2, 3, 6, 7))]
+    for cle in ("retenue", "ligne_attendue", "story_due"):
+        f.pop(cle, None)
+    app_notee = not f.get("app")
+    if app_notee:
+        f["app"] = maintenant
+    f["cloture"] = {"le": maintenant, "par": "correction du 31/10 (Gaëtan), sans message"}
+    parcours._ecrire(d)
+    return (f"🏁 {a['prenom']} ({a.get('creatrice', '')}) passé en routine sans message : 3 comptes au LOG "
+            f"({', '.join('@' + h for h in comptes)})" + (", app notée (déjà chez lui)" if app_notee else ""))
+
+
 def etat_registre(uid: str) -> str:
     """31/10 (Esperance : « Trois places à vie » sans voir quelles places) : les places de ce clipper au registre, en une ligne."""
     import onboarding
@@ -375,6 +418,8 @@ async def appliquer(client, depot: dict) -> list:
                 bilan.append(f"   {etat_registre(uid)}")
             elif quoi == "registre":
                 bilan.append(await _registre(a, uid))
+            elif quoi == "cloturer":
+                bilan.append(await _cloturer(a, uid))
             else:
                 bilan.append(f"⚠️ action inconnue : {quoi}")
         except Exception as erreur:                                     # noqa: BLE001 — l'action suivante passe quand même

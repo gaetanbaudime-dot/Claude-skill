@@ -215,9 +215,10 @@ class AlignerTests(unittest.IsolatedAsyncioTestCase):
         import json
         depot = json.loads(co.FICHIER.read_text(encoding="utf-8"))
         self.assertTrue(depot["id"].startswith("3110-"))
-        al = next(x for x in depot["actions"] if x["action"] == "aligner")
-        self.assertEqual(("Esperance", "Chloé"), (al["prenom"], al["creatrice"]))
-        self.assertEqual(3, len(al["comptes"]))
+        connues = {"log", "fiche", "attribuer", "rendre", "variante", "remise", "aligner", "registre", "cloturer"}
+        self.assertEqual(set(), {x["action"] for x in depot["actions"]} - connues)
+        for al in (x for x in depot["actions"] if x["action"] == "aligner"):
+            self.assertEqual(3, len(al["comptes"]))
 
     async def test_registre_en_lecture_seule_et_bilan_au_journal(self):
         await co._aligner(self.action, "42", self.client)

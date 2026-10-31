@@ -1,5 +1,9 @@
 # Bot FAQ Clippers (Discord + Claude)
 
+**31/10, 9 h 28 : Romaric et Mathieu passés en routine sans message (Gaëtan : « OUI »)**
+
+- Action déposée `cloturer` (`corrections.py`, dépôt `3110-cloture-1`) : trois comptes créés à son nom au LOG (tout état sauf « à créer »), comptes 1 et 2 notés faits, fiche encore à l'étape 3 → étape 7, dates 3, 3_fait et 7, app notée (il l'a déjà), programme et retenue vidés. Aucun message. Tests : `tests/test_cloture_3110.py`.
+
 **31/10, 7 h 50 : arrivée encore simplifiée, le TL ajoute le nouveau au groupe de sa créatrice (Gaëtan : « on active les clippers le plus vite possible… ils arrivent dans le groupe avec tous les autres clippers de leur créatrice »)**
 
 - **Compte 1** : le point 4 dit « Identifiant pas disponible sur Instagram ? Change le point en tiret du bas ou ajoute xo à la fin. Puis écris ici ton @ exact. » (même consigne aux comptes 2 et 3, et dans la remise des @). La ligne des délais : « Ton compte 2 de croissance arrive 48 h après la création du compte 1. Le compte 3, privé avec le lien en bio, 48 h après la création du compte 2. »
