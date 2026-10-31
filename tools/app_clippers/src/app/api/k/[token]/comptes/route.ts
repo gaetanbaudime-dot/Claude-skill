@@ -11,7 +11,7 @@ import { comptesAffiches } from "@/lib/comptesVisibles";
 import { comptesReels } from "@/lib/comptesReels";
 import { pilotage } from "@/lib/pilotage";
 import { pilotageEquipe } from "@/lib/classement";
-import { semaine } from "@/lib/activite";
+import { correlation, semaine } from "@/lib/activite";
 import { suiviIg } from "@/lib/igSource";
 import { appliquerIg, porteursDeLien } from "@/lib/igSuivi";
 import { aujourdhuiParis } from "@/lib/dates";
@@ -40,8 +40,9 @@ export async function GET(_req: Request, { params }: { params: { token: string }
       for (const k of personnel.clics) if (k.axe === "Horizontal" && k.source === "Clipper") clicsParJour[k.jour] = (clicsParJour[k.jour] || 0) + k.visites;
     }
     const sem = semaine(comptes, jour, clicsParJour);
+    const lien = correlation(comptes, jour, clicsParJour, 14);         // 31/10 : Reels → vues → clics sur 14 jours
     // 28/10 : au fixe, ses clics ne sont pas payés (« Ma semaine » ne dit plus « Payés, soit … $ »)
-    return NextResponse.json({ comptes, tl: m.tl, demandes, pilotage: personnel, semaine: sem, fixe: regime?.regime === "fixe" }, { headers: ENTETES });
+    return NextResponse.json({ comptes, tl: m.tl, demandes, pilotage: personnel, semaine: sem, correlation: lien, fixe: regime?.regime === "fixe" }, { headers: ENTETES });
   } catch (e) {
     return NextResponse.json({ erreur: "comptes en cours de mise à jour", detail: (e as Error).message }, { status: 503, headers: ENTETES });
   }

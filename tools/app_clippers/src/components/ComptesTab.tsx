@@ -3,8 +3,9 @@ import { useCallback, useEffect, useState } from "react";
 import { signaler } from "@/lib/signal";
 import { etatAffiche, type Ton } from "@/lib/comptesVisibles";
 import { alerteMesure } from "@/lib/comptesReels";
-import { estPrive, type Semaine } from "@/lib/activite";
+import { estPrive, type Correlation, type Semaine } from "@/lib/activite";
 import MaSemaine from "./MaSemaine";
+import ReelsVuesClics from "./ReelsVuesClics";
 import MonEquipe from "./MonEquipe";
 
 /** 12/10 (Gaëtan : « un onglet où il peut mettre à jour le @ de ses 3 comptes Instagram, ça nous permettra d'avoir toujours les
@@ -123,7 +124,7 @@ function Ligne({ c, demande, jeton, recharger, metricool, rechargerMetricool }: 
 }
 
 function MesComptes({ jeton }: { jeton: string }) {
-  const [d, setD] = useState<{ comptes: Compte[]; demandes: Demande[]; semaine?: Semaine; fixe?: boolean } | null>(null);
+  const [d, setD] = useState<{ comptes: Compte[]; demandes: Demande[]; semaine?: Semaine; correlation?: Correlation | null; fixe?: boolean } | null>(null);
   const [erreur, setErreur] = useState(false);
   const [metricool, setMetricool] = useState<Metricool[]>([]);
   const chargerMetricool = useCallback(async () => {
@@ -145,6 +146,7 @@ function MesComptes({ jeton }: { jeton: string }) {
   return (
     <section className="space-y-3">
       {d?.semaine ? <MaSemaine s={d.semaine} fixe={Boolean(d.fixe)} /> : null}
+      {d?.correlation ? <ReelsVuesClics c={d.correlation} fixe={Boolean(d.fixe)} /> : null}
       <div className="apparait px-1 pt-2">
         <h2 className="text-[18px] font-bold">Mes comptes Instagram</h2>
         <p className="text-argent2 text-[13px] mt-1 leading-relaxed">Touche un @ pour l'ouvrir dans Instagram.</p>

@@ -39,13 +39,23 @@ const jours = ig.lireIgJours([
   ['ancien.prv', 'c4', 'l4', '2026-10-22T10:00:00+00:00', '5'],
 ], '2026-10-08');
 eq(jours.get('croissance.a'), { '2026-10-23': 1, '2026-10-24': 1 });
-const suivi = { comptes, jours };
+// 31/10 : les vues à ce jour des Reels publiés chaque jour (un Reel compté une fois)
+const vuesJours = ig.lireIgVuesJours([
+  ['croissance.a', 'c1', 'l1', '2026-10-23T21:30:00+00:00', '1 200'],
+  ['croissance.a', 'c2', 'l2', '2026-10-23T22:30:00+00:00', '800'],
+  ['croissance.a', 'c2', 'l2', '2026-10-23T22:30:00+00:00', '800'],
+  ['croissance.a', 'c4', 'l4', '2026-10-23T08:00:00+00:00', ''],
+], '2026-10-08');
+eq(vuesJours.get('croissance.a'), { '2026-10-23': 1200, '2026-10-24': 800 });
+const suivi = { comptes, jours, vuesJours };
 
 // Les chiffres RapidAPI remplacent l'ancien relevé vide
 const base = (handle, role) => ({ handle, role, followers: null, reels7: null, vues7: null, jours: {}, mesure: 'restreint', dernierReel: '' });
 let c = ig.appliquerIg(base('croissance.a', 'croissance'), suivi, '2026-10-24');
 assert.equal(c.followers, 1669); assert.equal(c.reels7, 20); assert.equal(c.vues7, 223683);
 eq(c.jours, { '2026-10-23': 1, '2026-10-24': 1 });
+eq(c.vuesJours, { '2026-10-23': 1200, '2026-10-24': 800 });
+assert.equal(ig.appliquerIg(base('vrai.prive', 'privé'), suivi, '2026-10-24').vuesJours, undefined);   // privé : pas de vues
 assert.equal(c.mesure, 'lu (RapidAPI)'); assert.equal(c.dernierReel, 'hier');   // 19h51 UTC le 23 = 21h51 à Paris le 23
 // Le rôle suit ce que fait le compte : Reels publics = croissance, même n° 3 dans la fiche ; privé sur Instagram = privé
 assert.equal(ig.appliquerIg(base('ancien.prv', 'privé'), suivi, '2026-10-24').role, 'croissance');

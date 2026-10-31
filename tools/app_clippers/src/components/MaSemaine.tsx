@@ -21,9 +21,21 @@ function Tuile({ titre, valeur, unite, sous }: { titre: string; valeur: string; 
 
 const pluriel = (n: number, mot: string) => `${fmt(n)} ${mot}${n > 1 ? "s" : ""}`;
 const usd = (clics: number) => (Math.round(clics * 5) / 100).toLocaleString("fr-FR", { minimumFractionDigits: 2 });
+const dec = (n: number) => n.toLocaleString("fr-FR", { maximumFractionDigits: 1 });
 
+/** 31/10 : une couleur par compte de croissance, la même dans Ma semaine et dans « Reels → vues → clics ». */
+export const COULEURS_COMPTES = ["#5b8cff", "#b48cff", "#38d0c8", "#f5b04c"];
+export const couleurCompte = (rang: number) => COULEURS_COMPTES[(Math.max(1, rang) - 1) % COULEURS_COMPTES.length];
+export const VERT_CLICS = "#6ee7b7";
+
+/** 31/10 (Gaëtan : « 3,3 Reels par jour de moyenne sur les deux comptes… en bas du graphique, moyenne par jour sur le compte 1,
+ *  moyenne par jour sur le compte 2, clics total ») : la cadence vient de ses comptes de croissance seulement ; chaque barre est
+ *  empilée compte par compte ; sous le graphique, la moyenne de chaque compte et les clics de la semaine. */
 export default function MaSemaine({ s, fixe = false }: { s: Semaine; fixe?: boolean }) {
   const max = Math.max(1, ...s.jours.map((j) => j.reels || 0));
+  const comptes = s.croissance || [];
+  const nb = comptes.length;
+  const surComptes = nb > 1 ? `sur tes ${nb} comptes de croissance` : nb === 1 ? "sur ton compte de croissance" : "";
   return (
     <section className="carte p-4 apparait" aria-label="Ma semaine">
       <div className="flex items-baseline justify-between">
@@ -31,22 +43,31 @@ export default function MaSemaine({ s, fixe = false }: { s: Semaine; fixe?: bool
         <span className="text-[11px] text-argent2">7 derniers jours</span>
       </div>
       <div className="grid grid-cols-2 gap-2.5 mt-3">
-        <Tuile titre="Cadence" valeur={s.cadence !== null ? s.cadence.toLocaleString("fr-FR") : "–"} unite="Reels / jour"
-               sous={s.reels !== null ? `${pluriel(s.reels, "Reel")} publié${s.reels > 1 ? "s" : ""}` : "Reels pas encore relevés"} />
+        <Tuile titre="Cadence" valeur={s.cadence !== null ? dec(s.cadence) : "–"} unite="Reels / jour"
+               sous={s.reels !== null ? `${pluriel(s.reels, "Reel")} ${surComptes}`.trim() : "Reels pas encore relevés"} />
         <Tuile titre="Vues" valeur={s.vues !== null ? compact(s.vues) : "–"} sous="Sur tes Reels de la semaine" />
         <Tuile titre="Followers" valeur={s.followers !== null ? fmt(s.followers) : "–"} sous="Sur tous tes comptes" />
         <Tuile titre="Clics" valeur={s.clics !== null ? fmt(s.clics) : "–"}
                sous={s.clics === null ? "Pas encore relevés" : fixe ? "Visites francophones, pour info" : `Payés, soit ${usd(s.clics)} $`} />
       </div>
-      {s.parJour ? (
-        <div className="mt-4">
-          <div className="grid grid-cols-7 gap-1.5 items-end" style={{ height: 92 }}>
+      {s.parJour && s.reels === 0 ? (
+        <div className="mt-4 rounded-2xl px-3 py-3 text-[13px] text-argent2 leading-snug" style={{ background: "rgba(255,255,255,0.04)" }}>
+          Aucun Reel publié ces 7 derniers jours {surComptes}. Ton prochain Reel relance ta cadence.
+        </div>
+      ) : s.parJour ? (
+        <div className="mt-4" role="img" aria-label={`Reels publiés chaque jour ${surComptes}, et clics du jour`}>
+          <div className="grid grid-cols-7 gap-1.5 items-end" style={{ height: 96 }}>
             {s.jours.map((j) => {
               const r = j.reels || 0;
+              const parts = j.parCompte && j.parCompte.length ? j.parCompte : [r];
               return (
                 <div key={j.jour} className="flex flex-col items-center justify-end h-full">
                   <span className="text-[11px] font-semibold tabular-nums mb-1">{r}</span>
-                  <div className="w-full rounded-md" style={{ height: `${Math.max(4, Math.round((r / max) * 64))}px`, background: r ? "linear-gradient(180deg,#7aa7ff,#2b6cff)" : "rgba(255,255,255,0.08)" }} />
+                  {r ? (
+                    <div className="w-full rounded-md overflow-hidden flex flex-col-reverse" style={{ height: `${Math.max(6, Math.round((r / max) * 66))}px` }}>
+                      {parts.map((x, i) => x ? <div key={i} style={{ flexGrow: x, background: couleurCompte(i + 1) }} /> : null)}
+                    </div>
+                  ) : <div className="w-full rounded-md" style={{ height: 4, background: "rgba(255,255,255,0.08)" }} />}
                 </div>
               );
             })}
@@ -55,11 +76,32 @@ export default function MaSemaine({ s, fixe = false }: { s: Semaine; fixe?: bool
             {s.jours.map((j) => (
               <div key={j.jour} className="leading-tight">
                 <div className="text-[10.5px] text-argent2">{jourCourt(j.jour)}</div>
-                <div className="text-[10.5px] text-emerald-300 tabular-nums mt-0.5">{j.clics !== null ? fmt(j.clics) : "–"}</div>
+                <div className="text-[10.5px] tabular-nums mt-0.5" style={{ color: VERT_CLICS }}>{j.clics !== null ? fmt(j.clics) : "–"}</div>
               </div>
             ))}
           </div>
-          <div className="text-[11px] text-argent2/80 mt-2 flex gap-3"><span><span className="text-accent">●</span> Reels publiés</span><span><span className="text-emerald-300">●</span> {fixe ? "clics" : "clics payés"}</span></div>
+        </div>
+      ) : null}
+      {comptes.length || s.clics !== null ? (
+        <div className="mt-3 rounded-2xl overflow-hidden text-[13px]" style={{ background: "rgba(255,255,255,0.04)" }}>
+          {comptes.map((c, i) => (
+            <div key={c.handle} className={`flex items-center justify-between gap-2 px-3 py-2 ${i ? "border-t border-white/[0.06]" : ""}`}>
+              <span className="flex items-center gap-2 min-w-0">
+                <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: couleurCompte(c.rang) }} />
+                <span className="truncate"><span className="text-argent2">Compte {c.rang}</span> · @{c.handle}</span>
+              </span>
+              <b className="tabular-nums shrink-0">{c.moyenne !== null ? dec(c.moyenne) : "–"}<span className="text-[11px] text-argent2 font-normal"> / jour</span></b>
+            </div>
+          ))}
+          {s.clics !== null ? (
+            <div className={`flex items-center justify-between gap-2 px-3 py-2 ${comptes.length ? "border-t border-white/[0.06]" : ""}`}>
+              <span className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: VERT_CLICS }} />
+                <span>{fixe ? "Clics de la semaine" : "Clics payés de la semaine"}</span>
+              </span>
+              <b className="tabular-nums shrink-0">{fmt(s.clics)}{fixe ? "" : <span className="text-[11px] text-argent2 font-normal"> · {usd(s.clics)} $</span>}</b>
+            </div>
+          ) : null}
         </div>
       ) : null}
     </section>

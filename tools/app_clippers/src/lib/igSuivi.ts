@@ -18,7 +18,8 @@ export type IgCompte = {
   dernierReel: string;                               // ISO, vide si aucun
   reluLe: string;                                    // ISO du dernier relevé du profil
 };
-export type IgSuivi = { comptes: Map<string, IgCompte>; jours: Map<string, Record<string, number>> };
+/** `vuesJours` (31/10) : par @, les vues à ce jour des Reels publiés chaque jour (« Reels → vues » de l'onglet Comptes). */
+export type IgSuivi = { comptes: Map<string, IgCompte>; jours: Map<string, Record<string, number>>; vuesJours?: Map<string, Record<string, number>> };
 
 const plat = (t?: string) => String(t || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim();
 export const cleIg = (h?: string) => plat(h).replace(/^@+/, "");
@@ -72,6 +73,24 @@ export function lireIgJours(lignes: string[][], depuis: string): Map<string, Rec
   return out;
 }
 
+/** 31/10 (Gaëtan : « que les Reels publiés mènent vraiment aux vues et aux clics ») : « IG · Reels »!D2:H → par @, {jour de
+ *  publication à Paris : vues à ce jour des Reels publiés ce jour-là}, depuis `depuis` inclus. Un Reel compte une fois. */
+export function lireIgVuesJours(lignes: string[][], depuis: string): Map<string, Record<string, number>> {
+  const out = new Map<string, Record<string, number>>();
+  const vus = new Set<string>();
+  for (const l of lignes) {
+    const h = cleIg(l[0]), j = jourParis(l[3] || "");
+    if (!h || !j || j < depuis) continue;
+    const code = `${h}|${l[1] || l[2] || l[3]}`;
+    if (vus.has(code)) continue;
+    vus.add(code);
+    const m = out.get(h) || {};
+    m[j] = (m[j] || 0) + (nb(l[4]) ?? 0);
+    out.set(h, m);
+  }
+  return out;
+}
+
 /** Le rôle d'un compte, d'après ce qu'il fait :
  *  1. il porte le lien GAML du clipper (il reçoit des clics) : c'est le compte privé, même ouvert et même s'il a publié des Reels
  *     (le 24/10, le compte du lien de Mathieu, ouvert, avait 6 Reels début octobre) ;
@@ -100,7 +119,7 @@ export function dernierReelRelatif(iso: string, aujourdhui: string): string {
   return n <= 0 ? "aujourd'hui" : n === 1 ? "hier" : `il y a ${n} j`;
 }
 
-type Base = { handle: string; followers: number | null; reels7: number | null; vues7: number | null; role?: string; jours?: Record<string, number>; mesure?: string; dernierReel?: string; etat?: string };
+type Base = { handle: string; followers: number | null; reels7: number | null; vues7: number | null; role?: string; jours?: Record<string, number>; mesure?: string; dernierReel?: string; etat?: string; vuesJours?: Record<string, number> };
 
 /** Les chiffres RapidAPI remplacent ceux de l'ancien relevé pour un compte que RapidAPI connaît ; sinon rien ne change. */
 export function appliquerIg<T extends Base>(c: T, ig: IgSuivi | null, aujourdhui: string, liens?: Set<string>): T {
@@ -120,6 +139,7 @@ export function appliquerIg<T extends Base>(c: T, ig: IgSuivi | null, aujourdhui
     reels7,
     vues7: prive ? c.vues7 : x.vues7,
     jours: prive ? c.jours : (ig.jours.get(cleIg(c.handle)) || ig.jours.get(x.handle) || {}),
+    ...(ig.vuesJours && !prive ? { vuesJours: ig.vuesJours.get(cleIg(c.handle)) || ig.vuesJours.get(x.handle) || {} } : {}),
     role: roleIg(c.role, x, porteLien),
     mesure: prive ? "privé (RapidAPI)" : "lu (RapidAPI)",
     dernierReel: prive ? (c.dernierReel || "") : dernierReelRelatif(x.dernierReel, aujourdhui),
