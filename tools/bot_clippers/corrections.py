@@ -231,7 +231,10 @@ async def _aligner(a: dict, uid: str, client) -> list:
         if statut == "cancelled" or not alias or set(alias) & (set(cibles) | siens):
             continue
         nom = "/".join("@" + x for x in alias)
-        if statut not in ("reserved", "unknown") or set(alias) & set(gardes):
+        # 31/10 : un compte noté « créé » parce qu'il EXISTE sur Instagram (le compte d'un inconnu, vu par le scan) ne sort que
+        # tranché dans le dépôt (`retirer`) ; jamais un « créé » sur la seule lecture d'Instagram
+        faux_cree = statut == "created" and bool(set(alias) & decides)
+        if (statut not in ("reserved", "unknown") and not faux_cree) or set(alias) & set(gardes):
             bilan.append(f"⚠️ registre : {nom} ({statut}) gardé, à trancher")
             continue
         prouve = bool(set(alias) & (set(retires) | decides))
@@ -241,8 +244,8 @@ async def _aligner(a: dict, uid: str, client) -> list:
             bilan.append(f"⚠️ registre : {nom} ({statut}) gardé, à trancher")
             continue
         try:
-            registre.retirer_doublon(uid, alias[0], preuve)
-            annules.append(nom)
+            registre.retirer_doublon(uid, alias[0], preuve, cree_par_erreur=faux_cree)
+            annules.append(nom + (" (noté créé à tort)" if faux_cree else ""))
         except Exception as erreur:                                     # noqa: BLE001
             bilan.append(f"⚠️ registre : {nom} pas retiré ({erreur})")
     if annules:

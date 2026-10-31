@@ -51,6 +51,10 @@ class RegistreTests(unittest.TestCase):
         for uid, h, preuve in (("42", "a.fictif", "x"), ("43", "b.fictif", "x"), ("42", "b.fictif", ""), ("42", "inconnu", "x")):
             with self.assertRaises(Bloque, msg=(uid, h)):
                 self.s.retirer_doublon(uid, h, preuve)
+        with self.assertRaises(Bloque):
+            self.s.retirer_doublon("43", "a.fictif", "x", cree_par_erreur=True)   # jamais le compte d'un autre
+        self.s.retirer_doublon("42", "a.fictif", "compte d'un inconnu (fictif)", cree_par_erreur=True)
+        self.assertEqual({"cancelled": 1, "reserved": 1}, self.s.counts("42"))
 
 
 class JamaisALuiTests(unittest.TestCase):
@@ -155,6 +159,19 @@ class AlignerTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual("created", statuts["trois.prive_fictif"])
         self.assertIn("sur décision (pas au LOG à son nom) : @essai.prv_fictif", bilan)
         self.assertNotIn("⚠️", bilan)
+
+    async def test_un_compte_d_inconnu_note_cree_a_tort_sort_seulement_sur_decision(self):
+        self.registre.created("42", "essai.prv_fictif", "scan : le compte existe (fictif)")   # vu par le scan, c'est un inconnu
+        self.examens["essai.prv_fictif"] = INCONNU_ANCIEN
+        bilan = "\n".join(await co._aligner(self.action, "42", self.client))
+        statuts = {h: st for _, st, al in self.registre.comptes_de("42") for h in al}
+        self.assertEqual("created", statuts["essai.prv_fictif"])          # sans décision écrite : jamais
+        self.assertIn("@essai.prv_fictif (created) gardé, à trancher", bilan)
+        bilan = "\n".join(await co._aligner({**self.action, "retirer": ["essai.prv_fictif"]}, "42", self.client))
+        statuts = {h: st for _, st, al in self.registre.comptes_de("42") for h in al}
+        self.assertEqual("cancelled", statuts["essai.prv_fictif"])
+        self.assertEqual("created", statuts["trois.prive_fictif"])        # la place du compte 3 se libère
+        self.assertIn("noté créé à tort", bilan)
 
     async def test_rien_sans_les_trois_lignes_creees_a_son_nom(self):
         for comptes in (["un_c.fictif", "deux.fictif", "essai.secret_fictif_x"],     # « à créer » dans le LOG
