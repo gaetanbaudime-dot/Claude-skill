@@ -171,15 +171,27 @@ class AlignerTests(unittest.IsolatedAsyncioTestCase):
         with patch.object(co, "_aligner", AsyncMock(return_value=["🧩 Fictive (Chloé) aligné sur le LOG", "✅ parcours"])) as al:
             bilan = await co.appliquer(N(guilds=[]), {"actions": [self.action]})
         self.assertEqual("42", al.await_args.args[1])
-        self.assertEqual(["🧩 Fictive (Chloé) aligné sur le LOG", "✅ parcours"], bilan)
+        self.assertEqual(["🧩 Fictive (Chloé) aligné sur le LOG", "✅ parcours"], bilan[:2])
+        self.assertIn("registre :", bilan[2])                              # 31/10 : les places après l'alignement
 
     def test_le_depot_du_jour(self):
         import json
         depot = json.loads(co.FICHIER.read_text(encoding="utf-8"))
-        self.assertEqual("3110-esperance", depot["id"])
-        al = depot["actions"][0]
-        self.assertEqual(("aligner", "Esperance", "Chloé"), (al["action"], al["prenom"], al["creatrice"]))
+        self.assertTrue(depot["id"].startswith("3110-"))
+        al = next(x for x in depot["actions"] if x["action"] == "aligner")
+        self.assertEqual(("Esperance", "Chloé"), (al["prenom"], al["creatrice"]))
         self.assertEqual(3, len(al["comptes"]))
+
+    async def test_registre_en_lecture_seule_et_bilan_au_journal(self):
+        await co._aligner(self.action, "42", self.client)
+        avant = (deepcopy(self.onb), deepcopy(self.parc), self.registre.comptes_de("42"))
+        with patch.object(parcours, "_comptes_ordonnes", return_value=["un_c.fictif", "deux.fictif", "trois.prive_fictif"]):
+            ligne = await co._registre({"prenom": "Fictive", "creatrice": "Chloé"}, "42")
+        self.assertEqual(avant, (self.onb, self.parc, self.registre.comptes_de("42")))
+        self.assertIn("registre : 3 place(s) prise(s) sur 3", ligne)
+        self.assertIn("@essai.prv_fictif cancelled", ligne)
+        self.assertIn("étape 3", ligne)
+        self.assertIn('journal.info("Correction %s : %s"', Path(co.__file__).read_text(encoding="utf-8"))
 
 
 class RetenuesTests(unittest.IsolatedAsyncioTestCase):

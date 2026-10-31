@@ -1,8 +1,13 @@
 {
-  "id": "3110-esperance",
-  "note": "Gaëtan, 31/10 7 h 04 : « Résous le problème d'Espérance ». Son compte 3 était retenu toutes les 30 min (« Trois places à vie ») et son compte 1 jamais confirmé : la fiche portait @lasoir_ (absent du LOG, libre sur Instagram) quand elle a créé @lasoir_c, plus deux essais de privé : @chloe.prv (compte d'un inconnu, 305 abonnés) et @chloe.prvvvv (26 abonnés, 0 publication, bio qui renvoie vers un autre compte : pas son privé, qui est @callistaenimages au LOG). Le LOG porte ses trois comptes créés ; contrôle GitHub du 31/10 3 h 20 UTC.",
+  "id": "3110-registre-1",
+  "note": "31/10, 8 h : au passage de 8 h, l'étape 3 d'Esperance était encore retenue (« Trois places à vie »), comme celle de Mavie ; Romaric et Mathieu sont retenus par « Historique à vie non rapproché ». Esperance est réalignée (idempotent) et le registre des quatre est lu, bilan au journal.",
   "attendre_ci": [],
   "actions": [
+    {
+      "action": "registre",
+      "prenom": "Esperance",
+      "creatrice": "Chloé"
+    },
     {
       "action": "aligner",
       "prenom": "Esperance",
@@ -19,6 +24,21 @@
         "chloe.prv",
         "chloe.prvvvv"
       ]
+    },
+    {
+      "action": "registre",
+      "prenom": "Mavie",
+      "creatrice": "Sarah"
+    },
+    {
+      "action": "registre",
+      "prenom": "Romaric",
+      "creatrice": "Chloé"
+    },
+    {
+      "action": "registre",
+      "prenom": "Mathieu",
+      "creatrice": "Sophie"
     }
   ]
 }
