@@ -3,7 +3,8 @@
 
 Une ligne par clipper connu du parcours ou du registre. Les dates viennent de ce que le bot écrit déjà à l'événement :
   - quiz réussi et arrivée sur Discord : pipeline.json (etats[uid].date_quiz / validation, arrivees[uid].date) ;
-  - comptes 1, 2, 3 remis puis créés, app remise : parcours.json (dates « n » et « n_fait », profils) ;
+  - comptes 1, 2, 3 remis puis créés, app remise : parcours.json (dates « n » et « n_fait », profils, et depuis le 31/10 les comptes
+    vus créés sur Instagram par le suivi des créations, « crees_ig ») ;
   - premier jour tenu (5 visites payées ou plus) et visites payées des 7 derniers jours : la mesure de la paie (paie_clics.payees).
 Rien n'est deviné : une date absente reste vide. Fonctions pures, aucun réseau ; le bot écrit l'onglet (ecrire_onglet_parcours).
 """
@@ -64,7 +65,11 @@ def lignes(parcours: dict, pipe: dict, registre: dict, paie: dict, payees, noms:
             if (info.get("etat") in ("quiz_ok", "valide", "attente_attribution", "sorti") or info.get("valide_par")) else None
         arrivee = _jour((arrivees.get(uid) or {}).get("date"), fuseau)
         remis = {n: _jour(dates.get(str(n)), fuseau) for n in (1, 2, 3)}
-        crees = {n: _jour(dates.get(f"{n}_fait") or profils.get(str(n)), fuseau) for n in (1, 2, 3)}
+        # 31/10 (audit : « l'onglet Parcours dit compte 1 à créer pour des comptes GOOD au LOG ») : un compte vu créé sur Instagram par
+        # le suivi des créations (suivi_creation : « crees_ig », avant que son étape s'ouvre) compte aussi, à la date où il a été vu
+        vus_ig = f.get("crees_ig") or {}
+        crees = {n: _jour(dates.get(f"{n}_fait") or profils.get(str(n)) or (vus_ig.get(str(n)) or {}).get("le"), fuseau)
+                 for n in (1, 2, 3)}
         app = _jour(dates.get("7") or dates.get("6"), fuseau)
         tenu, sept = None, ""
         if uid in avec_paie and payees is not None:

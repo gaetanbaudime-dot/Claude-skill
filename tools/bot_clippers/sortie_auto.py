@@ -170,6 +170,68 @@ async def jours_sans_reel() -> dict:
     return {uid: jours for uid, _, jours, _, _ in silences(fiches, onboarding, historique, comptes, _deps.get("notes"), prenom_de)}
 
 
+# ------------------------------------------------------------------ 31/10 : 0 Reel en 7 jours, la liste du matin
+# Audit du 31/10 (action « 0 Reel en 7 jours = sortie », plan du 30/10) ; Gaëtan, 31/10 : « Liste du matin, tu valides ». La liste part
+# chaque matin dans le point du matin, avec la commande à taper ; rien n'est fait sans lui (comme L6 et L7). Un clipper n'y est que
+# si le suivi a LU ses comptes pendant le silence (au moins SANS_REEL_SCANS_MIN jours de relevé) et si ses liens ne ramènent pas
+# de visites ces 3 derniers jours (il publie peut-être ailleurs). SORTIE_SANS_REEL_JOURS=0 coupe la liste.
+SANS_REEL_JOURS = int(os.environ.get("SORTIE_SANS_REEL_JOURS", "7") or 0)
+SANS_REEL_SCANS_MIN = 5
+
+
+def a_valider_sans_reel(silences_l: list, present, produit=None, jours: int = None, scans_min: int = None) -> list:
+    """Pur : [(uid, prénom, jours sans Reel)] des silences (silences()) d'au moins `jours` jours, mesurés (scans_min jours de relevé,
+    ou chaque jour d'un silence plus court), encore sur le serveur (`present(uid)`), sans visites récentes (`produit(uid)`), du plus
+    long au plus court."""
+    jours = SANS_REEL_JOURS if jours is None else jours
+    scans_min = SANS_REEL_SCANS_MIN if scans_min is None else scans_min
+    if jours <= 0:
+        return []
+    out = []
+    for uid, prenom, silence, scans, _ref in silences_l or []:
+        if silence < jours or scans < min(scans_min, silence) or not present(uid):
+            continue
+        try:
+            if produit is not None and produit(uid):
+                continue
+        except Exception:                                               # noqa: BLE001 — dans le doute, il reste listé
+            pass
+        out.append((str(uid), prenom, int(silence)))
+    return sorted(out, key=lambda x: -x[2])
+
+
+async def sans_reel_a_valider() -> list:
+    """La liste du matin (a_valider_sans_reel) avec les données du bot. Lecture seule ; [] en cas de panne."""
+    if SANS_REEL_JOURS <= 0 or not _deps.get("FICHIER_EQUIPES"):
+        return []
+    try:
+        fiches = _deps["lire_json"](_deps["FICHIER_EQUIPES"], {})
+        onboarding = _deps["lire_json"](_deps["FICHIER_ONBOARDING"], {}) if _deps.get("FICHIER_ONBOARDING") else {}
+        historique = ((_deps["etats_lire"]() if _deps.get("etats_lire") else {}) or {}).get("historique", {})
+        comptes = await _deps["comptes_lire"]() if _deps.get("comptes_lire") else []
+        membre_de = _deps.get("membre_par_id")
+
+        def prenom_de(uid):
+            m = membre_de(uid) if membre_de else None
+            return _deps["prenom_de"](m) if (m is not None and _deps.get("prenom_de")) else ""
+        import bloques
+        return a_valider_sans_reel(silences(fiches, onboarding, historique, comptes, _deps.get("notes"), prenom_de),
+                                   present=lambda u: membre_de is not None and membre_de(u) is not None,
+                                   produit=bloques.produit_recemment)
+    except Exception as erreur:                                         # noqa: BLE001
+        journal.warning("Liste « 0 Reel en %s jours » : %s", SANS_REEL_JOURS, erreur)
+        return []
+
+
+def bloc_sans_reel(liste: list) -> str:
+    """Le bloc du point du matin ; '' si personne."""
+    if not liste:
+        return ""
+    return (f"🚪 **0 Reel depuis {SANS_REEL_JOURS} jours ou plus** (à sortir ?) : "
+            + " · ".join(f"<@{uid}> ({j} j)" for uid, _p, j in liste[:20]) + ("…" if len(liste) > 20 else "")
+            + "\n-# `!sortie @x raison` pour le sortir, `!note @x garde` pour le garder. Rien n'est fait sans toi.")
+
+
 # ------------------------------------------------------------------ mesuré ou non (10/10, L9a, amendement B)
 def _cle_compte(h) -> str:
     """La clé d'un compte dans l'historique du scan (comme etats_comptes._cle) : identifiant nettoyé, en minuscules."""

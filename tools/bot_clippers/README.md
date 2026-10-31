@@ -1,5 +1,13 @@
 # Bot FAQ Clippers (Discord + Claude)
 
+**31/10, 10 h : le point du matin suit l'audit (Gaëtan : « Met en place toutes les recommandations de l'audit » ; « Liste du matin, tu valides »)**
+
+- **📈 3 chiffres du matin** (`pilotage.trois_chiffres`, plan de simplification) : clippers actifs hier (au moins 1 Reel), Reels des clippers (hors Metricool, comptes Rianah et comptes des créatrices), clics francophones des liens des clippers (visites payables), moyenne des 7 jours d'avant et l'objectif de 2 000 Reels par jour. Lus dans les dernières tables du Dashboard (`pilotage.dernier`) : rien tant qu'il n'a pas tourné depuis le démarrage.
+- **🚪 0 Reel depuis 7 jours** (`sortie_auto.sans_reel_a_valider`) : mesuré (5 jours de relevé au moins pendant le silence), encore sur le serveur, sans visites ces 3 derniers jours ; avec `!sortie @x raison` / `!note @x garde`. **Rien n'est fait sans Gaëtan.** `SORTIE_SANS_REEL_JOURS=0` coupe la liste.
+- **🎬 Formation → quiz** (le lundi, 14 jours, `funnel_quotidien.formation_quiz`) : formulaires → quiz ouvert (une tentative s'ouvre à l'affichage) → envoyé → réussi ; formulaire sans quiz ouvert = décroché sur la page de la vidéo.
+- **Onglet « Parcours »** : un compte vu créé sur Instagram par le suivi des créations (`crees_ig`) compte comme créé, à la date où il a été vu.
+- **Tests** : `tests/test_matin_3110.py`.
+
 **31/10, 9 h 38 : la création des comptes jugée par Instagram seul, vue par RapidAPI (Gaëtan : « Ne juge que la création du compte Instagram par le scrapping RapidAPI… vérifie assez fréquemment s'il l'a créé ou pas… fais hyper attention à ce que la fiabilité du bot soit bonne avec la clé RapidAPI »)**
 
 - **Suivi** (`suivi_creation.passage`, à chaque tour léger du parcours, toutes les 10 min) : chaque @ remis (message de l'étape ou remise de tous les @) et pas encore créé est regardé sur Instagram (`arobase_libre.examen`, relais du contrôle GitHub si la clé est refusée) : toutes les heures le jour de la remise, toutes les 3 h jusqu'à 3 jours, toutes les 8 h jusqu'à 10 jours, puis une fois par jour. Au plus `SUIVI_CREATION_PAR_TOUR` (12) examens par tour et `SUIVI_CREATION_QUOTA_JOUR` (400) par jour ; plus rien sous `SUIVI_CREATION_RESERVE` (2 000) requêtes RapidAPI restantes.

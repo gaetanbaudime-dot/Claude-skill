@@ -5673,6 +5673,14 @@ async def boucle_rappels():
                 nouveaux_hier = funnel_quotidien.nouvelles_personnes_par_jour(envois_candidatures(lignes_c, pipe)).get(hier, 0)
                 # 21/10 (Gaëtan : « simplifie, rends ça agréable à lire ») : l'entonnoir d'hier en une chaîne ; les sources seulement
                 # quand il y en a plusieurs (« web 6 » seul n'apprend rien)
+                # 0. 31/10 (plan de simplification, « 3 chiffres du matin ») : clippers actifs, Reels clippers, clics francophones
+                try:
+                    import pilotage
+                    ligne_3 = pilotage.ligne_trois_chiffres(hier.isoformat())
+                    if ligne_3:
+                        blocs_d.append(("chiffres", ligne_3))
+                except Exception as erreur:                                 # noqa: BLE001
+                    journal.warning("Digest : 3 chiffres du matin (%s)", erreur)
                 blocs_d.append(("hier", f"📋 **Recrutement hier** : {nouveaux_hier} nouveau(x) candidat(s) → {flux['quiz_ok']} quiz réussi(s)"
                                 + (f" ({flux['quiz_ko']} raté(s))" if flux["quiz_ko"] else "")
                                 + f" → {flux['arrives']} arrivé(s) sur Discord → {attribues_du_jour(equipes_r, hier)} avec une créatrice"
@@ -5687,6 +5695,16 @@ async def boucle_rappels():
                     await ecrire_onglet_parcours()                      # 18/10 (action 16) : la table « Parcours »
                 except Exception as erreur:                                 # noqa: BLE001
                     journal.warning("Digest : funnel quotidien (%s)", erreur)
+                # 1 bis bis. 31/10 (audit : « mesurer où ils décrochent, vidéo ou quiz ») : le lundi, formulaire → quiz ouvert → envoyé
+                if lundi:
+                    try:
+                        c_f = funnel_quotidien.formation_quiz(pipe, hier - timedelta(days=13), hier, maintenant.tzinfo or timezone.utc,
+                                                             exclu=relances.tel_exclu)
+                        ligne_fq = funnel_quotidien.ligne_formation(c_f, 14)
+                        if ligne_fq:
+                            blocs_d.append(("formation", ligne_fq))
+                    except Exception as erreur:                             # noqa: BLE001
+                        journal.warning("Digest : formation → quiz (%s)", erreur)
                 # 1 ter. 18/10 (action 35) : quiz réussi depuis 24 h, pas sur Discord → un lien de relance par personne, une fois
                 liste_q = []
                 try:
@@ -5712,6 +5730,14 @@ async def boucle_rappels():
                         journal.warning("Digest : bilan de la sortie automatique (%s)", erreur)
                     if sortie_d:
                         blocs_d.append(("sortie", "\n".join(sortie_d)))
+                # 3 ter. 31/10 (audit, Gaëtan : « Liste du matin, tu valides ») : 0 Reel depuis 7 jours, mesuré, avec `!sortie` à taper
+                sans_reel_d = []
+                try:
+                    sans_reel_d = await sortie_auto.sans_reel_a_valider()
+                    if sans_reel_d:
+                        blocs_d.append(("sans_reel", sortie_auto.bloc_sans_reel(sans_reel_d)))
+                except Exception as erreur:                                 # noqa: BLE001
+                    journal.warning("Digest : 0 Reel en 7 jours (%s)", erreur)
                 # 3 bis. 11/10 (lot W) : les lignes de l'appel de présence qui n'attendent aucun geste (⏸️ non mesuré, ✅ mesure
                 # revenue, 🔇 muet mais actif, 📢 appelé) ; les sorties et les relances WhatsApp restent en direct
                 appel_d = []
@@ -5780,7 +5806,7 @@ async def boucle_rappels():
                     if orphelines:                              # le compteur de fond, une fois par semaine
                         blocs_d.append(("fond", f"🗂️ Fond de pipeline : candidatures sans Discord lié {orphelines} (`!pipeline`)"))
 
-                a_agir = (bloques_d or any(("🧱" in l or "❌" in l) for l in sortie_d) or zero_place or attente or en_plan
+                a_agir = (bloques_d or sans_reel_d or any(("🧱" in l or "❌" in l) for l in sortie_d) or zero_place or attente or en_plan
                           or sans_creatrice or eteintes_d or etat.get("sauvegarde_erreur"))
                 if not a_agir:
                     blocs_d.insert(0, ("rien", "✅ Rien qui n'attende ton action aujourd'hui."))
