@@ -1,5 +1,12 @@
 # Bot FAQ Clippers (Discord + Claude)
 
+**31/10, 7 h 04 : Esperance alignée sur le LOG (Gaëtan : « Résous le problème d'Espérance »)**
+
+- **Le problème** : son compte 3 était retenu toutes les 30 minutes depuis au moins le 29/10 (« Trois places à vie déjà créées, réservées ou incertaines ») et son compte 1 n'était jamais confirmé. Sa fiche portait `@lasoir_` (absent du LOG, libre sur Instagram) alors qu'elle a créé `@lasoir_c`, plus deux essais de privé jamais faits par elle, qui gardaient des places au registre. Le LOG porte ses trois comptes créés.
+- **Action déposée `aligner`** (`corrections.py`, dépôt `3110-esperance`) : fiche, registre et parcours suivent les trois comptes créés du LOG. Les @ en trop sortent seulement si Instagram prouve qu'il ne les a jamais créés (`jamais_a_lui`) ou s'ils sont tranchés dans le dépôt (`retirer`), jamais un compte créé à son nom. Un compte d'une étape déjà passée est noté fait sans message ; l'étape en cours repart d'elle-même. Registre : `process_store.comptes_de` et `retirer_doublon` (place réservée ou incertaine annulée avec sa preuve, alias gardé, jamais réattribué).
+- **Remise des @** : un @ de la fiche sans ligne dans le LOG n'est plus jamais donné (« à trancher : @ absent du LOG »).
+- **Tests** : `tests/test_aligner_3110.py`, plus un cas dans `tests/test_remise_arobases_3010.py`.
+
 **30/10, 10 h 59 : les sortis rendent leurs lignes, corrections déposées (Gaëtan : « Si je les vire dans mon cockpit, tu les libères automatiquement. Je ne veux pas avoir à le faire »)**
 
 - **Cockpit** (`cockpit_sorties.rendre_lignes_des_sortis`) : à chaque passage, les lignes « à créer » encore au nom d'un « Sorti » repartent au stock (`onboarding.rendre_lignes`) : jamais un compte créé, jamais un @ pas vu libre, jamais si un clipper signé porte ce prénom. Le registre détache l'alias (`process_store.rendre_au_stock`, réservation jamais créée seulement) pour qu'un autre clipper puisse recevoir la ligne.

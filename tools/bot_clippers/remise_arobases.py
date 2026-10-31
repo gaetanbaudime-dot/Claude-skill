@@ -47,6 +47,9 @@ _verrou = asyncio.Lock()
 # verdicts
 CREE, CREE_SOUS, PAS_CREE, A_TRANCHER, PRIS_INCONNU, DOUTE, SANS_LIGNE = (
     "créé", "créé sous une suggestion d'Instagram", "pas créé", "à trancher", "pris par un inconnu", "pas lu", "pas de ligne")
+# 31/10 (Esperance : sa fiche portait @lasoir_, absent du LOG, quand elle avait créé @lasoir_c ; l'aperçu proposait de lui « donner »
+# @lasoir_) : un @ de la fiche sans ligne dans le LOG n'est jamais donné (Gaëtan, 30/10 : les @ envoyés sont ceux du sheet)
+HORS_LOG = "à trancher : @ absent du LOG"
 # actions
 RIEN, DONNER, VARIANTE = "rien", "donner", "variante"
 
@@ -193,6 +196,9 @@ async def _remise(client, envoyer: bool, seulement: set) -> dict:
                 continue
             cree_bot = parcours._cree(f, n) or parcours.compte_deja_cree(uid, h)
             etat = (par_handle.get(h.lower()) or {}).get("etat", "")
+            if not cree_bot and onboarding.normaliser_handle(h).lower() not in par_handle:
+                lignes_c.append(_ligne(prenom, creatrice, n, h, False, "", {}, HORS_LOG, RIEN, "", mode, maintenant))
+                continue
             if cree_bot or cree_selon_log(etat):
                 dc = parcours._date_creation(f, n)
                 if dc is not None:
