@@ -159,10 +159,31 @@ class PassageTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_le_compte_d_un_inconnu_est_dit_une_fois_et_plus_regarde(self):
         self.examens["deux.fictif"] = INSTALLE
-        bilan = await sc.passage(self.client, M)
+        with patch.object(sc, "log_dit_cree", AsyncMock(return_value=False)):
+            bilan = await sc.passage(self.client, M)
         self.assertIn("compte d'un inconnu", bilan[0])
         self.valider.assert_not_awaited()
-        self.assertEqual([], [x for x in sc.a_verifier(self.d, comptes, M + timedelta(days=3)) if x[1] == 2])
+        self.assertEqual([], [x for x in sc.a_verifier(self.d, comptes, M + timedelta(hours=12)) if x[1] == 2])
+        # (l'heure du regard est l'heure réelle du test : on se place deux jours plus loin)
+        self.assertEqual(1, len([x for x in sc.a_verifier(self.d, comptes, M + timedelta(days=2)) if x[1] == 2]))   # une fois par jour
+        with patch.object(sc, "log_dit_cree", AsyncMock(return_value=False)):
+            bilan = await sc.passage(self.client, M + timedelta(days=2))
+        self.assertFalse(any("compte d'un inconnu" in l for l in bilan))  # jamais redit
+        with patch.object(sc, "log_dit_cree", AsyncMock(return_value=True)):
+            await sc.passage(self.client, M + timedelta(days=4))
+        self.valider.assert_awaited_once()                                   # le LOG l'a dit créé entre-temps : étape fermée
+
+    async def test_un_compte_grossi_que_le_log_dit_cree_n_est_pas_un_inconnu(self):
+        import onboarding
+        self.examens["deux.fictif"] = INSTALLE
+        with patch.dict(sc._log, {"le": None, "etats": {}}), \
+                patch.object(onboarding, "lire_comptes", AsyncMock(return_value=[{"handle": "@Deux.Fictif", "etat": "GOOD"}])):
+            bilan = await sc.passage(self.client, M)
+        self.valider.assert_awaited_once()
+        self.assertIn("vu sur Instagram, étape fermée", bilan[0])
+        with patch.dict(sc._log, {"le": None, "etats": {}}), \
+                patch.object(onboarding, "lire_comptes", AsyncMock(return_value=[{"handle": "deux.fictif", "etat": "à créer"}])):
+            self.assertFalse(await sc.log_dit_cree("deux.fictif"))
 
     async def test_budget_et_reserve(self):
         with patch.object(sc, "PAR_TOUR", 1):

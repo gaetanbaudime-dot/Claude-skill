@@ -10,7 +10,8 @@ lâchent. »
    GitHub si la clé est refusée), d'autant plus souvent qu'il a été remis récemment (`intervalle_min`). Au plus PAR_TOUR examens par
    tour et QUOTA_JOUR par jour ; plus rien sous RESERVE requêtes RapidAPI restantes (annoncé par RapidAPI) : la clé garde de quoi
    vérifier les @ avant de les donner.
-2. JUGEMENT (`juger`, pur) : le @ existe et (le bot l'a déjà vu libre, ou le profil est neuf, ou il prouve qu'il est à nous) → créé ;
+2. JUGEMENT (`juger`, pur) : le @ existe et (le bot l'a déjà vu libre, ou le profil est neuf, ou il prouve qu'il est à nous, ou le
+   LOG le porte déjà créé : `log_dit_cree`) → créé ;
    il n'existe pas → pas encore ; il existe, installé, sans rien qui le relie à nous → le compte d'un inconnu (une ligne au salon
    admin, une fois : variante à donner) ; un doute (réponse muette, profil illisible jamais vu libre) → rien, nouvel essai.
 3. CRÉÉ (`noter_cree`) : étape ouverte → elle se ferme comme au bouton (parcours.valider_etape, profil et suite) ; étape déjà passée
@@ -147,9 +148,9 @@ def a_verifier(d: dict, comptes_de, maintenant: datetime, sortis=frozenset()) ->
             age = max(0.0, (maintenant - quand).total_seconds() / 3600)
             dernier = (f.get("verif_ig") or {}).get(str(n)) or {}
             le = _instant(dernier.get("le")) if dernier.get("h") == h else None
-            if dernier.get("h") == h and dernier.get("installe"):
-                continue                                                # compte d'un inconnu : dit une fois, variante à donner
-            if le is not None and maintenant - le < timedelta(minutes=intervalle_min(age)):
+            # compte d'un inconnu : dit une fois, puis regardé une fois par jour seulement (le LOG peut le dire créé entre-temps)
+            attente = 1440 if (dernier.get("h") == h and dernier.get("installe")) else intervalle_min(age)
+            if le is not None and maintenant - le < timedelta(minutes=attente):
                 continue
             out.append((str(uid), n, h, age, False))
     ouverte = {u: int((d.get(u) or {}).get("etape", 0) or 0) for u, *_ in out}
@@ -229,6 +230,29 @@ def _noter_verif(uid: str, n: int, h: str, ex: dict, jugement: str) -> bool:
                                            **({"installe": True} if jugement == INSTALLE else {})}
     parcours._ecrire(d)
     return libre_vu
+
+
+_log = {"le": None, "etats": {}}
+LOG_CACHE_MIN = 30
+
+
+async def log_dit_cree(h: str) -> bool:
+    """Le LOG DASHBOARD IG (qui fait foi) porte ce @ dans un état créé (tout sauf « à créer ») : un compte grossi depuis sa création
+    (plus « neuf », bio sans preuve) n'est jamais pris pour le compte d'un inconnu. LOG relu au plus toutes les LOG_CACHE_MIN
+    minutes, seulement quand un @ en a besoin. Faux si le LOG est illisible (dans le doute, rien n'est conclu de lui)."""
+    import onboarding
+    maintenant = datetime.now(timezone.utc)
+    if _log["le"] is None or maintenant - _log["le"] > timedelta(minutes=LOG_CACHE_MIN):
+        try:
+            lignes = await onboarding.lire_comptes()
+            _log["etats"] = {onboarding.normaliser_handle(c.get("handle")).lower(): onboarding._norm(c.get("etat") or "")
+                             for c in lignes or [] if c.get("handle")}
+            _log["le"] = maintenant
+        except Exception as erreur:                                     # noqa: BLE001
+            journal.info("LOG illisible pour le suivi des créations : %s", type(erreur).__name__)
+            return False
+    e = _log["etats"].get(onboarding.normaliser_handle(h).lower(), "")
+    return bool(e) and e not in ("a creer", "à créer")
 
 
 def libre_vu(uid: str, n: int, h: str) -> bool:
@@ -326,14 +350,18 @@ async def passage(client, maintenant=None) -> list:
             examines += 1
             _jour["n"] += 1
             vu = libre_vu(uid, n, h)
+            avant = (f.get("verif_ig") or {}).get(str(n)) or {}
+            deja_dit = avant.get("h") == h and bool(avant.get("installe"))
             jugement = juger(ex, vu)
+            if jugement == INSTALLE and await log_dit_cree(h):
+                jugement = CREE                                         # grossi depuis sa création : le LOG fait foi
             _noter_verif(uid, n, h, ex, jugement)
             if jugement == CREE:
                 ligne = await noter_cree(client, uid, n, h)
                 if ligne:
                     bilan.append(ligne)
                     compter("crees")
-            elif jugement == INSTALLE:
+            elif jugement == INSTALLE and not deja_dit:
                 bilan.append(f"⚠️ {f.get('prenom') or uid} : son compte {n} @{h} est le compte d'un inconnu "
                              f"({ex.get('abonnes', '?')} abonnés, {ex.get('publications', '?')} publications) : variante à donner "
                              "(`!remise-arobases`)")
@@ -381,6 +409,8 @@ async def confirmer(uid: str, n: int, h: str) -> tuple:
     _jour["n"] += 1
     compter("examens")
     jugement = juger(ex, libre_vu(uid, n, h))
+    if jugement == INSTALLE and await log_dit_cree(h):
+        jugement = CREE
     _noter_verif(str(uid), n, h, ex, jugement if jugement != INSTALLE else DOUTE)
     if jugement == CREE:
         compter("crees")
