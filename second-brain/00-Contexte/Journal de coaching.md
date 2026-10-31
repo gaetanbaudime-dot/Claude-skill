@@ -22,6 +22,17 @@ tags: [contexte/coaching]
 
 ## Décisions prises
 
+### 2026-10-31 (suite, 9 h 38) — La création des comptes jugée par Instagram seul ; relances et point du matin branchés
+
+> [!tip] Verdict
+> Le trou entre le compte 1 et les comptes 2-3 était surtout un trou de mesure et de relance : le bot attendait un bouton, et des comptes 3, liens et créations restaient retenus en boucle par le registre sans que personne le voie. Désormais le bot regarde lui-même chaque @ remis sur Instagram (RapidAPI), ferme l'étape dès qu'il voit le compte, relance le clipper à 24 h et le TL à 48 h, et reprend tout seul les historiques bloqués. Objectif retenu : 2 000 Reels par jour, soit ~330 clippers à 6 Reels par jour (52 Reels clippers le 30/10, 15 actifs).
+
+- **Demande de Gaëtan (31/10)** : « Ne juge que la création du compte Instagram par le scrapping RapidAPI… vérifie assez fréquemment s'il l'a créé ou pas… fais hyper attention à ce que la fiabilité du bot soit bonne avec la clé RapidAPI » ; « Met en place toutes les recommandations de l'audit ». Réponses : les recrues de Jade restent chez Jade ; 6 Reels pour le lien, comptés plus vite ; « 0 Reel en 7 jours » en liste du matin, validée par lui.
+- **Déployé (PR 194 à 197)** : suivi des créations (1 h le jour de la remise, puis 3 h, 8 h, 24 h ; plafonds par tour, par jour et réserve de quota) ; bouton, @ écrit et mail d'Instagram jugés par Instagram, sauf panne de notre clé (le bouton passe, compté) ; alertes clé refusée et quota bas ; ligne « 🔑 RapidAPI », 3 chiffres du matin, liste « 0 Reel depuis 7 jours » et, le lundi, formation → quiz ; reprise automatique des historiques jamais rapprochés pour compte 3, lien et création.
+- **Premier passage (31/10, 10 h 13 Dubaï)** : 12 @ regardés, 2 comptes 2 vus créés et fermés sans bouton, 4 relances (1 clipper, 3 TL). Au même passage : un compte 3, un lien et une création retenus par le registre, d'où la reprise automatique.
+- **Avocat du diable** : la mesure ne fait pas créer les comptes ; si les relances ne suffisent pas, le goulot reste la motivation des recrues, et le ×10 ne s'ouvre pas. Risque technique : une panne de la clé RapidAPI (deux jours cette semaine) ; garde-fous : relais du contrôle GitHub, alerte au salon admin, bouton qui passe pendant notre panne.
+- **Prédictions (31/10, revue le 14/11)** : au moins 50 % des clippers dont le compte 1 est créé du 31/10 au 07/11 ont leurs 3 comptes créés sous 7 jours (27 % en octobre) — confiance 55 % ; les Reels clippers dépassent 80 par jour en moyenne sur la semaine du 08 au 14/11 (52 le 30/10) — confiance 40 %.
+
 ### 2026-10-31 — Pas de ×10 sur le recrutement : ×2 jusqu'au 17/11, quatre portes avant d'ouvrir
 
 > [!tip] Verdict
