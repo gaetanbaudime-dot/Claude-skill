@@ -1,42 +1,27 @@
 {
-  "id": "3110-registre-2",
-  "note": "31/10, 8 h 11 (bilan de 3110-registre-1) : la fiche d'Esperance portait déjà @lasoir_c en 5e position, l'alignement s'est arrêté sur l'ordre des comptes ; registre à 4 places (essai de privé incertain, @lasoir_ réservé). Mavie : registre à 3 places dont @sarah.club, l'@ d'avant sa variante @sarah.clubxo, qui bloquait son compte 3.",
+  "id": "3110-cloture-1",
+  "note": "Gaëtan, 31/10 9 h 28 : « OUI » — Romaric et Mathieu marqués comme terminés, sans message. Leurs trois comptes tournent (LOG : GOOD, Appel à faire, Ban), leur fiche attendait encore l'étape 3, retenue toutes les 30 min par « Historique à vie non rapproché ».",
   "attendre_ci": [],
   "actions": [
     {
-      "action": "aligner",
-      "prenom": "Esperance",
-      "creatrice": "Chloé",
-      "comptes": [
-        "lasoir_c",
-        "chloeapreslagarde",
-        "callistaenimages"
-      ],
-      "renommer": {
-        "lasoir_": "lasoir_c"
-      },
-      "retirer": [
-        "chloe.prv",
-        "chloe.prvvvv",
-        "chloe.prvvvv_x"
-      ]
-    },
-    {
-      "action": "registre",
-      "prenom": "Esperance",
+      "action": "cloturer",
+      "prenom": "Romaric",
       "creatrice": "Chloé"
     },
     {
-      "action": "fiche",
-      "prenom": "Mavie",
-      "creatrice": "Sarah",
-      "ancien": "sarah.club",
-      "nouveau": "sarah.clubxo"
+      "action": "registre",
+      "prenom": "Romaric",
+      "creatrice": "Chloé"
+    },
+    {
+      "action": "cloturer",
+      "prenom": "Mathieu",
+      "creatrice": "Sophie"
     },
     {
       "action": "registre",
-      "prenom": "Mavie",
-      "creatrice": "Sarah"
+      "prenom": "Mathieu",
+      "creatrice": "Sophie"
     }
   ]
 }
