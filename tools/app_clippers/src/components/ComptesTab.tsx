@@ -3,9 +3,8 @@ import { useCallback, useEffect, useState } from "react";
 import { signaler } from "@/lib/signal";
 import { etatAffiche, type Ton } from "@/lib/comptesVisibles";
 import { alerteMesure } from "@/lib/comptesReels";
-import { estPrive, type Correlation, type Semaine } from "@/lib/activite";
-import MaSemaine from "./MaSemaine";
-import ReelsVuesClics from "./ReelsVuesClics";
+import { comptesCroissance, estPrive, type Correlation, type Semaine } from "@/lib/activite";
+import MaSemaine, { couleurCompte } from "./MaSemaine";
 import MonEquipe from "./MonEquipe";
 
 /** 12/10 (Gaëtan : « un onglet où il peut mettre à jour le @ de ses 3 comptes Instagram, ça nous permettra d'avoir toujours les
@@ -16,7 +15,9 @@ import MonEquipe from "./MonEquipe";
  *  choisit avec comptesAffiches), l'état et le rôle de chacun.
  *  24/10, plus tard (Gaëtan : « affiche la cadence sur les sept derniers jours, les vues, les followers et les clics ») : « Ma
  *  semaine » ouvre l'onglet (MaSemaine). Elle remplace « Mon activité », le pilotage de l'admin, qui parlait de coût clippers
- *  et de Rianah Metricool à un clipper. */
+ *  et de Rianah Metricool à un clipper.
+ *  31/10 (Gaëtan : « simplifie à mort, il y a trop de texte ») : chaque compte de croissance porte « Compte 1 », « Compte 2 » (la
+ *  couleur de Ma semaine et de la prime) au lieu de « Croissance » ; les consignes tiennent en quelques mots. */
 type Compte = { n: number; handle: string; etat: string; creatrice: string; followers: number | null; reels7: number | null; vues7: number | null; role?: string;
   modifiable?: boolean; mesure?: string; dernierReel?: string };
 type Demande = { n: number; handle: string; statut: string; detail: string; date: string };
@@ -37,7 +38,7 @@ function MetricoolBouton({ jeton, n, etat, charger }: { jeton: string; n: number
       const r = await fetch(`/api/k/${jeton}/metricool`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ n }) });
       const d = await r.json();
       if (!r.ok) { setMessage(d.erreur || "Réessaie dans une minute."); return; }
-      setMessage("Demande enregistrée. Le bot prépare ta marque et ton lien après contrôle des accès de l’agence (jusqu’à 15 minutes).");
+      setMessage("Demandé. Ton lien arrive sous 15 minutes.");
       await charger();
     } catch { setMessage("Envoi impossible, réessaie."); } finally { setEnvoi(false); }
   };
@@ -47,11 +48,9 @@ function MetricoolBouton({ jeton, n, etat, charger }: { jeton: string; n: number
       className="inline-block rounded-xl px-4 py-2.5 font-semibold bg-accent text-[#071226]">Connecter Metricool ↗</a> :
       etat.statut === "disponible" ? <button disabled={envoi} onClick={demander}
         className="rounded-xl px-4 py-2.5 font-semibold bg-accent text-[#071226] disabled:opacity-40">{envoi ? "Envoi…" : "Préparer Metricool"}</button> :
-      <p className="text-accent">{etat.statut === "connecte" ? "Metricool connecté · validé par l’agence" :
-        etat.statut === "renouveler" ? "Lien à renouveler par l’agence" : "Connexion Metricool demandée · validation agence en attente"}</p>}
-    <p className="mt-2 text-argent2">{etat.statut === "pret" ? "Ce compte a passé 500 abonnés : connecte-le à Metricool pour l’agence. Le lien de connexion expire, utilise-le vite."
-      : etat.statut === "disponible" ? "Ce compte a passé 500 abonnés : il peut passer sur Metricool. Le bot prépare ton lien de connexion, 15 minutes au plus."
-      : "Ce compte a passé 500 abonnés : il passe sur Metricool avec l’agence."}</p>
+      <p className="text-accent">{etat.statut === "connecte" ? "Metricool connecté ✓" :
+        etat.statut === "renouveler" ? "Lien Metricool à renouveler par l’agence" : "Metricool demandé · en attente de l’agence"}</p>}
+    {etat.statut === "pret" ? <p className="mt-2 text-argent2">Le lien expire vite : connecte-le maintenant.</p> : null}
     {message ? <p role="status" className="mt-2 text-argent2">{message}</p> : null}
   </div>;
 }
@@ -62,7 +61,7 @@ function raisonRefus(detail: string): string {
   return /rapprochement|synchronisation|ligne d[ée]plac|requis/i.test(detail || "") ? "l'agence doit vérifier ce compte. Écris-lui dans ton salon Discord" : (detail || "refusé");
 }
 
-function Ligne({ c, demande, jeton, recharger, metricool, rechargerMetricool }: { c: Compte; demande?: Demande; jeton: string; recharger: () => void; metricool?: Metricool; rechargerMetricool: () => Promise<void> }) {
+function Ligne({ c, rang, demande, jeton, recharger, metricool, rechargerMetricool }: { c: Compte; rang?: number; demande?: Demande; jeton: string; recharger: () => void; metricool?: Metricool; rechargerMetricool: () => Promise<void> }) {
   const [edition, setEdition] = useState(false);
   const [saisie, setSaisie] = useState("");
   const [envoi, setEnvoi] = useState(false);
@@ -93,19 +92,20 @@ function Ligne({ c, demande, jeton, recharger, metricool, rechargerMetricool }: 
           )}
           <div className="mt-1.5 flex flex-wrap gap-1.5 text-[11.5px] font-semibold">
             <span className={`rounded-full px-2.5 py-0.5 ${TONS[etat.ton]}`}>{etat.libelle}</span>
-            <span className={`rounded-full px-2.5 py-0.5 ${TONS.gris}`}>{estPrive(c.role) ? "Privé · ton lien en bio" : "Croissance"}</span>
+            {estPrive(c.role) ? <span className={`rounded-full px-2.5 py-0.5 ${TONS.gris}`}>Privé · lien en bio</span>
+              : rang ? <span className={`rounded-full px-2.5 py-0.5 flex items-center gap-1.5 ${TONS.gris}`}><span className="w-2 h-2 rounded-full" style={{ background: couleurCompte(rang) }} />Compte {rang}</span> : null}
           </div>
         </div>
         {etat.enLigne ? (
           <div className="text-right shrink-0 text-[12px] text-argent2 leading-tight">
             <div><b className="text-white text-[15px] tabular-nums">{c.followers !== null && !introuvable ? fmt(c.followers) : "–"}</b> follower{c.followers === null || introuvable || c.followers > 1 ? "s" : ""}</div>
-            <div className="mt-0.5">{c.reels7 !== null && !introuvable ? `${fmt(c.reels7)} Reel${c.reels7 > 1 ? "s" : ""} en 7 j` : ""}</div>
+            <div className="mt-0.5">{c.reels7 !== null && !introuvable ? `${fmt(c.reels7)} Reel${c.reels7 > 1 ? "s" : ""} / 7 j` : ""}</div>
           </div>
         ) : null}
       </div>
-      {!etat.enLigne ? <div className="mt-3 text-[12.5px] text-argent2">Pas encore créé. Tes accès sont dans ton salon Discord.</div> : null}
+      {!etat.enLigne ? <div className="mt-3 text-[12.5px] text-argent2">Tes accès sont dans ton salon Discord.</div> : null}
       {alerte ? <div className={`mt-3 text-[12.5px] rounded-xl px-3 py-2 ${alerte.grave ? "bg-rose-400/10 text-rose-200" : "bg-amber-400/10 text-amber-200"}`}>⚠ {alerte.texte.charAt(0).toUpperCase() + alerte.texte.slice(1)}.</div> : null}
-      {enAttente ? <div className="mt-3 text-[12.5px] rounded-xl px-3 py-2 bg-amber-400/10 text-amber-200">⏳ Changement vers @{demande!.handle} en cours : le bot le fait sous 15 minutes.</div> : null}
+      {enAttente ? <div className="mt-3 text-[12.5px] rounded-xl px-3 py-2 bg-amber-400/10 text-amber-200">⏳ @{demande!.handle} : changement sous 15 min</div> : null}
       {demande?.statut === "refusé" ? <div className="mt-3 text-[12.5px] rounded-xl px-3 py-2 bg-rose-400/10 text-rose-200">❌ @{demande.handle} refusé : {raisonRefus(demande.detail)}</div> : null}
       {edition ? (
         <div className="mt-3 flex gap-2">
@@ -115,7 +115,7 @@ function Ligne({ c, demande, jeton, recharger, metricool, rechargerMetricool }: 
           <button onClick={() => { setEdition(false); setMessage(""); }} className="rounded-xl px-3 text-argent2">✕</button>
         </div>
       ) : c.modifiable === false ? null : (
-        <button onClick={() => setEdition(true)} className="mt-3 text-[13px] font-semibold text-accent">Ce n'est pas le bon @ ? Modifier</button>
+        <button onClick={() => setEdition(true)} className="mt-3 text-[13px] font-semibold text-accent">Modifier le @</button>
       )}
       {message ? <div className="mt-2 text-[12.5px] text-rose-200">{message}</div> : null}
       {etat.libelle === "Actif" && !introuvable ? <MetricoolBouton key={c.handle} jeton={jeton} n={c.n} etat={metricool} charger={rechargerMetricool} /> : null}
@@ -143,19 +143,17 @@ function MesComptes({ jeton }: { jeton: string }) {
   }, [jeton]);
   useEffect(() => { charger(); const id = setInterval(charger, 60_000); return () => clearInterval(id); }, [charger]);
   useEffect(() => { chargerMetricool(); const id = setInterval(chargerMetricool, 60_000); return () => clearInterval(id); }, [chargerMetricool]);
+  // « Compte 1 », « Compte 2 » : le même rang que Ma semaine et la prime (comptes de croissance, dans l'ordre de l'app)
+  const rangs = new Map(comptesCroissance(d?.comptes || []).map((c, i) => [c.handle, i + 1] as const));
   return (
     <section className="space-y-3">
-      {d?.semaine ? <MaSemaine s={d.semaine} fixe={Boolean(d.fixe)} /> : null}
-      {d?.correlation ? <ReelsVuesClics c={d.correlation} fixe={Boolean(d.fixe)} /> : null}
-      <div className="apparait px-1 pt-2">
-        <h2 className="text-[18px] font-bold">Mes comptes Instagram</h2>
-        <p className="text-argent2 text-[13px] mt-1 leading-relaxed">Touche un @ pour l'ouvrir dans Instagram.</p>
-      </div>
+      {d?.semaine ? <MaSemaine s={d.semaine} c={d.correlation} /> : null}
+      <h2 className="apparait px-1 pt-2 text-[18px] font-bold">Mes comptes</h2>
       {!d && !erreur ? [0, 1, 2].map((i) => <div key={i} className="squelette h-28" />) : null}
       {erreur && !d ? <div className="carte p-5 text-center text-argent2">Les comptes sont en cours de mise à jour. <button className="text-accent font-semibold" onClick={charger}>Réessayer</button></div> : null}
       {erreur && d ? <p className="text-[12px] text-amber-200" role="status">Actualisation indisponible : dernières données affichées. <button onClick={charger} className="underline">Réessayer</button></p> : null}
       {d && !d.comptes.length ? <div className="carte p-5 text-center text-argent2">Pas encore de compte. Ton compte 1 arrive dans ton salon Discord.</div> : null}
-      {d?.comptes.map((c) => <Ligne key={`${c.n}-${c.handle}`} c={c} demande={d.demandes.find((x) => x.n === c.n)} jeton={jeton} recharger={charger}
+      {d?.comptes.map((c) => <Ligne key={`${c.n}-${c.handle}`} c={c} rang={rangs.get(c.handle)} demande={d.demandes.find((x) => x.n === c.n)} jeton={jeton} recharger={charger}
         metricool={metricool.find(e => e.n === c.n)} rechargerMetricool={chargerMetricool} />)}
     </section>
   );

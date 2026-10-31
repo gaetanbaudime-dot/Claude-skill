@@ -49,14 +49,14 @@ export default function App({ prenom, creatrice, jeton, tl = false }: { prenom: 
     try { if ("serviceWorker" in navigator && location.protocol === "https:") navigator.serviceWorker.register("/sw.js").catch(() => undefined); } catch { /* rien */ }
   }, [jeton, tl]);
   const choisir = (o: Onglet) => { setOnglet(o); signaler(jeton, `onglet:${o}`); try { localStorage.setItem("gm-clipper-onglet", o); } catch { /* privé */ } };
-  const heure = new Date().getHours();
-  const salut = heure < 5 ? "Bonne nuit" : heure < 12 ? "Bonjour" : heure < 18 ? "Bon après-midi" : "Bonsoir";
   return (
     <div className="min-h-dvh flex flex-col" style={{ paddingTop: "var(--safe-haut)" }}>
       <header className="px-5 pt-5 pb-3 flex items-center gap-3">
         <Logo taille={42} />
         <div className="leading-tight">
-          <div className="text-[13px] text-argent2 font-medium">{salut}{creatrice ? ` · équipe ${creatrice}` : ""}</div>
+          {/* 31/10 : plus de « Bonjour » calculé à l'heure du serveur (UTC) : il différait de l'heure du téléphone, React jetait
+              tout le rendu serveur à chaque ouverture (erreur d'hydratation). « Simplifie à mort » : l'équipe et le prénom suffisent. */}
+          {creatrice ? <div className="text-[13px] text-argent2 font-medium">Équipe {creatrice}</div> : null}
           <div className="titre-argent text-[22px] font-bold">{prenom}</div>
         </div>
       </header>
