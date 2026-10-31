@@ -3390,14 +3390,32 @@ async def _classeur_usage() -> str:
     return classeur or ""
 
 
+def _cles_par_uid(d: dict) -> dict:
+    """31/10 (Pierre : /14 noté « Clipping Pierre » au `!lien` du 28/10, /1 noté « Clipping UID:<id> » par le processus) : UNE clé
+    d'app par clipper. Avant, chaque lien gardait la clé de sa note : deux lignes « Régime paie », deux apps qui montraient chacune
+    la moitié, et `lien_app.chercher` qui ne trouvait plus l'app (deux lignes). La clé « uid:<son id> » l'emporte si un de ses liens
+    la porte (celle de « Comptes app » et du processus) ; sinon la clé de la plupart de ses liens. {uid : clé}."""
+    par_uid = {}
+    for info in (d.get("liens") or {}).values():
+        uid = str(info.get("uid") or "")
+        cle = _cle_prenom(_prenom_note(info.get("note")))
+        if uid and cle:
+            par_uid.setdefault(uid, {}).setdefault(cle, 0)
+            par_uid[uid][cle] += 1
+    return {uid: (f"uid:{uid}" if f"uid:{uid}" in cles else max(sorted(cles.items()), key=lambda x: x[1])[0])
+            for uid, cles in par_uid.items()}
+
+
 def lignes_regimes(d: dict) -> list:
     """08/10 (revue : l'app devinait « fixe » et « ancien » autrement que le bot, et affichait des montants que le bot ne paierait
     pas) : une ligne par clé de clipper (prénom de la note « Clipping Prénom », la clé de l'app) — régime, premier jour payé au
-    clic (debut_clic), et le premier jour compté de chaque lien (`depuis` : un lien repris compte pour lui à partir de la reprise)."""
+    clic (debut_clic), et le premier jour compté de chaque lien (`depuis` : un lien repris compte pour lui à partir de la reprise).
+    31/10 : tous les liens d'un clipper sous sa seule clé (_cles_par_uid)."""
     par_cle = {}
+    canon = _cles_par_uid(d)
     for lid, info in d.get("liens", {}).items():
         uid = str(info.get("uid") or "")
-        cle = _cle_prenom(_prenom_note(info.get("note")))
+        cle = canon.get(uid, "")
         if not uid or not cle:
             continue
         par_cle.setdefault(cle, {}).setdefault(uid, []).append((lid, str(info.get("depuis") or "")[:10]))
@@ -3443,11 +3461,13 @@ ENTETE_EQUIPES = ["Discord", "Clé app", "Ligne", "Créatrice", "Début", "Fin",
 
 def _cles_app(d: dict) -> dict:
     """{uid : clé de l'app} (le prénom de la note « Clipping Prénom », la clé de lignes_regimes et de l'app), pour le seul uid qui la
-    porte dans l'app : deux homonymes, celui qui a le plus de liens (même règle que lignes_regimes)."""
+    porte dans l'app : deux homonymes, celui qui a le plus de liens (même règle que lignes_regimes). 31/10 : une seule clé par
+    clipper (_cles_par_uid) ; avant, Pierre avait deux clés et la dernière lue gagnait au hasard."""
     par_cle = {}
+    canon = _cles_par_uid(d)
     for info in (d.get("liens") or {}).values():
         uid = str(info.get("uid") or "")
-        cle = _cle_prenom(_prenom_note(info.get("note")))
+        cle = canon.get(uid, "")
         if uid and cle:
             par_cle.setdefault(cle, {}).setdefault(uid, 0)
             par_cle[cle][uid] += 1

@@ -30,6 +30,18 @@ async function regimes(): Promise<Map<string, Regime>> {
   return m;
 }
 
+/** 31/10 (Pierre, deux apps) : clé → ids des liens que le bot lui rattache (colonne « Liens »), pour lib/clippers (fusionner).
+ *  null si l'onglet est illisible : rien n'est fusionné. */
+export async function liensParCle(): Promise<Map<string, Set<string>> | null> {
+  try {
+    const m = new Map<string, Set<string>>();
+    (await regimes()).forEach((r, cle) => m.set(cle, new Set(r.liens.keys())));
+    return m;
+  } catch {
+    return null;
+  }
+}
+
 /** Le régime publié par le bot pour cette clé, ou null (pas encore publié, tableur indisponible). */
 export async function regimeDe(cle: string): Promise<Regime | null> {
   try {

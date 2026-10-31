@@ -79,12 +79,49 @@ export function nommer(liste: Clipper[], noms: Map<string, string> | null): Clip
   });
 }
 
+/** 31/10 (Mathieu : « donner à Pierre et Amour le lien de l'application ») : Pierre avait deux apps, /14 noté « Clipping Pierre »
+ *  (`!lien` du 28/10) et /1 noté « Clipping UID:<id> » (processus), chacune avec la moitié de ses chiffres, et le bot ne trouvait
+ *  plus la sienne (deux lignes « Liens app »). Le bot publie dans « Régime paie » UNE clé par clipper avec tous ses liens : un groupe
+ *  dont la clé n'y est pas et dont tous les liens sont rattachés par le bot à UNE autre clé présente rejoint ce clipper (son prénom,
+ *  sa clé, son jeton). `anciennes` : jeton de la clé fusionnée → clé d'arrivée, l'ancien lien de l'app mène toujours au clipper.
+ *  Onglet illisible (null) : rien ne bouge. Pur, testé par tests/clippers-fusion.cjs. */
+export function fusionner(liste: Clipper[], cles: Map<string, Set<string>> | null): { liste: Clipper[]; anciennes: Map<string, string> } {
+  const anciennes = new Map<string, string>();
+  if (!cles || !cles.size) return { liste, anciennes };
+  const presentes = new Set(liste.map((c) => c.cle));
+  const vers = new Map<string, string>();
+  for (const c of liste) {
+    if (cles.has(c.cle) || !c.liens.length) continue;
+    const cibles = [...cles.entries()]
+      .filter(([k, ids]) => k !== c.cle && presentes.has(k) && c.liens.every((l) => ids.has(l.id)))
+      .map(([k]) => k);
+    if (cibles.length === 1) vers.set(c.cle, cibles[0]);
+  }
+  if (!vers.size) return { liste, anciennes };
+  const parCle = new Map(liste.map((c) => [c.cle, { ...c, liens: [...c.liens] }] as [string, Clipper]));
+  vers.forEach((k, source) => {
+    const s = parCle.get(source)!;
+    const t = parCle.get(k)!;
+    t.liens = [...t.liens, ...s.liens].sort((a, b) => (b.creeLe > a.creeLe ? 1 : b.creeLe < a.creeLe ? -1 : 0));
+    anciennes.set(s.jeton, k);
+    parCle.delete(source);
+  });
+  return { liste: [...parCle.values()].sort((a, b) => a.cle.localeCompare(b.cle)), anciennes };
+}
+
+async function etat(): Promise<{ liste: Clipper[]; anciennes: Map<string, string> }> {
+  let liste = regrouper(await liensGaml());
+  if (liste.some((c) => estCleUid(c.cle))) {
+    // import dynamique : comptesApp → usage → config → clippers ferait une boucle d'imports
+    const noms = await import("./comptesApp").then((m) => m.prenomsDesCles()).catch(() => null);
+    liste = nommer(liste, noms);                                   // onglet illisible : « UID:… » comme avant, rien ne casse
+  }
+  const cles = await import("./regimes").then((m) => m.liensParCle()).catch(() => null);
+  return fusionner(liste, cles);
+}
+
 export async function clippers(): Promise<Clipper[]> {
-  const liste = regrouper(await liensGaml());
-  if (!liste.some((c) => estCleUid(c.cle))) return liste;
-  // import dynamique : comptesApp → usage → config → clippers ferait une boucle d'imports
-  const noms = await import("./comptesApp").then((m) => m.prenomsDesCles()).catch(() => null);
-  return nommer(liste, noms);                                      // onglet illisible : « UID:… » comme avant, rien ne casse
+  return (await etat()).liste;
 }
 
 /** 13/10 (le lien de Yves ne marchait plus) : le jeton vient de la note GAML ; renommer « Clipping Yves Redirect YTB » en
@@ -93,9 +130,11 @@ const ANCIENNES_CLES: Record<string, string> = { "yves redirect ytb": "yves" };
 
 export async function clipperParJeton(jeton: string | undefined): Promise<Clipper | null> {
   if (!jeton || !/^[A-Za-z0-9_-]{24}$/.test(jeton)) return null;
-  const liste = await clippers();
+  const { liste, anciennes } = await etat();
   const direct = liste.find((c) => c.jeton === jeton);
   if (direct) return direct;
+  const fusionne = anciennes.get(jeton);                           // 31/10 : l'app d'une clé fusionnée (Pierre, /14)
+  if (fusionne) return liste.find((c) => c.cle === fusionne) || null;
   for (const [ancienne, actuelle] of Object.entries(ANCIENNES_CLES)) {
     if (jetonDe(ancienne) === jeton) return liste.find((c) => c.cle === actuelle) || null;
   }
