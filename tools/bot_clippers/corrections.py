@@ -15,6 +15,8 @@ Actions (un clipper est désigné par son prénom ET sa créatrice : une seule f
   @ vu libre exigé, jamais un compte créé).
 - « variante » {prenom, creatrice, n} : son compte n prend la variante libre de son @ (parcours.renommer : LOG, fiche, registre).
 - « remise » {clippers: [[prenom, creatrice], …]} : la remise de leurs @ restants (remise_arobases, envoi).
+- « aligner » {prenom, creatrice, comptes: [@1, @2, @3], renommer?} (31/10, Esperance) : fiche, registre et parcours suivent ses
+  trois comptes créés du LOG ; les @ en trop sortent seulement si Instagram prouve qu'il ne les a jamais créés (voir _aligner).
 """
 import asyncio
 import json
@@ -134,6 +136,146 @@ async def _variante(a: dict, uid: str) -> str:
     return f"⚠️ {a['prenom']} : @{v} refusé ({raison})" if raison else f"🔁 {a['prenom']}, compte {n} : @{h} → @{v} (libre)"
 
 
+def jamais_a_lui(ex: dict) -> bool:
+    """Pur : Instagram prouve que ce @ n'est pas un compte créé par le clipper — libre, ou le compte ancien d'un inconnu (pas neuf,
+    profil lu, rien qui le relie à nous). Un doute, un compte neuf ou un profil illisible : non (jamais retiré sur un doute)."""
+    import arobase_libre
+    v = (ex or {}).get("verdict")
+    if v == arobase_libre.LIBRE:
+        return True
+    return (v == arobase_libre.PRIS and not ex.get("a_nous") and not ex.get("neuf") and ex.get("profil_lu") is not False)
+
+
+async def _aligner(a: dict, uid: str, client) -> list:
+    """31/10 (Esperance : son compte 3 retenu toutes les 30 min par « Trois places à vie », son compte 1 jamais confirmé : la
+    fiche portait @lasoir_ quand elle avait créé @lasoir_c, plus deux essais de privé jamais faits). {prenom, creatrice,
+    comptes: [@1, @2, @3], renommer?: {ancien: nouveau}, retirer?: [@…]} : la fiche et le registre s'alignent sur le LOG.
+    1. Chaque @ de `comptes` doit être UNE ligne créée (pas « à créer ») de cette créatrice, au nom du clipper (Gérant) ; sinon rien.
+    2. `renommer` : la fiche suit le LOG (_appliquer_nouveau_handle), le registre garde la même place sous le nouveau @.
+    3. Les autres @ de la fiche sortent de la fiche, et leur place réservée ou incertaine est annulée au registre, seulement si
+       Instagram prouve qu'il ne les a jamais créés (jamais_a_lui), ou s'ils sont dans `retirer` (tranchés, preuve dans la note
+       du dépôt) ; un compte créé à son nom dans le LOG n'est jamais retiré.
+    4. Les trois comptes sont notés créés au registre ; un compte d'une étape déjà passée (le compte 1 quand le 2 est parti à 48 h)
+       est noté fait dans le parcours SANS message, son bouton retiré ; l'étape en cours repart d'elle-même au passage suivant."""
+    import arobase_libre
+    import onboarding
+    import parcours
+    from copy import deepcopy
+
+    def norm(h):
+        return onboarding.normaliser_handle(h).lower()
+    prenom, creatrice = a["prenom"], a.get("creatrice", "")
+    cibles = [norm(h) for h in a.get("comptes") or [] if norm(h)]
+    if len(cibles) != 3 or len(set(cibles)) != 3:
+        return [f"⚠️ {prenom} : trois @ distincts attendus, rien changé"]
+    p1 = _n(prenom).split()[:1]
+
+    def a_lui(c):
+        return bool(p1) and _n(c.get("gerant")).split()[:1] == p1
+    log = await onboarding.lire_comptes()
+    for h in cibles:
+        lignes = [c for c in log if norm(c.get("handle")) == h]
+        if (len(lignes) != 1 or not onboarding._pour_creatrice(lignes[0], creatrice) or not a_lui(lignes[0])
+                or onboarding._norm(lignes[0].get("etat")) in onboarding.A_CREER):
+            return [f"⚠️ {prenom} : @{h} n'est pas UNE ligne créée à son nom dans le LOG ({creatrice}), rien changé"]
+    siens = {norm(c.get("handle")) for c in log if a_lui(c) and onboarding._norm(c.get("etat")) not in onboarding.A_CREER}
+    bilan = []
+    for ancien, nouveau in ((norm(k), norm(v)) for k, v in (a.get("renommer") or {}).items()):
+        dans = [norm(h) for h in (onboarding._lire_etat()["clippers"].get(uid) or {}).get("comptes") or []]
+        if ancien in dans and nouveau not in dans:
+            onboarding._appliquer_nouveau_handle(uid, ancien, nouveau)
+            bilan.append(f"✏️ fiche : @{ancien} → @{nouveau} (comme le LOG)")
+    etat = onboarding._lire_etat()
+    fiche = etat["clippers"].setdefault(uid, {})
+    extras = [h for h in fiche.get("comptes") or [] if norm(h) not in cibles and norm(h) not in siens]
+    # « retirer » : @ tranchés par Gaëtan (ou en son nom, avec la preuve dans la note du dépôt) malgré un doute d'Instagram ;
+    # jamais un des trois comptes ni un compte créé à son nom dans le LOG
+    decides = {norm(h) for h in a.get("retirer") or []} - set(cibles) - siens
+    retires, gardes = [], []
+    for h in extras:
+        if norm(h) in decides:
+            retires.append(norm(h))
+            continue
+        ex = await arobase_libre.examen(norm(h), creatrice)
+        (retires if jamais_a_lui(ex) else gardes).append(norm(h))
+    nouvelle = deepcopy(fiche)
+    nouvelle["comptes"] = [h for h in fiche.get("comptes") or [] if norm(h) not in retires]
+    nouvelle["acces"] = [x for x in fiche.get("acces") or [] if not (isinstance(x, dict) and norm(x.get("handle")) in retires)]
+    ordre = [norm(h) for h in parcours._comptes_ordonnes(uid, onb=nouvelle)[:3]]
+    if ordre != cibles:
+        return bilan + [f"⚠️ {prenom} : l'ordre des comptes serait {', '.join('@' + h for h in ordre)} au lieu de "
+                        f"{', '.join('@' + h for h in cibles)} : fiche et registre laissés tels quels"]
+    if retires:
+        etat["clippers"][uid] = nouvelle
+        onboarding._ecrire_etat(etat)
+        vus = [h for h in retires if h not in decides]
+        if vus:
+            bilan.append("🧹 sortis de la fiche (jamais créés par lui, vu sur Instagram) : " + ", ".join("@" + h for h in vus))
+        if set(retires) & decides:
+            bilan.append("🧹 sortis de la fiche sur décision (pas au LOG à son nom) : "
+                         + ", ".join("@" + h for h in retires if h in decides))
+    if gardes:
+        bilan.append("⚠️ gardés, à trancher (Instagram ne prouve pas qu'il ne les a pas créés) : "
+                     + ", ".join("@" + h for h in gardes))
+    registre = onboarding.process_adapters.store()
+    for ancien, nouveau in ((norm(k), norm(v)) for k, v in (a.get("renommer") or {}).items()):
+        try:
+            registre.rename(uid, ancien, nouveau)
+        except Exception as erreur:                                     # noqa: BLE001 — déjà fait, ou le nouveau a sa place
+            journal.info("Registre, renommage %s → %s : %s", ancien, nouveau, erreur)
+    preuve = f"correction du 31/10 : le LOG porte ses 3 comptes créés ({', '.join(cibles)})"
+    annules, dans_fiche = [], {norm(h) for h in fiche.get("comptes") or []}
+    for _, statut, alias in registre.comptes_de(uid):
+        if statut == "cancelled" or not alias or set(alias) & (set(cibles) | siens):
+            continue
+        nom = "/".join("@" + x for x in alias)
+        if statut not in ("reserved", "unknown") or set(alias) & set(gardes):
+            bilan.append(f"⚠️ registre : {nom} ({statut}) gardé, à trancher")
+            continue
+        prouve = bool(set(alias) & (set(retires) | decides))
+        if not prouve and not set(alias) & dans_fiche:                  # place du registre seule : Instagram d'abord, chaque @
+            prouve = all([jamais_a_lui(await arobase_libre.examen(x, creatrice)) for x in alias])
+        if not prouve:
+            bilan.append(f"⚠️ registre : {nom} ({statut}) gardé, à trancher")
+            continue
+        try:
+            registre.retirer_doublon(uid, alias[0], preuve)
+            annules.append(nom)
+        except Exception as erreur:                                     # noqa: BLE001
+            bilan.append(f"⚠️ registre : {nom} pas retiré ({erreur})")
+    if annules:
+        bilan.append("♻️ registre : place(s) libérée(s) : " + ", ".join(annules))
+    statuts = {h: s for _, s, al in registre.comptes_de(uid) for h in al}
+    for h in cibles:
+        proprio = registre.owner_for_handle(h)
+        try:
+            if proprio is None:
+                registre.reserve(uid, [h])
+            elif str(proprio) != uid:
+                bilan.append(f"⚠️ registre : @{h} est au nom d'un autre clipper, pas touché")
+                continue
+            if statuts.get(h) != "created":
+                registre.created(uid, h, preuve)
+        except Exception as erreur:                                     # noqa: BLE001 — signalé, la suite passe
+            bilan.append(f"⚠️ registre : @{h} pas noté créé ({type(erreur).__name__} {erreur})")
+    d = parcours._lire()
+    f = d.get(uid) or {}
+    etape, fermes = int(f.get("etape", 0) or 0), []
+    for n in (1, 2, 3):
+        dates = f.get("dates") or {}
+        if etape > n and dates.get(str(n)) and not dates.get(f"{n}_fait"):
+            f["dates"][f"{n}_fait"] = parcours._maintenant()
+            fermes.append(n)
+    if fermes:
+        parcours._ecrire(d)
+        salon = client.get_channel(int(f.get("salon_id") or 0)) if client is not None and str(f.get("salon_id") or "").isdigit() else None
+        for n in fermes:
+            if salon is not None:
+                await parcours._retirer_bouton(salon, (f.get("messages") or {}).get(str(n)))
+        bilan.append("✅ parcours : " + ", ".join(f"compte {n}" for n in fermes) + " noté(s) créé(s), sans message")
+    return [f"🧩 {prenom} ({creatrice}) aligné sur le LOG : " + ", ".join(f"{i} @{h}" for i, h in enumerate(cibles, 1))] + bilan
+
+
 async def _attendre_ci(attentes: list) -> list:
     """Les @ que le contrôle GitHub n'a toujours pas lus au bout d'ATTENTE_CI_MIN minutes ([] : tout est là)."""
     import arobase_libre
@@ -193,6 +335,8 @@ async def appliquer(client, depot: dict) -> list:
                 bilan.append(await _attribuer(a, uid))
             elif quoi == "variante":
                 bilan.append(await _variante(a, uid))
+            elif quoi == "aligner":
+                bilan.extend(await _aligner(a, uid, client))
             else:
                 bilan.append(f"⚠️ action inconnue : {quoi}")
         except Exception as erreur:                                     # noqa: BLE001 — l'action suivante passe quand même

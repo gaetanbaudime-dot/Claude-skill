@@ -1531,13 +1531,61 @@ def arobase_donne(fiche_p: dict, n: int, handle: str) -> bool:
     return bool(handle) and onboarding.normaliser_handle(e.get("handle")).lower() == onboarding.normaliser_handle(handle).lower()
 
 
+def _noter_retenue(fiche_p: dict, n: int, raison: str) -> None:
+    """31/10 (Esperance : compte 3 retenu toutes les 30 min pendant plus de deux jours, « Trois places à vie », sans que personne le
+    voie) : la retenue garde « depuis », le premier essai retenu de la même étape, tant que l'étape n'est pas partie."""
+    prec = fiche_p.get("retenue") or {}
+    depuis = prec.get("depuis") or prec.get("date") if int(prec.get("n") or 0) == int(n) else None
+    fiche_p["retenue"] = {"n": int(n), "raison": str(raison)[:160], "date": _maintenant(), "depuis": depuis or _maintenant()}
+
+
+RETENUE_ALERTE_H = int(os.environ.get("PARCOURS_RETENUE_ALERTE_H", "12") or 12)
+
+
+def retenues_longues(d: dict, maintenant: datetime, heures: int = RETENUE_ALERTE_H) -> list:
+    """Pur (31/10) : [(uid, prénom, n, raison, heures)] des étapes retenues sans interruption depuis plus de `heures` heures (le
+    dernier essai retenu date de moins de 2 h : une vieille trace d'une étape débloquée depuis ne compte pas)."""
+    out = []
+    for uid, f in (d or {}).items():
+        r = (f or {}).get("retenue") if isinstance(f, dict) else None
+        depuis, dernier = _instant_iso((r or {}).get("depuis")), _instant_iso((r or {}).get("date"))
+        if not r or depuis is None or dernier is None or f.get("sorti") or maintenant - dernier > timedelta(hours=2):
+            continue
+        h = (maintenant - depuis).total_seconds() / 3600
+        if h >= heures:
+            out.append((str(uid), f.get("prenom") or "?", int(r.get("n") or 0), str(r.get("raison") or ""), round(h)))
+    return sorted(out, key=lambda x: -x[4])
+
+
+async def alerter_retenues(maintenant=None) -> list:
+    """31/10 : une ligne au salon admin par étape retenue depuis plus de RETENUE_ALERTE_H heures, une fois par jour et par étape."""
+    maintenant = maintenant or datetime.now(timezone.utc)
+    jour = maintenant.date().isoformat()
+    d = _lire()
+    a_dire = [x for x in retenues_longues(d, maintenant) if (d.get(x[0]) or {}).get("retenue_alertee") != f"{jour}:{x[2]}"]
+    if not a_dire or not _deps.get("canal_admin"):
+        return []
+    canal = await _deps["canal_admin"]()
+    if canal is None:
+        return []
+    lignes = [f"· {p} (<@{u}>) : compte {n} retenu depuis {h} h ({r})" for u, p, n, r, h in a_dire]
+    await canal.send(("⏸️ **Étapes bloquées depuis plus de " + str(RETENUE_ALERTE_H) + " h** (le bot réessaie seul, sans "
+                      "résultat : un humain tranche) :\n" + "\n".join(lignes))[:1990])
+    d = _lire()
+    for u, _, n, _, _ in a_dire:
+        if u in d:
+            d[u]["retenue_alertee"] = f"{jour}:{n}"
+    _ecrire(d)
+    return lignes
+
+
 def _retenir(uid: str, n: int, raison: str) -> None:
     """L'étape n reste au programme (nouvel essai LIGNE_REESSAI_MIN minutes plus tard) ; la raison va dans la fiche (`!memoire`)."""
     journal.info("Parcours : étape %s de %s retenue (%s)", n, uid, raison)
     _garder_au_programme(uid, n, noter=True)
     d = _lire()
     if uid in d:
-        d[uid]["retenue"] = {"n": int(n), "raison": raison[:160], "date": _maintenant()}
+        _noter_retenue(d[uid], n, raison)
         _ecrire(d)
 
 
@@ -1718,7 +1766,7 @@ async def envoyer_etape(salon, membre, n: int, pointer: bool = True) -> bool:
             _garder_au_programme(uid, n, noter=True)
             d_r = _lire()                                               # 24/10 : forcer_comptes2 lit la raison (historique)
             if uid in d_r:
-                d_r[uid]["retenue"] = {"n": int(n), "raison": str(erreur)[:160], "date": _maintenant()}
+                _noter_retenue(d_r[uid], n, str(erreur))
                 _ecrire(d_r)
             return False
     fiche_lien = _lire().get(uid) or {}
@@ -3832,6 +3880,10 @@ async def boucle(client) -> None:
                     await canal.send("\n".join(bilan_app)[:1990])
             except Exception as erreur:                                 # noqa: BLE001
                 journal.warning("App clippers (rattrapage) : %s", erreur)
+            try:                                                        # 31/10 : une étape retenue depuis plus de 12 h se voit
+                await alerter_retenues()
+            except Exception as erreur:                                 # noqa: BLE001
+                journal.warning("Étapes retenues (alerte) : %s", erreur)
             try:                                                        # 23/10 : la consigne du lien en story, si le lien n'existait pas encore
                 await rattraper_story_lien(client)
             except Exception as erreur:                                 # noqa: BLE001

@@ -1,16 +1,24 @@
 {
-  "id": "3010-corrections-1",
-  "note": "Gaëtan, 30/10 10 h 59 : libérer Benn, Oumar, Alvaro ; recommandations appliquées pour Georgial, Amour, Andrianina.",
-  "attendre_ci": [{"handle": "sarah.secret", "variante": true}, {"handle": "sovan.secret"}],
+  "id": "3110-esperance",
+  "note": "Gaëtan, 31/10 7 h 04 : « Résous le problème d'Espérance ». Son compte 3 était retenu toutes les 30 min (« Trois places à vie ») et son compte 1 jamais confirmé : la fiche portait @lasoir_ (absent du LOG, libre sur Instagram) quand elle a créé @lasoir_c, plus deux essais de privé : @chloe.prv (compte d'un inconnu, 305 abonnés) et @chloe.prvvvv (26 abonnés, 0 publication, bio qui renvoie vers un autre compte : pas son privé, qui est @callistaenimages au LOG). Le LOG porte ses trois comptes créés ; contrôle GitHub du 31/10 3 h 20 UTC.",
+  "attendre_ci": [],
   "actions": [
-    {"action": "rendre", "prenom": "Benn", "creatrice": "Sophie"},
-    {"action": "rendre", "prenom": "Oumar", "creatrice": "Sophie"},
-    {"action": "rendre", "prenom": "Alvaro", "creatrice": "Sophie"},
-    {"action": "log", "creatrice": "Sarah", "ancien": "sarah_conseille_", "nouveau": "sarahconseille", "etat": "GOOD"},
-    {"action": "fiche", "prenom": "Georgial", "creatrice": "Sarah", "ancien": "journaldesarah", "nouveau": "journaldesarahiva"},
-    {"action": "rendre", "prenom": "Amour", "creatrice": "Sophie", "handles": ["sophievan.journal"], "actifs_permis": true},
-    {"action": "attribuer", "prenom": "Amour", "creatrice": "Sophie", "handle": "sovan.secret"},
-    {"action": "variante", "prenom": "Andrianina", "creatrice": "Sarah", "n": 3},
-    {"action": "remise", "clippers": [["Georgial", "Sarah"], ["Amour", "Sophie"], ["Andrianina", "Sarah"]]}
+    {
+      "action": "aligner",
+      "prenom": "Esperance",
+      "creatrice": "Chloé",
+      "comptes": [
+        "lasoir_c",
+        "chloeapreslagarde",
+        "callistaenimages"
+      ],
+      "renommer": {
+        "lasoir_": "lasoir_c"
+      },
+      "retirer": [
+        "chloe.prv",
+        "chloe.prvvvv"
+      ]
+    }
   ]
 }

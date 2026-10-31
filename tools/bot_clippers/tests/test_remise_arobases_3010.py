@@ -189,6 +189,18 @@ class RemiseTests(unittest.IsolatedAsyncioTestCase):
         self.salon.send.assert_not_awaited()
         self.assertEqual(0, res["clippers"])
 
+    async def test_un_at_absent_du_log_n_est_jamais_donne(self):
+        # 31/10 (Esperance : sa fiche portait un @ mal tapé, absent du LOG, libre sur Instagram ; l'aperçu proposait de le donner)
+        self.log = [c for c in self.log if c["handle"] != "deux.fictif"]
+        with patch.object(a, "examen", AsyncMock(return_value=LIBRE)) as examen:
+            res = await r.remise(self.client, envoyer=True)
+        self.assertEqual(r.HORS_LOG, res["lignes"][1][10])
+        self.assertEqual(r.RIEN, res["lignes"][1][11])
+        self.assertNotIn("deux.fictif", [c.args[0] for c in examen.await_args_list])
+        self.assertNotIn("deux.fictif", self.salon.send.await_args.args[0])
+        self.assertIn("trois.prv_fictif", self.salon.send.await_args.args[0])
+        self.assertIn("à trancher : 1", r.resume(res))
+
     async def test_staff_sortis_et_absents_ignores(self):
         with patch.dict(p._deps, {"est_staff": lambda m: True}), patch.object(a, "examen", AsyncMock()) as examen:
             res = await r.remise(self.client, envoyer=True)
