@@ -136,6 +136,43 @@ def qualifies(pipe: dict, jour: date, fuseau) -> list:
     return sorted(out)
 
 
+def formation_quiz(pipe: dict, debut: date, fin: date, fuseau, exclu=None) -> dict:
+    """31/10 (audit : « 64 % des leads ne tentent jamais le quiz… mesurer où ils décrochent, vidéo ou quiz ») : les personnes (un
+    numéro = une personne) qui ont envoyé le formulaire du site entre `debut` et `fin`, celles qui ont ouvert le quiz (une tentative
+    s'ouvre à l'affichage, quiz_tentatives_web), celles qui l'ont envoyé et celles qui l'ont réussi. Ouvrir le quiz suppose d'avoir
+    passé la page de la vidéo : formulaires - quiz ouverts = décrochés avant le quiz. `exclu(tel)` : le staff. Pur."""
+    tentatives = (pipe or {}).get("quiz_tentatives_web") or {}
+    historique = (pipe or {}).get("quiz_historique_web") or {}
+    personnes = {}
+    for cid, fiche in ((pipe or {}).get("candidatures_web") or {}).items():
+        if not isinstance(fiche, dict):
+            continue
+        j = _jour(fiche.get("date"), fuseau)
+        tel = "".join(ch for ch in str(fiche.get("tel") or "") if ch.isdigit())[-9:]
+        if j is None or not (debut <= j <= fin) or (exclu is not None and exclu(fiche.get("tel"))):
+            continue
+        q = fiche.get("quiz") or {}
+        envoye = int(q.get("essais", 0) or 0) > 0 or any(k.startswith(f"quiz:c:{cid}:") for k in historique)
+        ouvert = envoye or f"c:{cid}" in tentatives
+        p_ = personnes.setdefault(tel or cid, {"ouvert": False, "envoye": False, "reussi": False})
+        p_["ouvert"] |= ouvert
+        p_["envoye"] |= envoye
+        p_["reussi"] |= bool(q.get("reussi"))
+    return {"formulaires": len(personnes), "quiz_ouvert": sum(1 for x in personnes.values() if x["ouvert"]),
+            "quiz_envoye": sum(1 for x in personnes.values() if x["envoye"]),
+            "reussi": sum(1 for x in personnes.values() if x["reussi"])}
+
+
+def ligne_formation(c: dict, jours: int) -> str:
+    """La ligne du point du lundi ; '' sans formulaire."""
+    if not c or not c.get("formulaires"):
+        return ""
+    pct = lambda x: f"{round(100 * x / c['formulaires'])} %"                  # noqa: E731
+    return (f"🎬 **Formation → quiz ({jours} j)** : {c['formulaires']} formulaire(s) → {c['quiz_ouvert']} ont ouvert le quiz "
+            f"({pct(c['quiz_ouvert'])}) → {c['quiz_envoye']} l'ont envoyé ({pct(c['quiz_envoye'])}) → {c['reussi']} réussi(s)"
+            f"\n-# Formulaire envoyé sans ouvrir le quiz : décroché sur la page de la vidéo ({c['formulaires'] - c['quiz_ouvert']}).")
+
+
 def actifs(paie: dict, jour: date, payees, exclus=frozenset()) -> list:
     """Les uid actifs (M3) du jour : JOUR_TENU visites payées ou plus ce jour-là, d'après la mesure de la paie."""
     uids = {str(info.get("uid")) for info in ((paie or {}).get("liens") or {}).values()

@@ -67,6 +67,70 @@ _signatures: dict = {}                 # onglet → signature de la dernière ve
 _onglets_crees: set = set()            # (classeur, onglet) déjà créés ou vus
 _subs_cache = {"t": 0.0, "jour": "", "lignes": None}
 _verrou = None
+# 31/10 (plan de simplification, « 3 chiffres du matin ») : les dernières tables Reels et clics calculées par le Dashboard, pour le
+# point du matin (trois_chiffres) ; vides tant que le Dashboard n'a pas tourné depuis le démarrage
+dernier: dict = {}
+
+
+def _sans_accent(t) -> str:
+    return "".join(c for c in unicodedata.normalize("NFD", str(t or "")) if unicodedata.category(c) != "Mn").strip().lower()
+
+
+def gerant_clipper(gerant, creatrice) -> bool:
+    """Pur : la ligne « Pilotage reels » est celle d'un clipper (TL compris) : ni sans gérant, ni Metricool ou compte Rianah, ni le
+    compte de la créatrice elle-même."""
+    g = _sans_accent(gerant)
+    return bool(g) and not g.startswith("rianah") and "metricool" not in g and g != _sans_accent(creatrice)
+
+
+def _entier(v) -> int:
+    try:
+        return int(float(str(v).replace(",", ".")))
+    except (TypeError, ValueError):
+        return 0
+
+
+def trois_chiffres(reels, clics, jour: str, jours_moyenne: int = 7) -> dict:
+    """Pur : les 3 chiffres du matin pour `jour` (AAAA-MM-JJ, Paris) — clippers actifs (au moins 1 Reel ce jour-là), Reels des
+    clippers (hors Metricool et comptes des créatrices), visites payables (francophones, hors robots) des liens des clippers —
+    plus la moyenne de Reels clippers des `jours_moyenne` jours d'avant et les liens non relevés (somme partielle). {} sans table."""
+    if not isinstance(reels, list):
+        return {}
+    par_jour = {}
+    for l in reels:
+        if not isinstance(l, (list, tuple)) or len(l) < 4 or not gerant_clipper(l[2], l[1]):
+            continue
+        par_jour.setdefault(str(l[0]), {})
+        par_jour[str(l[0])][_sans_accent(l[2])] = par_jour[str(l[0])].get(_sans_accent(l[2]), 0) + _entier(l[3])
+    jour_d = par_jour.get(jour, {})
+    try:
+        j0 = date.fromisoformat(jour)
+        avant = [sum(par_jour.get((j0 - timedelta(days=k)).isoformat(), {}).values()) for k in range(1, jours_moyenne + 1)]
+    except ValueError:
+        avant = []
+    out = {"actifs": sum(1 for v in jour_d.values() if v > 0), "reels": sum(jour_d.values()),
+           "moyenne": round(sum(avant) / len(avant), 1) if avant else None}
+    if isinstance(clics, list):
+        payes, manquants = 0, 0
+        for l in clics:
+            if isinstance(l, (list, tuple)) and len(l) >= 9 and str(l[0]) == jour and str(l[3]) == "Clipper":
+                payes += _entier(l[5])
+                manquants += _entier(l[8])
+        out.update({"clics": payes, "liens_non_releves": manquants})
+    return out
+
+
+def ligne_trois_chiffres(jour: str, objectif: int = 2000) -> str:
+    """La ligne du point du matin, '' si le Dashboard n'a pas encore calculé ses tables depuis le démarrage."""
+    c = trois_chiffres(dernier.get("reels"), dernier.get("clics"), jour)
+    if not c:
+        return ""
+    texte = f"📈 **Hier** : {c['actifs']} clipper(s) actif(s) · {c['reels']} Reels clippers"
+    if "clics" in c:
+        texte += f" · {c['clics']} clics francophones" + (" (relevé partiel)" if c.get("liens_non_releves") else "")
+    if c.get("moyenne") is not None:
+        texte += f"\n-# Moyenne des 7 jours d'avant : {str(c['moyenne']).replace('.', ',')} Reels par jour · objectif " + f"{objectif:,}".replace(",", " ") + " par jour"
+    return texte
 
 
 def _nombre(x) -> str:
@@ -298,6 +362,8 @@ def _relever_boutons(pil: dict, aujourdhui: date) -> None:
 async def publier(pil: dict, maintenant: datetime = None) -> int:
     """Écrit les onglets du pilotage qui ont changé. Renvoie le nombre d'onglets écrits (0 sinon). Jamais d'exception."""
     global _verrou
+    if pil:
+        dernier.update({"reels": pil.get("reels"), "clics": pil.get("clics"), "le": time.monotonic()})   # 31/10 : point du matin
     if not pil or not google_api.actif():
         return 0
     _verrou = _verrou or asyncio.Lock()
