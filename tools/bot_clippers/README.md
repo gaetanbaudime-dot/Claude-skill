@@ -1,5 +1,11 @@
 # Bot FAQ Clippers (Discord + Claude)
 
+**31/10, 10 h 20 : comptes 3, liens et créations plus jamais retenus en boucle par le registre (Gaëtan : « ils n'arrivent pas à créer le deux et le trois… ils n'ont pas le lien »)**
+
+- Au passage de 8 h, un compte 3, un lien GAML (étape 6) et une création notée étaient refusés à chaque tour par « Historique à vie non rapproché » / « Création sans réservation valide ». `parcours.reprise_si_historique` applique la décision du 24/10 (reprise d'après ce que le bot connaît, additive, comptée dans les trois places) à la ligne du compte n, au lien et à la création notée, puis l'appelant retente une fois. Au plus une reprise toutes les 6 h par clipper (`reprise_auto` dans la fiche).
+- `_classeur_etat` : le registre et le LOG chacun de son côté (un refus du registre ne laisse plus le LOG « à créer » sur un compte créé), jamais le LOG d'un @ qu'un autre clipper tient au registre. Même garde dans `suivi_creation._marquer_log`.
+- **Tests** : `tests/test_historique_auto_3110.py`.
+
 **31/10, 10 h : le point du matin suit l'audit (Gaëtan : « Met en place toutes les recommandations de l'audit » ; « Liste du matin, tu valides »)**
 
 - **📈 3 chiffres du matin** (`pilotage.trois_chiffres`, plan de simplification) : clippers actifs hier (au moins 1 Reel), Reels des clippers (hors Metricool, comptes Rianah et comptes des créatrices), clics francophones des liens des clippers (visites payables), moyenne des 7 jours d'avant et l'objectif de 2 000 Reels par jour. Lus dans les dernières tables du Dashboard (`pilotage.dernier`) : rien tant qu'il n'a pas tourné depuis le démarrage.
