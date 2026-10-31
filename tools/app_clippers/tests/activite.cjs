@@ -27,14 +27,18 @@ const croissance2 = { handle: 'c2', etat: 'GOOD', role: 'croissance', followers:
 const prive = { handle: 'p', etat: 'GOOD', role: 'privé', followers: 40, reels7: 1, vues7: 500, jours: { '2026-10-22': 1 } };
 let s = a.semaine([croissance1, croissance2, prive], auj, { '2026-10-23': 120, '2026-10-16': 999 });
 eq(s.jours.map(j => j.jour), ['2026-10-17', '2026-10-18', '2026-10-19', '2026-10-20', '2026-10-21', '2026-10-22', '2026-10-23']);
-eq(s.jours.map(j => j.reels), [3, 0, 0, 2, 0, 1, 7]);
-assert.equal(s.reels, 13); assert.equal(s.cadence, 1.9);
+// 31/10 : la cadence ne compte que ses comptes de croissance (le Reel du compte privé le 22 n'y est pas)
+eq(s.jours.map(j => j.reels), [3, 0, 0, 2, 0, 0, 7]);
+assert.equal(s.reels, 12); assert.equal(s.cadence, 1.7);
 assert.equal(s.vues, 30500); assert.equal(s.followers, 1540); assert.equal(s.clics, 120);
 assert.equal(s.parJour, true);
+// … compte par compte : barres empilées et moyenne de chacun (« Compte 1 », « Compte 2 » dans l'ordre de l'app)
+eq(s.jours[6].parCompte, [4, 3]);
+eq(s.croissance, [{ handle: 'c1', rang: 1, reels: 9, moyenne: 1.3 }, { handle: 'c2', rang: 2, reels: 3, moyenne: 0.4 }]);
 
 // Colonne pas encore publiée : on retombe sur « Reels 7 j », sans graphique ; clics inconnus = null, jamais 0
 s = a.semaine([{ ...croissance1, jours: undefined }, { ...prive, jours: undefined }], auj, null);
-assert.equal(s.parJour, false); assert.equal(s.reels, 10); assert.equal(s.cadence, 1.4); assert.equal(s.clics, null);
+assert.equal(s.parJour, false); assert.equal(s.reels, 9); assert.equal(s.cadence, 1.3); assert.equal(s.clics, null);
 // Aucun compte lu par le bot : « – », jamais 0 Reel (le cas d'un clipper à 1 129 clics le 24/10)
 const nonLu = { handle: 'n', etat: 'GOOD', role: 'croissance', followers: 4, reels7: null, vues7: null, jours: {} };
 s = a.semaine([nonLu, { ...nonLu, handle: 'n2' }], auj, { '2026-10-23': 50 });
@@ -95,6 +99,37 @@ p = a.reelsPrime([croissance1], '2026-10-05', '2026-10-19', auj);           // p
 assert.equal(p.joursEcoules, 15); assert.equal(p.reels, 9);               // 10/10 et 17/10
 assert.equal(a.reelsPrime([{ ...croissance1, jours: undefined }], '2026-10-20', '2026-11-04', auj).mesure, false);
 
+// 31/10 : un compte « à créer » n'est pas un 2e compte de croissance (avant : « 2e compte pas encore suivi »)
+p = a.reelsPrime([fort, { ...vide, handle: 'neuf', etat: 'à créer', reels7: null }], '2026-10-20', '2026-11-04', auj);
+assert.equal(p.manque, 'deuxieme_compte'); assert.equal(p.comptes, 1);
+// … le n° de chaque compte (« Compte 1 », « Compte 2 ») suit l'ordre de l'app, pas l'activité ; jours de la période et restants
+p = a.reelsPrime([vide, fort], '2026-10-20', '2026-11-04', auj);
+eq(p.parCompte.map(c => [c.handle, c.rang]), [['fort', 2], ['vide', 1]]);
+assert.equal(p.totalJours, 16); assert.equal(p.joursEcoules, 4); assert.equal(p.joursRestants, 12);
+assert.equal(a.reelsPrime([fort], '2026-10-05', '2026-10-19', auj).joursRestants, 0);   // période close
+
+// 31/10 : le rythme à tenir jusqu'à la fin de la période pour finir à la cible
+assert.equal(a.rythmeNecessaire(10, 16, 12, 3), 3.2);      // 48 Reels pour 3/jour sur 16 jours, il en reste 38 en 12 jours
+assert.equal(a.rythmeNecessaire(48, 16, 12, 3), 0);        // déjà assuré
+assert.equal(a.rythmeNecessaire(12, 16, 12, 3), 3);        // 36 en 12 jours : 3 pile, sans arrondi parasite
+assert.equal(a.rythmeNecessaire(5, 16, 0, 3), null);       // période finie
+
+// 31/10 : Reels → vues → clics sur 14 jours (vues des Reels publiés ce jour-là)
+const v1 = { ...croissance1, vuesJours: { '2026-10-17': 9000, '2026-10-20': 4000, '2026-10-23': 30000 } };
+const v2 = { ...croissance2, vuesJours: { '2026-10-23': 6000 } };
+let k = a.correlation([v1, v2, prive], auj, { '2026-10-23': 120, '2026-10-20': 30 }, 14);
+assert.equal(k.jours.length, 14); assert.equal(k.jours[13].jour, '2026-10-23'); assert.equal(k.jours[0].jour, '2026-10-10');
+eq(k.jours[13].reels, [4, 3]); assert.equal(k.jours[13].vues, 36000); assert.equal(k.jours[13].clics, 120);
+assert.equal(k.reels, 18);                                 // 6 le 10 + 3 + 2 + 7 ; le privé ne compte pas
+assert.equal(k.vues, 49000); assert.equal(k.clics, 150);
+assert.equal(k.vuesParReel, 2722); assert.equal(k.clicsParReel, 8.3);
+eq(k.meilleur, { jour: '2026-10-23', reels: 7, vues: 36000, clics: 120 });
+eq(k.croissance, [{ handle: 'c1', rang: 1 }, { handle: 'c2', rang: 2 }]);
+// Sans suivi des vues ni clics : les rangées manquantes sont null, jamais 0 inventé
+k = a.correlation([croissance1, croissance2], auj, null, 14);
+assert.equal(k.vues, null); assert.equal(k.clics, null); assert.equal(k.vuesParReel, null);
+assert.equal(a.correlation([nonLu], auj, null, 14), null);   // aucun Reel suivi : pas de graphique
+
 // Paliers : il faut les Reels ET les clics
 let e = a.evaluerPrime(6.2, 410);
 eq(e.paliers.map(x => x.atteint), [true, true, false]); assert.equal(e.atteint.bonus, 20);
@@ -103,4 +138,4 @@ e = a.evaluerPrime(9.5, 150);
 assert.equal(e.atteint, null); assert.equal(e.paliers[0].okReels, true); assert.equal(e.paliers[0].manqueClics, 50);
 e = a.evaluerPrime(null, null);
 assert.equal(e.atteint, null); assert.equal(e.paliers[0].okReels, false);
-console.log('Activité : colonne du bot, 7 jours clos, repli sans colonne, prime sur les comptes de croissance (suspendus à 0) et paliers vérifiés.');
+console.log('Activité : 7 jours clos par compte de croissance, Reels → vues → clics, prime (suspendus à 0, rythme à tenir) et paliers vérifiés.');

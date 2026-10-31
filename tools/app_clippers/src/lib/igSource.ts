@@ -3,7 +3,7 @@
  *  Onglets absents ou Google en panne : null, et l'app garde l'ancien relevé (lib/igSuivi). */
 import { jetonGoogle } from "./google";
 import { tableur } from "./usage";
-import { lireIgComptes, lireIgJours, type IgSuivi } from "./igSuivi";
+import { lireIgComptes, lireIgJours, lireIgVuesJours, type IgSuivi } from "./igSuivi";
 import { decaler } from "./dates";
 
 const JOURS = 17;                                                     // une période de paie (16 j au plus) + aujourd'hui
@@ -20,7 +20,8 @@ async function lire(aujourdhui: string): Promise<IgSuivi | null> {
   const d = (await r.json()) as { valueRanges?: { values?: string[][] }[] };
   const [vc, vr] = (d.valueRanges || []).map((x) => x.values || []);
   if (!vc?.length) return null;
-  return { comptes: lireIgComptes(vc), jours: lireIgJours(vr || [], decaler(aujourdhui, -(JOURS - 1))) };
+  const depuis = decaler(aujourdhui, -(JOURS - 1));
+  return { comptes: lireIgComptes(vc), jours: lireIgJours(vr || [], depuis), vuesJours: lireIgVuesJours(vr || [], depuis) };
 }
 
 export async function suiviIg(aujourdhui: string): Promise<IgSuivi | null> {
