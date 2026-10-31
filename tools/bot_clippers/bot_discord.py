@@ -504,7 +504,8 @@ et tu ne réponds pas à sa place.
 Discord → un seul message de bienvenue : sa créatrice, le salon ℹ️ avec ses vidéos et son Drive, et le compte 1 (son @ seul, \
 vérifié libre, depuis le 30/10) → 48 h → compte 2 → 48 h → compte 3, le privé → le lien quand les comptes 1 et 2 ont 6 Reels \
 publiés à eux deux → la story à la une ; l'app de clippeur dès le jour 3 si le lien est prêt (depuis le 24/10, plus aucun Reel \
-à compter pour ouvrir un compte). Le TL ajoute le clipper au groupe WhatsApp de clipping de sa créatrice (Team Sophie, Team Chloé…), avec son numéro. Le compte 1 \
+à compter pour ouvrir un compte). Le dernier message de l'arrivée donne au clipper le lien du groupe WhatsApp de clipping de sa créatrice (Team Sophie, \
+Team Chloé…) : il le rejoint lui-même et se présente au groupe ; une créatrice sans lien : le TL l'ajoute, avec son numéro (31/10). Le compte 1 \
 arrive juste sous la bienvenue, sans attendre ; plus aucun message à J+7 : 2 Reels par jour, toujours. Il n'y a PLUS \
 de test vidéo à rendre ni de note de montage pour entrer : tu n'en parles jamais, même à un ancien candidat. Quizz réussi = sa \
 créatrice et son compte 1 arrivent dans son salon perso. Une étape à la fois : tu ne parles que de l'étape où il est.
@@ -6393,10 +6394,21 @@ async def onboarder_membre(g, m_, creatrice_c: str, par, etats_cl: dict, mgrs: l
                             (str(erreur) if isinstance(erreur, RuntimeError) else type(erreur).__name__))
                 journal.warning("Accueil de %s non vérifié : %s", uid_m, pourquoi)
                 return f"⚠️ Message du compte 1 ou informations non vérifiés ({pourquoi}) : reprise conservée."
+            # 31/10 (Gaëtan : « direct tu demandes au clippeur de rejoindre ce groupe à la fin ») : la créatrice a un lien de groupe
+            # (WHATSAPP_GROUPES) → le clipper le reçoit en dernier message et se présente au groupe ; ni TL ni bouton de Gaëtan.
+            trouver_lien = getattr(parcours, "lien_groupe_creatrice", None)
+            lien_groupe = trouver_lien(creatrice_c) if trouver_lien is not None else ""
             if sans_tl:
-                extras.append(f"pas de TL pour {creatrice_c} : Gaëtan est TL par défaut, groupe WhatsApp par son bouton")
+                extras.append(f"pas de TL pour {creatrice_c} : Gaëtan est TL par défaut"
+                              + ("" if lien_groupe else ", groupe WhatsApp par son bouton"))
             demande_groupe = getattr(parcours, "demander_groupe_tl", None)     # 18/10 (E8) : le TL crée le groupe WhatsApp
-            if demande_groupe is not None and tl is not None:                 # jamais au prix de l'arrivée (la fonction n'échoue pas)
+            if lien_groupe:                                                   # jamais au prix de l'arrivée (la fonction n'échoue pas)
+                envoi_groupe = await parcours.inviter_groupe_creatrice(salon_c, m_, uid_m, creatrice_c)
+                if envoi_groupe == "envoyé":
+                    extras.append(f"lien du groupe WhatsApp Team {creatrice_c} donné")
+                elif envoi_groupe:
+                    extras.append(f"⚠️ lien du groupe WhatsApp Team {creatrice_c} pas envoyé : `!creatrice {prenom_c} {creatrice_c}`")
+            elif demande_groupe is not None and tl is not None:               # jamais au prix de l'arrivée (la fonction n'échoue pas)
                 await demande_groupe(salon_c, uid_m, tl, prenom_c, creatrice_c)
             elif sans_tl and getattr(parcours, "demander_groupe_gaetan", None) is not None:
                 # 23/10 (Gaëtan : « Gaëtan est TL par défaut ») : sans TL, le groupe WhatsApp passe par Gaëtan (bouton wa.me)
