@@ -187,6 +187,11 @@ async def _aligner(a: dict, uid: str, client) -> list:
         if ancien in dans and nouveau not in dans:
             onboarding._appliquer_nouveau_handle(uid, ancien, nouveau)
             bilan.append(f"✏️ fiche : @{ancien} → @{nouveau} (comme le LOG)")
+        elif ancien in dans:
+            # 31/10 (Esperance, bilan de 8 h 11 : la fiche portait déjà @lasoir_c en 5e position) : le vrai @ prend la place du prévu,
+            # même numéro de compte, et le doublon disparaît (onboarding._fusionner_doublon, comme le rapprochement du 27/10)
+            onboarding._fusionner_doublon(uid, ancien, nouveau)
+            bilan.append(f"✏️ fiche : @{ancien} et @{nouveau} fusionnés, @{nouveau} à la place du compte prévu (comme le LOG)")
     etat = onboarding._lire_etat()
     fiche = etat["clippers"].setdefault(uid, {})
     extras = [h for h in fiche.get("comptes") or [] if norm(h) not in cibles and norm(h) not in siens]

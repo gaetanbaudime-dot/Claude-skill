@@ -131,6 +131,26 @@ class AlignerTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("compte 1 noté(s) créé(s), sans message", texte)
         self.assertNotIn("⚠️", texte)
 
+    async def test_le_vrai_at_deja_en_fin_de_fiche_prend_la_place_du_prevu(self):
+        # 31/10, bilan de 8 h 11 : fiche @prévu, 2, 3, essai, @vrai → @vrai en compte 1, ordre gardé
+        self.onb["clippers"]["42"]["comptes"] = ["un_.fictif", "deux.fictif", "trois.prive_fictif", "essai.prv_fictif", "un_c.fictif"]
+
+        def fusion(uid, ancien, nouveau):
+            f = self.onb["clippers"][uid]
+            vus, out = set(), []
+            for h in f["comptes"]:
+                k = nouveau if h in (ancien, nouveau) else h
+                if k not in vus:
+                    vus.add(k)
+                    out.append(k)
+            f["comptes"] = out
+        with patch.object(onboarding, "_fusionner_doublon", side_effect=fusion):
+            bilan = "\n".join(await co._aligner(self.action, "42", self.client))
+        self.assertEqual(["un_c.fictif", "deux.fictif", "trois.prive_fictif"], self.onb["clippers"]["42"]["comptes"])
+        self.assertIn("fusionnés", bilan)
+        self.assertNotIn("l'ordre des comptes serait", bilan)
+        self.assertEqual({"created": 3, "cancelled": 1}, self.registre.counts("42"))
+
     async def test_rejoue_ne_change_plus_rien(self):
         await co._aligner(self.action, "42", self.client)
         avant = (deepcopy(self.onb), deepcopy(self.parc), self.registre.counts("42"))
