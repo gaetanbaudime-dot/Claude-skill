@@ -32,7 +32,11 @@ let cache: { t: number; lignes: Ligne[] } | null = null;
 
 async function lignes(): Promise<Ligne[]> {
   if (cache && Date.now() - cache.t < 2 * 60 * 1000) return cache.lignes;
-  const tout = await lirePlage(await tableur(), `'${ONGLET_COMPTES_APP}'!A1:N`);
+  // 31/10 (vérification de 14 apps d'affilée : quota Google Sheets dépassé, deux apps affichaient « UID:1471… » au lieu du
+  // prénom) : une lecture refusée garde les dernières lignes connues plutôt que de tout perdre
+  let tout: string[][];
+  try { tout = await lirePlage(await tableur(), `'${ONGLET_COMPTES_APP}'!A1:N`); }
+  catch (e) { if (cache) return cache.lignes; throw e; }
   // L'API Sheets coupe les cellules vides en fin de ligne : seul l'en-tête dit si la colonne N est publiée
   const avecJours = String(tout[0]?.[13] || "").startsWith("Reels par jour");
   const brut = tout.slice(1);

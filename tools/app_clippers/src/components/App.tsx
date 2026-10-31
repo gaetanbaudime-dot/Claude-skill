@@ -48,6 +48,7 @@ export default function App({ prenom, creatrice, jeton, tl = false }: { prenom: 
     // Le service worker rend l'app installable d'un geste sur Android (Chrome, Samsung Internet) et donne une page hors ligne.
     try { if ("serviceWorker" in navigator && location.protocol === "https:") navigator.serviceWorker.register("/sw.js").catch(() => undefined); } catch { /* rien */ }
   }, [jeton, tl]);
+  const estUid = /^uid\s*:/i.test(prenom.trim());
   const choisir = (o: Onglet) => { setOnglet(o); signaler(jeton, `onglet:${o}`); try { localStorage.setItem("gm-clipper-onglet", o); } catch { /* privé */ } };
   return (
     <div className="min-h-dvh flex flex-col" style={{ paddingTop: "var(--safe-haut)" }}>
@@ -56,8 +57,10 @@ export default function App({ prenom, creatrice, jeton, tl = false }: { prenom: 
         <div className="leading-tight">
           {/* 31/10 : plus de « Bonjour » calculé à l'heure du serveur (UTC) : il différait de l'heure du téléphone, React jetait
               tout le rendu serveur à chaque ouverture (erreur d'hydratation). « Simplifie à mort » : l'équipe et le prénom suffisent. */}
-          {creatrice ? <div className="text-[13px] text-argent2 font-medium">Équipe {creatrice}</div> : null}
-          <div className="titre-argent text-[22px] font-bold">{prenom}</div>
+          {/* 31/10 : un prénom pas encore résolu (« UID:<id Discord> », onglet « Comptes app » illisible un instant) ne s'affiche
+              jamais : l'équipe prend sa place */}
+          {creatrice && !estUid ? <div className="text-[13px] text-argent2 font-medium">Équipe {creatrice}</div> : null}
+          <div className="titre-argent text-[22px] font-bold">{estUid ? (creatrice ? `Équipe ${creatrice}` : "G&M") : prenom}</div>
         </div>
       </header>
       <main className="min-w-0 flex-1 px-4" style={{ paddingBottom: "calc(112px + var(--safe-bas))" }}>
