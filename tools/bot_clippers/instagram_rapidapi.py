@@ -732,6 +732,23 @@ def attentes_parcours() -> list:
     return out
 
 
+def attentes_lien() -> list:
+    """31/10 (Gaëtan : « garder 6 Reels, compter plus vite ») : les clippers dont le lien attend ses Reels (« lien_attendu ») :
+    [(uid, @ d'un compte de croissance créé, sa création)]. Leurs Reels sont relus au passage prioritaire, le lien part au passage
+    horaire qui voit l'objectif (parcours.livrer_liens_attendus)."""
+    import parcours
+    out = []
+    for uid, f in (parcours._lire() or {}).items():
+        if not isinstance(f, dict) or not f.get("lien_attendu") or f.get("sorti"):
+            continue
+        comptes = parcours._comptes_ordonnes(uid, fiche_p=f)
+        np_ = parcours.n_prive(f)
+        for k in (1, 2, 3):
+            if k != np_ and k <= len(comptes) and comptes[k - 1] and parcours._cree(f, k):
+                out.append((uid, comptes[k - 1].strip().lstrip("@").lower(), parcours._date_creation(f, k)))
+    return out
+
+
 def verser_preuves(uid: str, handle: str, reels: list, creation) -> int:
     """Ajoute les Reels relus (publiés après la création) aux preuves du compte dans la fiche parcours. Renvoie le total vérifié.
     Lecture-écriture sans attente entre les deux : jamais d'écrasement d'une écriture concurrente du parcours."""
@@ -757,8 +774,12 @@ async def passage_parcours(session) -> list:
     faits = []
     store = _store()
     maintenant = datetime.now(timezone.utc)
-    for uid, handle, creation in attentes_parcours():
-        if not _quota_ok():
+    vus = set()
+    for uid, handle, creation in attentes_parcours() + attentes_lien():
+        if (uid, handle) in vus:
+            continue
+        vus.add((uid, handle))
+        if not _quota_ok(RESERVE):
             break
         reels = await relire_reels(session, store, handle, maintenant)
         if reels:

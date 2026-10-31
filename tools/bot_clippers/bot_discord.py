@@ -670,6 +670,12 @@ async def fermer_compte_prouve(uid, n) -> bool:
     salon = client.get_channel(int(fiche_p.get("salon_id") or 0)) if fiche_p.get("salon_id") else None
     if salon is None:
         return False
+    # 31/10 (Gaëtan : « ne juge que la création du compte Instagram par le scrapping RapidAPI ») : le mail ouvre la vérification,
+    # Instagram la conclut ; pas vu → le suivi des créations revérifie dans l'heure et ferme l'étape dès qu'il voit le compte
+    comptes_p = parcours._comptes_ordonnes(str(uid), fiche_p=fiche_p)
+    h = comptes_p[int(n) - 1] if 0 < int(n) <= len(comptes_p) else ""
+    if h and not await parcours._vu_sur_instagram(uid, int(n), h):
+        return False
     return bool(await parcours.valider_etape(salon, str(uid), int(n), par="mail", creation=True))
 
 
@@ -5720,6 +5726,15 @@ async def boucle_rappels():
                 texte_places, zero_place = await bloc_places_digest()
                 if texte_places:
                     blocs_d.append(("places", texte_places))
+                # 4 bis. 31/10 (Gaëtan : « fais hyper attention à ce que la fiabilité du bot soit bonne avec la clé RapidAPI ») : l'état de
+                # la clé, le quota restant et ce que le suivi des créations a vu hier
+                try:
+                    import suivi_creation
+                    ligne_ra = suivi_creation.ligne_digest(maintenant)
+                    if ligne_ra:
+                        blocs_d.append(("rapidapi", ligne_ra))
+                except Exception as erreur:                                 # noqa: BLE001
+                    journal.warning("Digest : ligne RapidAPI (%s)", erreur)
                 # 5. Ce qui n'attend que le staff.
                 attente = [u for u in flux["attente"] if membre_par_id(u) is not None]
                 if attente:
@@ -10293,6 +10308,8 @@ async def on_ready():
         corrections.configurer({"lire_json": lire_json, "ecrire_json": ecrire_json, "DONNEES": DONNEES,
                                 "FICHIER_EQUIPES": FICHIER_EQUIPES, "notifier": notifier_manager})
         client.loop.create_task(corrections.demarrage(client))
+        import suivi_creation                                           # 31/10 : la création des comptes vue par RapidAPI seul
+        suivi_creation.configurer({"canal_admin": canal_admin})
         import identites_clipping                                       # 24/10 : Rianah Clipping Chloé / Sarah, un salon chacune
         identites_clipping.configurer({"lire_json": lire_json, "ecrire_json": ecrire_json, "DONNEES": DONNEES,
                                        "FICHIER_EQUIPES": FICHIER_EQUIPES, "membre_par_prenom": membre_par_prenom,

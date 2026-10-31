@@ -136,7 +136,7 @@ async def traiter(alias: str, pseudo: str, date) -> str:
         qui = info.get("prenom") or uid
         texte = (f"📬 **Compte {n} de {qui} prouvé par un mail d'Instagram** (`@{pseudo}`){renomme} · "
                  + ("étape fermée comme à l'appui du bouton, la suite part toute seule." if ferme
-                    else "étape PAS fermée : vérifie son salon."))
+                    else "étape pas encore fermée : le suivi des créations la ferme dès qu'Instagram montre le compte."))
         # 27/10 : un compte d'une étape déjà dépassée qui n'a rien changé (ni @, ni étape) ne réveille pas le salon admin à chaque
         # mail de connexion ; le journal le garde
         if _deps.get("admin") and (ferme or renomme or info.get("courant", True)):
