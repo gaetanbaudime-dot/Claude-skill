@@ -110,22 +110,40 @@ export async function viderPlage(id: string, plage: string): Promise<void> {
   await appel(`https://sheets.googleapis.com/v4/spreadsheets/${id}/values/${encodeURIComponent(plage)}:clear`, { method: "POST", body: "{}" });
 }
 
-let echecJusqua = 0;                                                   // après un échec (tableur absent, quota), on n'insiste pas pendant 10 minutes
+let echecJusqua = 0;                                                   // après un échec sans id connu : une minute sans réessayer
+let derniereId = "";                                                   // le dernier id trouvé par l'instance : gardé sur une erreur passagère
+let recherche: Promise<string> | null = null;                         // une seule recherche à la fois par instance
 
-/** L'identifiant du tableur « App clippers · usage » (cherché par son nom, en cache 6 h). */
+/** L'identifiant du tableur « App clippers · usage » (cherché par son nom, en cache 6 h).
+ *  31/10 (vérification après déploiement : « journal d'usage indisponible » sur toutes les routes pendant 10 minutes, après une
+ *  rafale d'ouvertures sur une instance neuve) : chaque requête concurrente relançait sa propre recherche Drive, la rafale
+ *  dépassait le quota et une seule erreur bloquait toute l'app 10 minutes. Désormais une seule recherche à la fois ; si elle
+ *  échoue, l'id déjà connu sert encore ; sans id connu, on réessaie après une minute. */
 export async function tableur(): Promise<string> {
   if (cache && cache.expire > Date.now()) return cache.id;
-  if (echecJusqua > Date.now()) throw new Error("journal d'usage indisponible (nouvel essai dans 10 min)");
-  try {
-    const trouve = await chercher();
-    const id = trouve || (await creer());                              // la création échoue tant que le tableur n'est pas créé par un humain (quota nul du compte de service)
-    if (trouve) await preparer(id);
-    cache = { id, expire: Date.now() + 6 * 60 * 60 * 1000 };
-    return id;
-  } catch (e) {
-    echecJusqua = Date.now() + 10 * 60 * 1000;
-    throw e;
+  if (echecJusqua > Date.now()) {
+    if (derniereId) return derniereId;
+    throw new Error("journal d'usage indisponible (nouvel essai dans une minute)");
   }
+  if (!recherche) {
+    recherche = (async () => {
+      try {
+        const trouve = await chercher();
+        const id = trouve || (await creer());                          // la création échoue tant que le tableur n'est pas créé par un humain (quota nul du compte de service)
+        if (trouve) await preparer(id);
+        cache = { id, expire: Date.now() + 6 * 60 * 60 * 1000 };
+        derniereId = id;
+        return id;
+      } catch (e) {
+        echecJusqua = Date.now() + 60 * 1000;
+        if (derniereId) { cache = { id: derniereId, expire: Date.now() + 10 * 60 * 1000 }; return derniereId; }
+        throw e;
+      } finally {
+        recherche = null;
+      }
+    })();
+  }
+  return recherche;
 }
 
 export function maintenantParis(): { date: string; heure: string } {
@@ -144,8 +162,9 @@ export async function enregistrer(prenom: string, evenement: string, mode: strin
     });
     return null;
   } catch (e) {
-    cache = null;                                                      // on recherchera la feuille au prochain événement
     const message = (e as Error).message;
+    // 31/10 : seulement si le tableur a disparu (404) ; un quota dépassé (429) ne doit pas relancer la recherche pour toute l'app
+    if (/ 404 /.test(message)) { cache = null; derniereId = ""; }
     console.warn("usage :", message);
     return message;
   }
