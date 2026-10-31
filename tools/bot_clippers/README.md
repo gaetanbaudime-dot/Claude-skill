@@ -1,5 +1,9 @@
 # Bot FAQ Clippers (Discord + Claude)
 
+**31/10, 10 h 35 : un clipper qui a déjà son lien le garde (compte 3 d'une TL retenu par « Lien préexistant sans journal »)**
+
+- `onboarding.attribuer_lien` : un clipper sans lien dans sa fiche mais avec UN lien vivant à son nom dans la paie au clic, pour la même créatrice (champ « creatrice », sinon son prénom dans l'adresse), reprend ce lien (`onboarding.lien_existant`) au lieu d'en créer un. Deux liens, un lien d'une autre créatrice (pivot) ou une fiche qui a déjà son lien : chemin habituel, rapprochement humain. **Tests** : `tests/test_lien_existant_3110.py`.
+
 **31/10, 10 h 20 : comptes 3, liens et créations plus jamais retenus en boucle par le registre (Gaëtan : « ils n'arrivent pas à créer le deux et le trois… ils n'ont pas le lien »)**
 
 - Au passage de 8 h, un compte 3, un lien GAML (étape 6) et une création notée étaient refusés à chaque tour par « Historique à vie non rapproché » / « Création sans réservation valide ». `parcours.reprise_si_historique` applique la décision du 24/10 (reprise d'après ce que le bot connaît, additive, comptée dans les trois places) à la ligne du compte n, au lien et à la création notée, puis l'appelant retente une fois. Au plus une reprise toutes les 6 h par clipper (`reprise_auto` dans la fiche).

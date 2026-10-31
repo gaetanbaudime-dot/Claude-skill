@@ -1336,7 +1336,39 @@ async def attribuer_lien(membre, creatrice: str, tous: list = None, comptes: lis
             etat["clippers"][uid].update(lien=impose, liens_prets=True)
             _ecrire_etat(etat)
         return {"lien": impose, "lid": "", "lignes": ["lien imposé par Gaëtan (ancien lien recyclé, sans tracking à lui)"]}
+    # 31/10 (Clarisse, TL : compte 3 retenu par « Lien préexistant sans journal » alors que son lien de clipping tourne) : un clipper
+    # qui a déjà UN lien vivant à son nom pour cette créatrice le garde ; jamais un second lien créé, jamais un lien d'une autre
+    # créatrice repris (pivot) : ces cas restent au rapprochement humain
+    repris = lien_existant(uid, creatrice)
+    if creer and repris and not fiche.get("lien") and not fiche.get("lien_confirme"):
+        etat["clippers"].setdefault(uid, {}).update(lien=repris[1], liens_prets=True)
+        _ecrire_etat(etat)
+        journal.info("Lien de %s : son lien existant %s repris pour %s", uid, repris[0], creatrice)
+        return {"lien": repris[1], "lid": repris[0], "lignes": ["son lien existant, repris (déjà à son nom)"]}
     return await process_adapters.attribuer(membre, creatrice, tous, creer)
+
+
+def lien_existant(uid: str, creatrice: str):
+    """(lid, url) du seul lien vivant (ni archivé, ni désactivé, ni effacé de GAML) que la paie au clic met au nom de ce clipper
+    pour cette créatrice (champ « creatrice », sinon le prénom de la créatrice dans l'adresse) ; None s'il n'y en a aucun ou plusieurs."""
+    try:
+        import paie_clics
+        d = paie_clics._lire()
+    except Exception:                                                   # noqa: BLE001 — sans la paie : rien à reprendre
+        return None
+    premier = (_norm(creatrice).split() or [""])[0]
+    if not premier:
+        return None
+    siens = []
+    for lid in paie_clics.liens_de(d, uid):
+        info = (d.get("liens") or {}).get(lid) or {}
+        url = str(info.get("url") or "").strip()
+        if not url or info.get("desactive") or info.get("supprime_gaml"):
+            continue
+        cr = (_norm(str(info.get("creatrice") or "")).split() or [""])[0]
+        if (cr and cr == premier) or (not cr and premier in _norm(url)):
+            siens.append((lid, url))
+    return siens[0] if len(siens) == 1 else None
 
 
 async def livrer(membre, creatrice: str, salon=None, declencheur: str = "!creatrice", nouveau: bool = False,
