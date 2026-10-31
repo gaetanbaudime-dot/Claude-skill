@@ -182,5 +182,52 @@ class AlignerTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(3, len(al["comptes"]))
 
 
+class RetenuesTests(unittest.IsolatedAsyncioTestCase):
+    """31/10 : le compte 3 d'Esperance retenu toutes les 30 min pendant plus de deux jours, sans que personne le voie."""
+
+    def test_depuis_garde_le_premier_essai_de_la_meme_etape(self):
+        f = {}
+        with patch.object(parcours, "_maintenant", return_value="2026-10-29T07:00:00+00:00"):
+            parcours._noter_retenue(f, 3, "Trois places à vie déjà créées, réservées ou incertaines")
+        with patch.object(parcours, "_maintenant", return_value="2026-10-31T03:00:00+00:00"):
+            parcours._noter_retenue(f, 3, "Trois places à vie déjà créées, réservées ou incertaines")
+            self.assertEqual("2026-10-29T07:00:00+00:00", f["retenue"]["depuis"])
+            parcours._noter_retenue(f, 2, "autre")                        # une autre étape repart de zéro
+            self.assertEqual("2026-10-31T03:00:00+00:00", f["retenue"]["depuis"])
+
+    def test_retenues_longues(self):
+        from datetime import datetime, timezone
+        m = datetime(2026, 10, 31, 3, 30, tzinfo=timezone.utc)
+        d = {"1": {"prenom": "Fictive", "retenue": {"n": 3, "raison": "Trois places", "depuis": "2026-10-29T07:00:00+00:00",
+                                                    "date": "2026-10-31T03:00:00+00:00"}},
+             "2": {"prenom": "Recent", "retenue": {"n": 1, "raison": "x", "depuis": "2026-10-31T01:00:00+00:00",
+                                                   "date": "2026-10-31T03:00:00+00:00"}},
+             "3": {"prenom": "Debloque", "retenue": {"n": 2, "raison": "x", "depuis": "2026-10-20T01:00:00+00:00",
+                                                     "date": "2026-10-21T03:00:00+00:00"}},
+             "4": {"prenom": "Sorti", "sorti": True, "retenue": {"n": 2, "raison": "x", "depuis": "2026-10-20T01:00:00+00:00",
+                                                                 "date": "2026-10-31T03:00:00+00:00"}}}
+        self.assertEqual([("1", "Fictive", 3, "Trois places", 44)], parcours.retenues_longues(d, m))
+
+    async def test_alerte_une_fois_par_jour(self):
+        from datetime import datetime, timezone
+        m = datetime(2026, 10, 31, 3, 30, tzinfo=timezone.utc)
+        etat = {"1": {"prenom": "Fictive", "retenue": {"n": 3, "raison": "Trois places", "depuis": "2026-10-29T07:00:00+00:00",
+                                                       "date": "2026-10-31T03:00:00+00:00"}}}
+        canal = N(send=AsyncMock())
+
+        def ecrire(d):
+            etat.clear()
+            etat.update(deepcopy(d))
+        with patch.object(parcours, "_lire", side_effect=lambda: deepcopy(etat)), patch.object(parcours, "_ecrire", side_effect=ecrire), \
+                patch.dict(parcours._deps, {"canal_admin": AsyncMock(return_value=canal)}):
+            self.assertEqual(1, len(await parcours.alerter_retenues(m)))
+            self.assertEqual([], await parcours.alerter_retenues(m))
+        canal.send.assert_awaited_once()
+        self.assertIn("compte 3 retenu depuis 44 h (Trois places)", canal.send.await_args.args[0])
+
+    def test_branche_dans_la_boucle(self):
+        self.assertIn("await alerter_retenues()", Path(parcours.__file__).read_text(encoding="utf-8"))
+
+
 if __name__ == "__main__":
     unittest.main()
