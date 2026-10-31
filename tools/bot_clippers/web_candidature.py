@@ -115,15 +115,21 @@ def texte_annonce_telegram(groupe: str) -> str:
     un canal Telegram (étape 1 du funnel). Le lien porte la source « tg-<groupe> ». '' si le site n'est pas prêt.
     10/10 (lot L2, revue du recrutement : l'annonce ne disait pas l'âge) : « 18 ans minimum. » juste avant le lien."""
     g = _source(groupe)
-    if g != "tg" and not g.startswith("tg-"):
+    # 31/10 (Gaëtan : « je vais chercher des meilleurs leads sur Discord et les annonces Discord ») : `!annonce discord-<serveur>`
+    # garde sa source (avant : « tg-discord-… », compté comme Telegram) ; un nom seul reste un groupe Telegram
+    if g != "tg" and not g.startswith(PREFIXES_SOURCE):
         g = f"tg-{g}" if g else "tg"
     lien = lien_candidature(g)
     if not lien:
         return ""
     return ("🎬 On recrute des clippeurs.\n\n"
-            "Tu publies des Reels sur des comptes Instagram qu'on te donne. Tu es payé à chaque visite sur ton lien.\n\n"
+            "Tu crées des comptes Instagram avec les @ qu'on te donne et tu y publies des Reels. Tu es payé à chaque visite sur "
+            "ton lien.\n\n"
             "18 ans minimum.\n\n"
             f"Postule ici, en 2 minutes :\n{lien}")
+
+
+PREFIXES_SOURCE = ("tg-", "discord", "disboard", "dc-", "fb-", "ig-", "tiktok", "reddit", "x-")
 
 
 def reponse_commande_annonce(groupe: str) -> str:
@@ -132,8 +138,9 @@ def reponse_commande_annonce(groupe: str) -> str:
     pour la copier d'un appui long au téléphone. Sinon une ligne qui dit quoi faire. 10/10 (lot L3) : les places livrables suivent
     dans un 2e message, jamais collées à l'annonce (reponses_commande_annonce)."""
     if not _source(groupe):
-        return ("Format : `!annonce <groupe>`, par exemple `!annonce jobs-mada`.\n\n"
-                "Le lien de l'annonce porte `?src=tg-<groupe>` : la colonne Source du classeur dit d'où vient chaque candidature.")
+        return ("Format : `!annonce <groupe>`, par exemple `!annonce jobs-mada` (Telegram) ou `!annonce discord-<serveur>`.\n\n"
+                "Le lien de l'annonce porte `?src=tg-<groupe>` ou `?src=discord-<serveur>` : la colonne Source du classeur dit d'où "
+                "vient chaque candidature.")
     texte = texte_annonce_telegram(groupe)
     if not texte:
         return "⚠️ Le site de candidature n'est pas prêt (WEB_ACTIVER, WEB_URL_PUBLIQUE) : pas d'annonce à coller."
